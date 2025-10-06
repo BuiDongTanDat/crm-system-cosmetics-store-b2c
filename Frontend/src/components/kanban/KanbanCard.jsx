@@ -12,34 +12,16 @@ import {
   Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { 
+  formatCurrency, 
+  formatDate, 
+  getPriorityColor, 
+  getPriorityLabel, 
+  getInitials 
+} from '@/utils/helper';
 
 export default function KanbanCard({ card, onView, onEdit, onDelete }) {
   const [isHovered, setIsHovered] = useState(false);
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
-  };
 
   return (
     <div 
@@ -55,7 +37,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(card.priority)}`}>
-            {card.priority === 'high' ? 'Cao' : card.priority === 'medium' ? 'Trung bình' : 'Thấp'}
+            {getPriorityLabel(card.priority)}
           </span>
           <span className="text-xs text-gray-500">{card.source}</span>
         </div>
@@ -156,7 +138,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete }) {
         <div className="flex items-center gap-1">
           <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
             <span className="text-blue-600 font-medium text-xs">
-              {card.assignee.split(' ').map(n => n[0]).join('')}
+              {getInitials(card.assignee)}
             </span>
           </div>
           <span>{card.assignee}</span>
@@ -178,3 +160,4 @@ export default function KanbanCard({ card, onView, onEdit, onDelete }) {
     </div>
   );
 }
+

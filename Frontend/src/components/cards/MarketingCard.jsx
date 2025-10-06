@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
+import { formatCurrency, formatDate } from "@/utils/helper";
 
 export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
     const [hoveredCard, setHoveredCard] = useState(false);
@@ -29,25 +30,13 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
         return typeMap[type] || typeMap.Email;
     };
 
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            minimumFractionDigits: 0
-        }).format(amount);
-    };
-
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('vi-VN');
-    };
-
     return (
         <div
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:scale-105 hover:shadow-md transition-all duration-150 animate-fade-in group"
             onMouseEnter={() => setHoveredCard(true)}
             onMouseLeave={() => setHoveredCard(false)}
         >
-            {/* Header with title and status */}
+            {/* Tiêu đề và trạng thái */}
             <div className="flex justify-between items-start mb-3">
                 <div className="flex-1 pr-2">
                     <h3 className="font-semibold text-gray-900 text-lg mb-1 line-clamp-1">
@@ -74,7 +63,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                     </div>
                 </div>
 
-                {/* Duration - on one line */}
+                {/* THời gian */}
                 <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-600" />
                     <div>
@@ -105,7 +94,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                     </div>
                 </div>
 
-                {/* Performance Preview (if exists) */}
+                {/* Hiệu suất chiến dịch (chỉ hiện nếu có nha) */}
                 {campaign.performance && (
                     <div className="bg-gray-50 rounded p-2">
                         <div className="flex items-center gap-2 mb-1">
@@ -126,7 +115,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                 </div>
             </div>
 
-            {/* Action Buttons - cover KPI section on hover */}
+            {/* Khu vực Action Buttons, hover là ẩn KPI */}
             {hoveredCard && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2  p-2  animate-slide-up z-10">
                     <Button variant="actionRead" size="icon" onClick={() => onView(campaign)}>

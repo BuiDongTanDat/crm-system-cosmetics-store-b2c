@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical } from "lucide-react";
-import CustomerDialog from "@/components/dialogs/CustomerDialog";
+import AppDialog from "@/components/dialogs/AppDialog";
+import CustomerForm from "@/components/forms/CustomerForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import { mockCustomers, CustomerTypes, CustomerSources } from "@/lib/data";
 
@@ -53,28 +54,42 @@ export default function CustomerListPage() {
         setModal({ open: false, mode: 'view', customer: null });
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) {
-            setCustomers(prev => prev.filter(customer => customer.id !== id));
-            closeModal();
-        }
-    };
-
     const handleSave = (customerData) => {
         if (customerData.id) {
-            // Update existing
-            setCustomers(prev => prev.map(customer =>
-                customer.id === customerData.id ? { ...customer, ...customerData } : customer
-            ));
+            // Cập nhật khách hàng hiện có
+            setCustomers(prev =>
+                prev.map(customer =>
+                    customer.id === customerData.id ? { ...customer, ...customerData } : customer
+                )
+            );
+
+            // Cập nhật modal và chuyển về view mode
+            setModal(prev => ({
+                ...prev,
+                mode: 'view', // Chuyển về view mode
+                customer: { ...customerData }
+            }));
         } else {
-            // Create new
+            // Tạo mới khách hàng
             const newCustomer = {
                 ...customerData,
                 id: Math.max(...customers.map(c => c.id)) + 1
             };
             setCustomers(prev => [...prev, newCustomer]);
+
+            // Đóng modal sau khi thêm mới
+            closeModal();
         }
+
         console.log("Customer saved:", customerData);
+    };
+
+
+    const handleDelete = (id) => {
+        if (window.confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) {
+            setCustomers(prev => prev.filter(customer => customer.id !== id));
+            closeModal();
+        }
     };
 
     // Import/Export functions
@@ -269,11 +284,10 @@ export default function CustomerListPage() {
                                     </td>
                                     <td className="px-6 py-4 text-center w-36">
                                         <div
-                                            className={`flex justify-center gap-1 transition-all duration-200 ${
-                                                hoveredRow === customer.id
-                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                    : "opacity-0 translate-y-1 pointer-events-none"
-                                            }`}
+                                            className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === customer.id
+                                                ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                : "opacity-0 translate-y-1 pointer-events-none"
+                                                }`}
                                         >
                                             <Button
                                                 variant="actionRead"
@@ -318,11 +332,19 @@ export default function CustomerListPage() {
             />
 
             {/* Customer Dialog */}
-            <CustomerDialog
-                modal={modal}
-                closeModal={closeModal}
-                handleSave={handleSave}
-                handleDelete={handleDelete}
+            <AppDialog
+                open={modal.open}
+                onClose={closeModal}
+                title={{
+                    view: 'Chi tiết khách hàng',
+                    edit: modal.customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'
+                }}
+                mode={modal.mode}
+                FormComponent={CustomerForm}
+                data={modal.customer}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                maxWidth="sm:max-w-4xl"
             />
         </div>
     );

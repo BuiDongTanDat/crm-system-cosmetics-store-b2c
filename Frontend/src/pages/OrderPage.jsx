@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical, PackagePlus, Loader2, CheckCircle2, XCircle, Loader } from "lucide-react";
-import OrderDialog from "@/components/dialogs/OrderDialog";
+import AppDialog from "@/components/dialogs/AppDialog";
+import OrderForm from "@/components/forms/OrderForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import { mockOrders, OrderStatus, PaymentMethod } from "@/lib/data";
 
@@ -54,24 +55,32 @@ export default function OrderPage() {
     const handleCreate = () => setModal({ open: true, mode: "edit", order: null });
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
 
-    const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa đơn hàng này?")) {
-            setOrders((prev) => prev.filter((order) => order.id !== id));
-            closeModal();
-        }
-    };
-
     const handleSave = (orderData) => {
         if (orderData.id) {
             setOrders((prev) =>
                 prev.map((order) => (order.id === orderData.id ? { ...order, ...orderData } : order))
             );
+            
+            // Cập nhật dữ liệu trong modal và chuyển về view mode
+            setModal(prev => ({
+                ...prev,
+                mode: 'view', // Chuyển về view mode
+                order: { ...orderData }
+            }));
         } else {
             const newOrder = {
                 ...orderData,
                 id: Math.max(...orders.map((o) => o.id)) + 1,
             };
             setOrders((prev) => [...prev, newOrder]);
+            closeModal();
+        }
+    };
+
+    const handleDelete = (id) => {
+        if (window.confirm("Bạn có chắc chắn muốn xóa đơn hàng này?")) {
+            setOrders((prev) => prev.filter((order) => order.id !== id));
+            closeModal();
         }
     };
 
@@ -374,11 +383,19 @@ export default function OrderPage() {
             />
 
             {/* Dialog */}
-            <OrderDialog
-                modal={modal}
-                closeModal={closeModal}
-                handleSave={handleSave}
-                handleDelete={handleDelete}
+            <AppDialog
+                open={modal.open}
+                onClose={closeModal}
+                title={{
+                    view: `Chi tiết đơn hàng #${modal.order?.id || ''}`,
+                    edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.id}` : 'Thêm đơn hàng mới'
+                }}
+                mode={modal.mode}
+                FormComponent={OrderForm}
+                data={modal.order}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                maxWidth="sm:max-w-5xl"
             />
         </div>
     );

@@ -36,9 +36,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
           </div>
         </div>
         <p className="text-gray-600 text-sm mb-3 line-clamp-3">
-          Phân loại: {product.category}
-        </p>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-3">
+          Phân loại: {product.category}<br />
           Mô tả: {product.description}
         </p>
 

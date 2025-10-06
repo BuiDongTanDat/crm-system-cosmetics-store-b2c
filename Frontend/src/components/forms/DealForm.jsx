@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
-import { mockEmployees, sampleProducts } from "@/lib/data";
+import { mockEmployees } from "@/lib/data";
 
 const priorityOptions = [
   { value: 'high', label: 'Cao' },
@@ -21,10 +21,10 @@ const sourceOptions = [
 
 export function DealForm({
   mode = "view",
-  deal = null,
-  onClose,
+  data = null,
   onSave,
   onDelete,
+  setMode,
 }) {
   const [form, setForm] = useState({
     title: "",
@@ -41,53 +41,46 @@ export function DealForm({
     stage: "leads"
   });
 
-  const [editMode, setEditMode] = useState(mode === "edit");
-
   useEffect(() => {
-    if (deal) {
+    if (data) {
       setForm({
-        title: deal.title || "",
-        customer: deal.customer || "",
-        email: deal.email || "",
-        phone: deal.phone || "",
-        value: deal.value || "",
-        source: deal.source || "Website",
-        assigneeId: deal.assigneeId || "",
-        assignee: deal.assignee || "",
-        priority: deal.priority || "medium",
-        products: deal.products || [],
-        notes: deal.notes || "",
-        stage: deal.stage || "leads"
+        title: data.title || "",
+        customer: data.customer || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        value: data.value || "",
+        source: data.source || "Website",
+        assigneeId: data.assigneeId || "",
+        assignee: data.assignee || "",
+        priority: data.priority || "medium",
+        products: data.products || [],
+        notes: data.notes || "",
+        stage: data.stage || "leads"
       });
     }
-    setEditMode(mode === "edit");
-  }, [deal, mode]);
-
-  const handleChange = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  }, [data]);
 
   const handleCancel = () => {
-    if (deal) {
+    if (data) {
       setForm({
-        title: deal.title || "",
-        customer: deal.customer || "",
-        email: deal.email || "",
-        phone: deal.phone || "",
-        value: deal.value || "",
-        source: deal.source || "Website",
-        assigneeId: deal.assigneeId || "",
-        assignee: deal.assignee || "",
-        priority: deal.priority || "medium",
-        products: deal.products || [],
-        notes: deal.notes || "",
-        stage: deal.stage || "leads"
+        title: data.title || "",
+        customer: data.customer || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        value: data.value || "",
+        source: data.source || "Website",
+        assigneeId: data.assigneeId || "",
+        assignee: data.assignee || "",
+        priority: data.priority || "medium",
+        products: data.products || [],
+        notes: data.notes || "",
+        stage: data.stage || "leads"
       });
     }
-    setEditMode(false);
+    setMode?.("view");
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!form.title || !form.customer) {
       alert("Vui lòng nhập tiêu đề và tên khách hàng");
       return;
@@ -96,14 +89,23 @@ export function DealForm({
     const updated = {
       ...form,
       value: Number(form.value) || 0,
-      id: deal?.id,
-      createdDate: deal?.createdDate || new Date().toISOString().split('T')[0],
+      id: data?.id,
+      createdDate: data?.createdDate || new Date().toISOString().split('T')[0],
       lastActivity: new Date().toISOString().split('T')[0]
     };
 
+    const isCreating = !data?.id;
+    
     onSave(updated);
-    setEditMode(false);
+    
+    // Nếu là update, chuyển về view mode
+    if (!isCreating) {
+      setMode?.("view");
+    }
   };
+
+  const handleChange = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -114,203 +116,208 @@ export function DealForm({
   };
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Tiêu đề deal</label>
-            <input
-              disabled={!editMode}
-              value={form.title}
-              onChange={handleChange("title")}
-              className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-              placeholder="Nhập tiêu đề deal"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
+    <div className="flex flex-col h-[70vh]">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Tiêu đề deal</label>
               <input
-                disabled={!editMode}
-                value={form.customer}
-                onChange={handleChange("customer")}
+                disabled={mode === "view"}
+                value={form.title}
+                onChange={handleChange("title")}
                 className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="Nhập tên khách hàng"
+                placeholder="Nhập tiêu đề deal"
               />
             </div>
-            <div className="w-32">
-              <label className="block text-sm font-medium mb-1">Giá trị (VNĐ)</label>
-              <input
-                disabled={!editMode}
-                type="number"
-                value={form.value}
-                onChange={handleChange("value")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="0"
-              />
-            </div>
-          </div>
 
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                disabled={!editMode}
-                type="email"
-                value={form.email}
-                onChange={handleChange("email")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Số điện thoại</label>
-              <input
-                disabled={!editMode}
-                type="tel"
-                value={form.phone}
-                onChange={handleChange("phone")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="0901234567"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Nguồn</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={!editMode}>
-                  <div
-                    className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                      !editMode ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                    }`}
-                  >
-                    <span className="text-sm">{form.source}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {sourceOptions.map((source) => (
-                    <DropdownMenuItem
-                      key={source}
-                      onSelect={() => setForm((f) => ({ ...f, source }))}
-                    >
-                      {source}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Độ ưu tiên</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={!editMode}>
-                  <div
-                    className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                      !editMode ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                    }`}
-                  >
-                    <span className="text-sm">
-                      {priorityOptions.find(p => p.value === form.priority)?.label}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {priorityOptions.map((priority) => (
-                    <DropdownMenuItem
-                      key={priority.value}
-                      onSelect={() => setForm((f) => ({ ...f, priority: priority.value }))}
-                    >
-                      {priority.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Người phụ trách</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={!editMode}>
-                  <div
-                    className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                      !editMode ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                    }`}
-                  >
-                    <span className="text-sm">{form.assignee || "Chọn người phụ trách"}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {mockEmployees.map((employee) => (
-                    <DropdownMenuItem
-                      key={employee.id}
-                      onSelect={() => setForm((f) => ({ 
-                        ...f, 
-                        assigneeId: employee.id,
-                        assignee: employee.name 
-                      }))}
-                    >
-                      {employee.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Sản phẩm quan tâm</label>
-            <textarea
-              disabled={!editMode}
-              value={form.products.join(', ')}
-              onChange={(e) => setForm(prev => ({ 
-                ...prev, 
-                products: e.target.value.split(',').map(p => p.trim()).filter(p => p) 
-              }))}
-              rows={2}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
-              placeholder="Nhập các sản phẩm, cách nhau bằng dấu phẩy"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Ghi chú</label>
-            <textarea
-              disabled={!editMode}
-              value={form.notes}
-              onChange={handleChange("notes")}
-              rows={3}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
-              placeholder="Ghi chú về deal..."
-            />
-          </div>
-
-          {!editMode && form.value > 0 && (
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-green-700">Giá trị deal:</span>
-                <span className="text-lg font-semibold text-green-700">
-                  {formatCurrency(form.value)}
-                </span>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
+                <input
+                  disabled={mode === "view"}
+                  value={form.customer}
+                  onChange={handleChange("customer")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="Nhập tên khách hàng"
+                />
+              </div>
+              <div className="w-32">
+                <label className="block text-sm font-medium mb-1">Giá trị (VNĐ)</label>
+                <input
+                  disabled={mode === "view"}
+                  type="number"
+                  value={form.value}
+                  onChange={handleChange("value")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="0"
+                />
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Action buttons */}
-        <div className="flex justify-end gap-3 mt-6">
-          {!editMode ? (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  disabled={mode === "view"}
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange("email")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Số điện thoại</label>
+                <input
+                  disabled={mode === "view"}
+                  type="tel"
+                  value={form.phone}
+                  onChange={handleChange("phone")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="0901234567"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Nguồn</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">{form.source}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {sourceOptions.map((source) => (
+                      <DropdownMenuItem
+                        key={source}
+                        onSelect={() => setForm((f) => ({ ...f, source }))}
+                      >
+                        {source}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Độ ưu tiên</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">
+                        {priorityOptions.find(p => p.value === form.priority)?.label}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {priorityOptions.map((priority) => (
+                      <DropdownMenuItem
+                        key={priority.value}
+                        onSelect={() => setForm((f) => ({ ...f, priority: priority.value }))}
+                      >
+                        {priority.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Người phụ trách</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">{form.assignee || "Chọn người phụ trách"}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {mockEmployees.map((employee) => (
+                      <DropdownMenuItem
+                        key={employee.id}
+                        onSelect={() => setForm((f) => ({ 
+                          ...f, 
+                          assigneeId: employee.id,
+                          assignee: employee.name 
+                        }))}
+                      >
+                        {employee.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Sản phẩm quan tâm</label>
+              <textarea
+                disabled={mode === "view"}
+                value={form.products.join(', ')}
+                onChange={(e) => setForm(prev => ({ 
+                  ...prev, 
+                  products: e.target.value.split(',').map(p => p.trim()).filter(p => p) 
+                }))}
+                rows={2}
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
+                placeholder="Nhập các sản phẩm, cách nhau bằng dấu phẩy"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Ghi chú</label>
+              <textarea
+                disabled={mode === "view"}
+                value={form.notes}
+                onChange={handleChange("notes")}
+                rows={3}
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
+                placeholder="Ghi chú về deal..."
+              />
+            </div>
+
+            {mode === "view" && form.value > 0 && (
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-green-700">Giá trị deal:</span>
+                  <span className="text-lg font-semibold text-green-700">
+                    {formatCurrency(form.value)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Action Buttons */}
+      <div className="border-t bg-white p-6 flex-shrink-0">
+        <div className="flex justify-end gap-3">
+          {mode === "view" ? (
             <>
-              <Button variant="actionUpdate" onClick={() => setEditMode(true)}>
+              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(deal.id)}>
+              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
                 <Trash2 className="w-4 h-4" />
                 Xóa
               </Button>
@@ -320,14 +327,14 @@ export function DealForm({
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Hủy
               </Button>
-              <Button type="submit" variant="actionUpdate">
+              <Button onClick={handleSubmit} variant="actionUpdate">
                 <Save className="w-4 h-4" />
                 Lưu thay đổi
               </Button>
             </>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

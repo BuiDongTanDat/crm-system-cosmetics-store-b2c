@@ -6,16 +6,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2, X } from "lucide-react";
+import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
 import { StatusList } from "@/lib/data";
 
 export function EmployeeForm({
   mode = "view",
-  employee = null,
-  onClose,
+  data = null,
   onSave,
   onDelete,
   availableRoles = [],
+  setMode,
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -26,201 +26,202 @@ export function EmployeeForm({
     password: "",
   });
 
-  const [editMode, setEditMode] = useState(mode === "edit");
-
   useEffect(() => {
-    if (employee) {
+    if (data) {
       setForm({
-        name: employee.name || "",
-        email: employee.email || "",
-        phone: employee.phone || "",
-        role: employee.role || "Sales",
-        status: employee.status || "Active",
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        role: data.role || "Sales",
+        status: data.status || "Active",
         password: "", // Don't pre-fill password for security
       });
     }
-    setEditMode(mode === "edit");
-  }, [employee, mode]);
-
-  const handleChange = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  }, [data]);
 
   const handleCancel = () => {
-    if (employee) {
+    if (data) {
       setForm({
-        name: employee.name || "",
-        email: employee.email || "",
-        phone: employee.phone || "",
-        role: employee.role || "Sales",
-        status: employee.status || "Active",
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        role: data.role || "Sales",
+        status: data.status || "Active",
         password: "",
       });
     }
-    setEditMode(false);
+    setMode?.("view");
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!form.name || !form.email) {
       alert("Vui lòng nhập họ tên và email");
       return;
     }
+
+    const isCreating = !data?.id;
+
     onSave({
       ...form,
-      id: employee?.id,
+      id: data?.id,
     });
-    setEditMode(false);
+
+    // Nếu là update, chuyển về view mode
+    if (!isCreating) {
+      setMode?.("view");
+    }
   };
 
+  const handleChange = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
   return (
-    <div className="relative">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Họ tên</label>
-            <input
-              disabled={!editMode}
-              value={form.name}
-              onChange={handleChange("name")}
-              className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-              placeholder="Nhập họ tên"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                disabled={!editMode}
-                type="email"
-                value={form.email}
-                onChange={handleChange("email")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="w-40">
-              <label className="block text-sm font-medium mb-1">SĐT</label>
-              <input
-                disabled={!editMode}
-                type="tel"
-                value={form.phone}
-                onChange={handleChange("phone")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                placeholder="0123456"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Vai trò</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={!editMode}>
-                  <div
-                    className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                      !editMode
-                        ? "bg-gray-50 cursor-not-allowed"
-                        : "cursor-pointer hover:border-blue-500"
-                    }`}
-                  >
-                    <span className="text-sm">{form.role}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                >
-                  {availableRoles.map((role) => (
-                    <DropdownMenuItem
-                      key={role.id}
-                      onSelect={() => setForm((f) => ({ ...f, role: role.name }))}
-                    >
-                      {role.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="w-40">
-              <label className="block text-sm font-medium mb-1">Trạng thái</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={!editMode}>
-                  <div
-                    className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                      !editMode
-                        ? "bg-gray-50 cursor-not-allowed"
-                        : "cursor-pointer hover:border-blue-500"
-                    }`}
-                  >
-                    <span className="text-sm">{form.status}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                  {StatusList.map((status) => (
-                    <DropdownMenuItem
-                      key={status}
-                      onSelect={() => setForm((f) => ({ ...f, status }))}
-                    >
-                      {status}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {editMode && (
+    <div className="flex flex-col h-[60vh]">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                {employee ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
-              </label>
+              <label className="block text-sm font-medium mb-1">Họ tên</label>
               <input
-                type="password"
-                value={form.password}
-                onChange={handleChange("password")}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                placeholder={employee ? "Nhập mật khẩu mới" : "Nhập mật khẩu"}
+                disabled={mode === "view"}
+                value={form.name}
+                onChange={handleChange("name")}
+                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                placeholder="Nhập họ tên"
               />
             </div>
-          )}
-        </div>
 
-        <div className="flex justify-end gap-3 mt-4">
-          {!editMode ? (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  disabled={mode === "view"}
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange("email")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="w-40">
+                <label className="block text-sm font-medium mb-1">SĐT</label>
+                <input
+                  disabled={mode === "view"}
+                  type="tel"
+                  value={form.phone}
+                  onChange={handleChange("phone")}
+                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  placeholder="0123456"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Vai trò</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view"
+                          ? "bg-gray-50 cursor-not-allowed"
+                          : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">{form.role}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
+                    {availableRoles.map((role) => (
+                      <DropdownMenuItem
+                        key={role.id}
+                        onSelect={() => setForm((f) => ({ ...f, role: role.name }))}
+                      >
+                        {role.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="w-40">
+                <label className="block text-sm font-medium mb-1">Trạng thái</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view"
+                          ? "bg-gray-50 cursor-not-allowed"
+                          : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">{form.status}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                    {StatusList.map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onSelect={() => setForm((f) => ({ ...f, status }))}
+                      >
+                        {status}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            {mode === "edit" && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {data ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
+                </label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={handleChange("password")}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  placeholder={data ? "Nhập mật khẩu mới" : "Nhập mật khẩu"}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Action Buttons */}
+      <div className="border-t bg-white p-6 flex-shrink-0">
+        <div className="flex justify-end gap-3">
+          {mode === "view" ? (
             <>
-              <Button variant="actionUpdate" onClick={() => setEditMode(true)}>
+              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
                 <Edit className="w-4 h-4" />
-                
                 Chỉnh sửa
               </Button>
-              <Button
-                variant="actionDelete"
-                onClick={() => onDelete(employee.id)}
-              >
+              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
                 <Trash2 className="w-4 h-4" />
                 Xóa
               </Button>
             </>
           ) : (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-              >
+              <Button type="button" variant="outline" onClick={handleCancel}>
                 Hủy
               </Button>
-              <Button type="submit" variant="actionUpdate">
+              <Button onClick={handleSubmit} variant="actionUpdate">
                 <Save className="w-4 h-4" />
                 Lưu thay đổi
               </Button>
             </>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

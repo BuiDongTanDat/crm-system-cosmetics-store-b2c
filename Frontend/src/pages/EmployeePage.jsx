@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical } from "lucide-react";
-import EmployeeDialog from "@/components/dialogs/EmployeeDialog";
+import AppDialog from "@/components/dialogs/AppDialog";
+import EmployeeForm from "@/components/forms/EmployeeForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import { mockEmployees, mockRoles } from "@/lib/data";
 
@@ -53,19 +54,19 @@ export default function EmployeePage() {
         setModal({ open: false, mode: 'view', employee: null });
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
-            setEmployees(prev => prev.filter(emp => emp.id !== id));
-            closeModal();
-        }
-    };
-
     const handleSave = (employeeData) => {
         if (employeeData.id) {
             // Update existing
             setEmployees(prev => prev.map(emp =>
                 emp.id === employeeData.id ? { ...emp, ...employeeData } : emp
             ));
+            
+            // Cập nhật dữ liệu trong modal và chuyển về view mode
+            setModal(prev => ({
+                ...prev,
+                mode: 'view', // Chuyển về view mode
+                employee: { ...employeeData }
+            }));
         } else {
             // Create new
             const newEmployee = {
@@ -73,8 +74,16 @@ export default function EmployeePage() {
                 id: Math.max(...employees.map(e => e.id)) + 1
             };
             setEmployees(prev => [...prev, newEmployee]);
+            closeModal();
         }
         console.log("Employee saved:", employeeData);
+    };
+
+    const handleDelete = (id) => {
+        if (window.confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
+            setEmployees(prev => prev.filter(emp => emp.id !== id));
+            closeModal();
+        }
     };
 
     // Import/Export functions
@@ -310,12 +319,20 @@ export default function EmployeePage() {
             />
 
             {/* Employee Dialog */}
-            <EmployeeDialog
-                modal={modal}
-                closeModal={closeModal}
-                handleSave={handleSave}
-                handleDelete={handleDelete}
+            <AppDialog
+                open={modal.open}
+                onClose={closeModal}
+                title={{
+                    view: `Chi tiết nhân viên - ${modal.employee?.name || ''}`,
+                    edit: modal.employee ? `Chỉnh sửa nhân viên - ${modal.employee.name}` : 'Thêm nhân viên mới'
+                }}
+                mode={modal.mode}
+                FormComponent={EmployeeForm}
+                data={modal.employee}
+                onSave={handleSave}
+                onDelete={handleDelete}
                 availableRoles={roles.filter(role => role.status === "Active")}
+                maxWidth="sm:max-w-2xl"
             />
         </div>
     );

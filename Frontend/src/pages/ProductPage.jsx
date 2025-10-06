@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Package, Search, Plus, Edit, Trash2, Eye, Filter, MoreVertical, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/cards/ProductCard';
-import ProductDialog from '@/components/dialogs/ProductDialog';
+import AppDialog from '@/components/dialogs/AppDialog';
+import ProductForm from '@/components/forms/ProductForm';
 import AppPagination from '@/components/pagination/AppPagination';
 
 import { sampleProducts, Category } from '@/lib/data'; // Sample data
@@ -39,20 +40,29 @@ export default function ProductPage() {
   const openAdd = () => setModal({ open: true, mode: 'add', product: null });
   const closeModal = () => setModal({ open: false, mode: 'view', product: null });
 
-  const handleDelete = (id) => {
-    if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-      setProducts(prev => prev.filter(p => p.id !== id));
-    }
-  };
-
   const handleSave = (prod) => {
     if (modal.mode === 'add') {
       const newProd = { ...prod, id: Date.now() };
       setProducts(prev => [newProd, ...prev]);
+      closeModal();
     } else if (modal.mode === 'edit') {
-      setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, ...prod } : p));
+      const updatedProd = { ...modal.product, ...prod };
+      setProducts(prev => prev.map(p => p.id === updatedProd.id ? updatedProd : p));
+      
+      // Cập nhật dữ liệu trong modal và chuyển về view mode
+      setModal(prev => ({
+        ...prev,
+        mode: 'view',
+        product: updatedProd // Đảm bảo dữ liệu được cập nhật
+      }));
     }
-    //closeModal(); Lưu xong vẫn giữ modal mở để xem tiếp
+  };
+
+  const handleDelete = (id) => {
+    if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
+      setProducts(prev => prev.filter(p => p.id !== id));
+      closeModal();
+    }
   };
 
   // Import/Export
@@ -207,11 +217,20 @@ export default function ProductPage() {
       />
 
       {/* Modal Popup */}
-      <ProductDialog
-        modal={modal}
-        closeModal={closeModal}
-        handleSave={handleSave}
-        handleDelete={handleDelete}
+      <AppDialog
+        open={modal.open}
+        onClose={closeModal}
+        title={{
+          view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
+          edit: modal.product ? `Chỉnh sửa sản phẩm - ${modal.product.name}` : 'Thêm sản phẩm mới',
+          add: 'Thêm sản phẩm mới'
+        }}
+        mode={modal.mode}
+        FormComponent={ProductForm}
+        data={modal.product}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        maxWidth="sm:max-w-2xl"
       />
 
     </div>

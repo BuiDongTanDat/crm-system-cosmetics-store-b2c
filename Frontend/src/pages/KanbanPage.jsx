@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Users, DollarSign, TrendingUp, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import KanbanColumn from '@/components/kanban/KanbanColumn';
-import DealDialog from '@/components/dialogs/DealDialog';
+import AppDialog from '@/components/dialogs/AppDialog';
+import DealForm from '@/components/forms/DealForm';
 import { kanbanColumns, kanbanCards } from '@/lib/data';
 
 export default function KanbanPage() {
@@ -45,19 +46,19 @@ export default function KanbanPage() {
     setModal({ open: false, mode: 'view', deal: null });
   };
 
-  const handleCardDelete = (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa deal này?")) {
-      setCards(prev => prev.filter(card => card.id !== id));
-      closeModal();
-    }
-  };
-
   const handleSave = (dealData) => {
     if (dealData.id) {
       // Update existing
       setCards(prev => prev.map(card =>
         card.id === dealData.id ? { ...card, ...dealData } : card
       ));
+      
+      // Cập nhật dữ liệu trong modal và chuyển về view mode
+      setModal(prev => ({
+        ...prev,
+        mode: 'view', // Chuyển về view mode
+        deal: { ...dealData }
+      }));
     } else {
       // Create new
       const newDeal = {
@@ -67,8 +68,16 @@ export default function KanbanPage() {
         lastActivity: new Date().toISOString().split('T')[0]
       };
       setCards(prev => [...prev, newDeal]);
+      closeModal();
     }
     console.log("Deal saved:", dealData);
+  };
+
+  const handleCardDelete = (id) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa deal này?")) {
+      setCards(prev => prev.filter(card => card.id !== id));
+      closeModal();
+    }
   };
 
   const handleDrop = (cardId, newStage) => {
@@ -176,11 +185,19 @@ export default function KanbanPage() {
       </div>
 
       {/* Deal Dialog */}
-      <DealDialog
-        modal={modal}
-        closeModal={closeModal}
-        handleSave={handleSave}
-        handleDelete={handleCardDelete}
+      <AppDialog
+        open={modal.open}
+        onClose={closeModal}
+        title={{
+          view: `Chi tiết deal - ${modal.deal?.title || ''}`,
+          edit: modal.deal ? `Chỉnh sửa deal - ${modal.deal.title}` : 'Thêm deal mới'
+        }}
+        mode={modal.mode}
+        FormComponent={DealForm}
+        data={modal.deal}
+        onSave={handleSave}
+        onDelete={handleCardDelete}
+        maxWidth="sm:max-w-3xl"
       />
     </div>
   );

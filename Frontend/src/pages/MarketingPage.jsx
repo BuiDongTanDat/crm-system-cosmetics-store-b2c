@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Filter, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MarketingCard from '@/components/cards/MarketingCard';
-import MarketingDialog from '@/components/dialogs/MarketingDialog';
+import AppDialog from '@/components/dialogs/AppDialog';
+import MarketingForm from '@/components/forms/MarketingForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import { mockCampaigns } from '@/lib/data';
 
@@ -37,13 +38,6 @@ export default function MarketingPage() {
   const openAdd = () => setModal({ open: true, mode: 'edit', campaign: null });
   const closeModal = () => setModal({ open: false, mode: 'view', campaign: null });
 
-  const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc muốn xóa chiến dịch này?')) {
-      setCampaigns(prev => prev.filter(c => c.id !== id));
-      closeModal();
-    }
-  };
-
   const handleSave = (campaignData) => {
     if (modal.mode === 'edit' && !campaignData.id) {
       // Create new
@@ -53,11 +47,26 @@ export default function MarketingPage() {
         performance: null
       };
       setCampaigns(prev => [newCampaign, ...prev]);
+      closeModal();
     } else if (modal.mode === 'edit') {
       // Update existing
       setCampaigns(prev => prev.map(c => c.id === campaignData.id ? { ...c, ...campaignData } : c));
+      
+      // Cập nhật dữ liệu trong modal và chuyển về view mode
+      setModal(prev => ({
+        ...prev,
+        mode: 'view', // Chuyển về view mode
+        campaign: { ...campaignData }
+      }));
     }
     console.log("Campaign saved:", campaignData);
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Bạn có chắc muốn xóa chiến dịch này?')) {
+      setCampaigns(prev => prev.filter(c => c.id !== id));
+      closeModal();
+    }
   };
 
   // Import/Export
@@ -201,11 +210,19 @@ export default function MarketingPage() {
       />
 
       {/* Modal */}
-      <MarketingDialog
-        modal={modal}
-        closeModal={closeModal}
-        handleSave={handleSave}
-        handleDelete={handleDelete}
+      <AppDialog
+        open={modal.open}
+        onClose={closeModal}
+        title={{
+          view: `Chi tiết chiến dịch - ${modal.campaign?.name || ''}`,
+          edit: modal.campaign ? `Chỉnh sửa chiến dịch - ${modal.campaign.name}` : 'Thêm chiến dịch mới'
+        }}
+        mode={modal.mode}
+        FormComponent={MarketingForm}
+        data={modal.campaign}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        maxWidth="sm:max-w-4xl"
       />
     </div>
   );

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
-import RoleDialog from "@/components/dialogs/RoleDialog";
+import AppDialog from "@/components/dialogs/AppDialog";
+import RoleForm from "@/components/forms/RoleForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import { mockRoles } from "@/lib/data";
 
@@ -49,19 +50,19 @@ export default function RolePage() {
         setModal({ open: false, mode: 'view', role: null });
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa vai trò này?")) {
-            setRoles(prev => prev.filter(role => role.id !== id));
-            closeModal();
-        }
-    };
-
     const handleSave = (roleData) => {
         if (roleData.id) {
             // Update existing
             setRoles(prev => prev.map(role =>
                 role.id === roleData.id ? { ...role, ...roleData } : role
             ));
+            
+            // Cập nhật dữ liệu trong modal để hiển thị thông tin mới nhất
+            setModal(prev => ({
+                ...prev,
+                mode: 'view', // Chuyển về view mode
+                role: { ...roleData }
+            }));
         } else {
             // Create new
             const newRole = {
@@ -69,8 +70,16 @@ export default function RolePage() {
                 id: Math.max(...roles.map(r => r.id)) + 1
             };
             setRoles(prev => [...prev, newRole]);
+            closeModal();
         }
         console.log("Role saved:", roleData);
+    };
+
+    const handleDelete = (id) => {
+        if (window.confirm("Bạn có chắc chắn muốn xóa vai trò này?")) {
+            setRoles(prev => prev.filter(role => role.id !== id));
+            closeModal();
+        }
     };
 
     const getStatusBadge = (status) => {
@@ -217,11 +226,19 @@ export default function RolePage() {
             />
 
             {/* Role Dialog */}
-            <RoleDialog
-                modal={modal}
-                closeModal={closeModal}
-                handleSave={handleSave}
-                handleDelete={handleDelete}
+            <AppDialog
+                open={modal.open}
+                onClose={closeModal}
+                title={{
+                    view: `Chi tiết vai trò - ${modal.role?.name || ''}`,
+                    edit: modal.role ? `Chỉnh sửa vai trò - ${modal.role.name}` : 'Thêm vai trò mới'
+                }}
+                mode={modal.mode}
+                FormComponent={RoleForm}
+                data={modal.role}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                maxWidth="sm:max-w-2xl"
             />
         </div>
     );
