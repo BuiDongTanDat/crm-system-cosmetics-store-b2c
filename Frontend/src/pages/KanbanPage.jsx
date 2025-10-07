@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Filter, Users, DollarSign, TrendingUp, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import KanbanColumn from '@/components/kanban/KanbanColumn';
@@ -11,6 +11,10 @@ export default function KanbanPage() {
   const [columns, setColumns] = useState(kanbanColumns);
   const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
   const [filterAssignee, setFilterAssignee] = useState('all');
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const kanbanBoardRef = useRef(null);
+  const scrollIntervalRef = useRef(null);
 
   // Update column counts
   useEffect(() => {
@@ -20,6 +24,75 @@ export default function KanbanPage() {
     }));
     setColumns(updatedColumns);
   }, [cards]);
+
+  // Improved auto-scroll functionality
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging || !kanbanBoardRef.current) return;
+
+      const board = kanbanBoardRef.current;
+      const boardRect = board.getBoundingClientRect();
+      const scrollThreshold = 150; // Increased threshold for easier triggering
+      const scrollSpeed = 15; // Increased speed for better UX
+
+      // Clear existing scroll interval
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+
+      const mouseX = e.clientX;
+      const isWithinBoard = mouseX >= boardRect.left && mouseX <= boardRect.right;
+
+      if (!isWithinBoard) return;
+
+      // Check if mouse is near left edge
+      if (mouseX - boardRect.left < scrollThreshold && board.scrollLeft > 0) {
+        scrollIntervalRef.current = setInterval(() => {
+          board.scrollLeft -= scrollSpeed;
+          if (board.scrollLeft <= 0) {
+            clearInterval(scrollIntervalRef.current);
+            scrollIntervalRef.current = null;
+          }
+        }, 16); // ~60fps
+      }
+      // Check if mouse is near right edge
+      else if (boardRect.right - mouseX < scrollThreshold && 
+               board.scrollLeft < board.scrollWidth - board.clientWidth) {
+        scrollIntervalRef.current = setInterval(() => {
+          board.scrollLeft += scrollSpeed;
+          if (board.scrollLeft >= board.scrollWidth - board.clientWidth) {
+            clearInterval(scrollIntervalRef.current);
+            scrollIntervalRef.current = null;
+          }
+        }, 16); // ~60fps
+      }
+    };
+
+    const handleDragEnd = () => {
+      setIsDragging(false);
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('dragover', handleMouseMove);
+      document.addEventListener('dragend', handleDragEnd);
+      document.addEventListener('drop', handleDragEnd);
+    }
+
+    return () => {
+      document.removeEventListener('dragover', handleMouseMove);
+      document.removeEventListener('dragend', handleDragEnd);
+      document.removeEventListener('drop', handleDragEnd);
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    };
+  }, [isDragging]);
 
   // Calculate statistics
   const stats = {
@@ -50,14 +123,18 @@ export default function KanbanPage() {
     if (dealData.id) {
       // Update existing
       setCards(prev => prev.map(card =>
-        card.id === dealData.id ? { ...card, ...dealData } : card
+        card.id === dealData.id ? { 
+          ...card, 
+          ...dealData,
+          stage: dealData.status || dealData.stage // Ensure stage matches status
+        } : card
       ));
       
       // Cập nhật dữ liệu trong modal và chuyển về view mode
       setModal(prev => ({
         ...prev,
         mode: 'view', // Chuyển về view mode
-        deal: { ...dealData }
+        deal: { ...dealData, stage: dealData.status || dealData.stage }
       }));
     } else {
       // Create new
@@ -65,7 +142,9 @@ export default function KanbanPage() {
         ...dealData,
         id: Date.now().toString(),
         createdDate: new Date().toISOString().split('T')[0],
-        lastActivity: new Date().toISOString().split('T')[0]
+        lastActivity: new Date().toISOString().split('T')[0],
+        stage: dealData.status || dealData.stage || 'leads',
+        status: dealData.status || dealData.stage || 'leads'
       };
       setCards(prev => [...prev, newDeal]);
       closeModal();
@@ -83,9 +162,19 @@ export default function KanbanPage() {
   const handleDrop = (cardId, newStage) => {
     setCards(prev => prev.map(card => 
       card.id === cardId 
-        ? { ...card, stage: newStage, lastActivity: new Date().toISOString().split('T')[0] }
+        ? { 
+            ...card, 
+            stage: newStage, 
+            status: newStage, // Update status to match stage
+            lastActivity: new Date().toISOString().split('T')[0] 
+          }
         : card
     ));
+    setIsDragging(false);
+  };
+
+  const handleDragStart = () => {
+    setIsDragging(true);
   };
 
   const formatCurrency = (amount) => {
@@ -97,13 +186,13 @@ export default function KanbanPage() {
   };
 
   const getCardsByStage = (stageId) => {
-    return cards.filter(card => card.stage === stageId);
+    return cards.filter(card => (card.status || card.stage) === stageId);
   };
 
   return (
-    <div className="p-6 h-screen overflow-hidden">
+    <div className="p-0 h-screen overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Pipeline B2C</h1>
         <div className="flex gap-3">
           <Button variant="actionNormal" className="gap-2">
@@ -117,61 +206,70 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <Target className="w-5 h-5 text-blue-600" />
+      {/* Statistics - Thu gọn lại */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="bg-white p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <Target className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tổng số deals</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalDeals}</p>
+              <p className="text-xs text-gray-600">Tổng số deals</p>
+              <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-green-600" />
+        <div className="bg-white p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tổng giá trị</p>
-              <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
+              <p className="text-xs text-gray-600">Tổng giá trị</p>
+              <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-purple-600" />
+        <div className="bg-white p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tỷ lệ chuyển đổi</p>
-              <p className="text-xl font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-600">Tỷ lệ chuyển đổi</p>
+              <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-orange-600" />
+        <div className="bg-white p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+              <Users className="w-4 h-4 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Deals đang xử lý</p>
-              <p className="text-xl font-bold text-gray-900">{stats.activeDeals}</p>
+              <p className="text-xs text-gray-600">Deals đang xử lý</p>
+              <p className="text-lg font-bold text-gray-900">{stats.activeDeals}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4" style={{ height: 'calc(100vh - 280px)' }}>
+      <div 
+        ref={kanbanBoardRef}
+        data-kanban-board
+        className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth" 
+        style={{ 
+          height: 'calc(100vh - 200px)',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#CBD5E1 #F1F5F9' 
+        }}
+      >
         {columns.map(column => (
-          <div key={column.id} className="flex-shrink-0 w-80">
+          <div key={column.id} className="flex-shrink-0 w-64">
             <KanbanColumn
               column={column}
               cards={getCardsByStage(column.id)}
@@ -179,6 +277,7 @@ export default function KanbanPage() {
               onCardEdit={handleCardEdit}
               onCardDelete={handleCardDelete}
               onDrop={handleDrop}
+              onDragStart={handleDragStart}
             />
           </div>
         ))}

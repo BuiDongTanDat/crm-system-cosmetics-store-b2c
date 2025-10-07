@@ -19,6 +19,15 @@ const sourceOptions = [
   'Website', 'Facebook', 'Instagram', 'Google Ads', 'Zalo', 'Giới thiệu', 'Email', 'Điện thoại'
 ];
 
+const statusOptions = [
+  { value: 'leads', label: 'Leads', stage: 'leads' },
+  { value: 'contacted', label: 'Đã liên hệ', stage: 'contacted' },
+  { value: 'qualified', label: 'Qualified', stage: 'qualified' },
+  { value: 'nurturing ', label: 'Nurturing', stage: 'nurturing ' },
+  { value: 'converted', label: 'Converted', stage: 'converted' },
+  { value: 'closed-lost', label: 'Thất bại', stage: 'closed-lost' }
+];
+
 export function DealForm({
   mode = "view",
   data = null,
@@ -38,7 +47,8 @@ export function DealForm({
     priority: "medium",
     products: [],
     notes: "",
-    stage: "leads"
+    stage: "leads",
+    status: "leads"
   });
 
   useEffect(() => {
@@ -55,7 +65,8 @@ export function DealForm({
         priority: data.priority || "medium",
         products: data.products || [],
         notes: data.notes || "",
-        stage: data.stage || "leads"
+        stage: data.stage || "leads",
+        status: data.status || data.stage || "leads"
       });
     }
   }, [data]);
@@ -74,10 +85,20 @@ export function DealForm({
         priority: data.priority || "medium",
         products: data.products || [],
         notes: data.notes || "",
-        stage: data.stage || "leads"
+        stage: data.stage || "leads",
+        status: data.status || data.stage || "leads"
       });
     }
     setMode?.("view");
+  };
+
+  const handleStatusChange = (newStatus) => {
+    const statusOption = statusOptions.find(s => s.value === newStatus);
+    setForm(prev => ({
+      ...prev,
+      status: newStatus,
+      stage: statusOption?.stage || newStatus
+    }));
   };
 
   const handleSubmit = () => {
@@ -195,7 +216,9 @@ export function DealForm({
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </div>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent>
+                  <DropdownMenuContent
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
                     {sourceOptions.map((source) => (
                       <DropdownMenuItem
                         key={source}
@@ -208,6 +231,38 @@ export function DealForm({
                 </DropdownMenu>
               </div>
 
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Trạng thái</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
+                    <div
+                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
+                      }`}
+                    >
+                      <span className="text-sm">
+                        {statusOptions.find(s => s.value === form.status)?.label}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
+                    {statusOptions.map((status) => (
+                      <DropdownMenuItem
+                        key={status.value}
+                        onSelect={() => handleStatusChange(status.value)}
+                      >
+                        {status.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Độ ưu tiên</label>
                 <DropdownMenu>
@@ -223,7 +278,9 @@ export function DealForm({
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </div>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent>
+                  <DropdownMenuContent
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
                     {priorityOptions.map((priority) => (
                       <DropdownMenuItem
                         key={priority.value}
@@ -249,7 +306,9 @@ export function DealForm({
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </div>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent>
+                  <DropdownMenuContent
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
                     {mockEmployees.map((employee) => (
                       <DropdownMenuItem
                         key={employee.id}

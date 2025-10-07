@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2, X } from "lucide-react";
+import { ChevronDown, Edit, Plus, Save, Trash2, X } from "lucide-react";
 import { StatusList, CustomerTypes, CustomerSources, Industries } from "@/lib/data";
 
 export function CustomerForm({
@@ -315,7 +315,8 @@ export function CustomerForm({
                     className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                     placeholder="Nhập tag và nhấn Enter"
                   />
-                  <Button type="button" onClick={handleAddTag} variant="outline" size="sm">
+                  <Button type="button" onClick={handleAddTag} variant="actionUpdate" >
+                    <Plus className="w-4 h-4" />
                     Thêm
                   </Button>
                 </div>

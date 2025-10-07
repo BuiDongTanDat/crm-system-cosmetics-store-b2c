@@ -325,7 +325,7 @@ export const kanbanColumns = [
   },
   {
     id: 'contacted',
-    title: 'Đã liên hệ',
+    title: 'Contacted',
     color: 'bg-yellow-100 border-yellow-200',
     headerColor: 'bg-yellow-500',
     count: 0
@@ -338,29 +338,22 @@ export const kanbanColumns = [
     count: 0
   },
   {
-    id: 'proposal',
-    title: 'Báo giá',
+    id: 'nurturing ',
+    title: 'Nurturing ',
     color: 'bg-orange-100 border-orange-200',
     headerColor: 'bg-orange-500',
     count: 0
   },
   {
-    id: 'negotiation',
-    title: 'Thương lượng',
-    color: 'bg-indigo-100 border-indigo-200',
-    headerColor: 'bg-indigo-500',
-    count: 0
-  },
-  {
-    id: 'closed-won',
-    title: 'Thành công',
+    id: 'converted',
+    title: 'Converted',
     color: 'bg-green-100 border-green-200',
     headerColor: 'bg-green-500',
     count: 0
   },
   {
     id: 'closed-lost',
-    title: 'Thất bại',
+    title: 'Closed-lost',
     color: 'bg-red-100 border-red-200',
     headerColor: 'bg-red-500',
     count: 0
@@ -370,7 +363,7 @@ export const kanbanColumns = [
 export const kanbanCards = [
   {
     id: '1',
-    title: 'Chi Phiến - Mua serum chống lão hóa',
+    title: 'Mua serum chống lão hóa',
     customer: 'Chi Phiến',
     email: 'chiphien@email.com',
     phone: '0901234567',
@@ -383,11 +376,12 @@ export const kanbanCards = [
     notes: 'Khách hàng quan tâm đến sản phẩm chống lão hóa cao cấp',
     createdDate: '2024-01-15',
     lastActivity: '2024-01-20',
-    stage: 'leads'
+    stage: 'leads',
+    status: 'leads'
   },
   {
     id: '2',
-    title: 'Nguyễn Thu Hà - Combo skincare',
+    title: 'Combo skincare',
     customer: 'Nguyễn Thu Hà',
     email: 'thuha@email.com',
     phone: '0912345678',
@@ -400,11 +394,12 @@ export const kanbanCards = [
     notes: 'Khách hàng mới, cần tư vấn về quy trình skincare',
     createdDate: '2024-01-18',
     lastActivity: '2024-01-22',
-    stage: 'contacted'
+    stage: 'contacted',
+    status: 'contacted'
   },
   {
     id: '3',
-    title: 'Lê Minh Tuấn - Sản phẩm nam',
+    title: 'Sản phẩm nam',
     customer: 'Lê Minh Tuấn',
     email: 'minhtuan@email.com',
     phone: '0923456789',
@@ -417,11 +412,12 @@ export const kanbanCards = [
     notes: 'Được bạn giới thiệu, đã mua sản phẩm trước đây',
     createdDate: '2024-01-20',
     lastActivity: '2024-01-25',
-    stage: 'qualified'
+    stage: 'qualified',
+    status: 'qualified'
   },
   {
     id: '4',
-    title: 'Phạm Thị Lan - Đơn hàng lớn',
+    title: 'Đơn hàng lớn',
     customer: 'Phạm Thị Lan',
     email: 'thilan@email.com',
     phone: '0934567890',
@@ -434,11 +430,12 @@ export const kanbanCards = [
     notes: 'Khách VIP, cần ưu tiên xử lý',
     createdDate: '2024-01-12',
     lastActivity: '2024-01-28',
-    stage: 'proposal'
+    stage: 'nurturing ',
+    status: 'nurturing '
   },
   {
     id: '5',
-    title: 'Hoàng Văn Nam - Thương lượng giá',
+    title: 'Thương lượng giá',
     customer: 'Hoàng Văn Nam',
     email: 'vannam@email.com',
     phone: '0945678901',
@@ -451,11 +448,12 @@ export const kanbanCards = [
     notes: 'Đang thương lượng về giá và chính sách ưu đãi',
     createdDate: '2024-01-10',
     lastActivity: '2024-01-29',
-    stage: 'negotiation'
+    stage: 'converted',
+    status: 'converted'
   },
   {
     id: '6',
-    title: 'Trần Thị Mai - Đã mua thành công',
+    title: 'Đã mua thành công',
     customer: 'Trần Thị Mai',
     email: 'thimai@email.com',
     phone: '0956789012',
@@ -468,11 +466,12 @@ export const kanbanCards = [
     notes: 'Đã hoàn thành giao dịch, khách hàng hài lòng',
     createdDate: '2024-01-08',
     lastActivity: '2024-01-30',
-    stage: 'closed-won'
+    stage: 'converted',
+    status: 'converted'
   },
   {
     id: '7',
-    title: 'Vũ Thành Long - Không mua',
+    title: 'Không mua',
     customer: 'Vũ Thành Long',
     email: 'thanhlong@email.com',
     phone: '0967890123',
@@ -485,7 +484,8 @@ export const kanbanCards = [
     notes: 'Khách hàng quyết định không mua do giá cao',
     createdDate: '2024-01-05',
     lastActivity: '2024-01-25',
-    stage: 'closed-lost'
+    stage: 'closed-lost',
+    status: 'closed-lost'
   }
 ];
 

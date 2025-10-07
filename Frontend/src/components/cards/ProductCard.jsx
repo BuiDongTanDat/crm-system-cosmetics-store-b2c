@@ -10,11 +10,11 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
       {/* Image */}
       <div className="relative cursor-pointer" onClick={() => onView(product)}>
         <img
-          src={product.image}
+          src='/images/products/product_temp.png'
           alt={product.name}
           className="w-full h-48 object-cover"
           onError={(e) => {
-            e.target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-family='Arial, sans-serif' font-size='16'%3EMajun Pandora%3C/text%3E%3C/svg%3E`
+            e.target.src = '/images/products/product_temp.png'
           }}
         />
 
@@ -23,18 +23,21 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
 
       {/* Content */}
       <div className="p-4">
-        <div className='flex justify-between mb-2'>
-          <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
-          {/* Status badge */}
-          <div >
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.status === 'Phân phối'
-              ? 'bg-cyan-100 text-cyan-800'
-              : 'bg-red-100 text-red-800'
-              }`}>
-              {product.status}
-            </span>
-          </div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-gray-900 text-base truncate">
+            {product.name}
+          </h3>
+
+          <span
+            className={`ml-3 px-2 py-1 text-[10px] font-medium rounded-full whitespace-nowrap ${product.status === "Phân phối"
+                ? "bg-cyan-100 text-brand"
+                : "bg-red-100 text-destructive"
+              }`}
+          >
+            {product.status}
+          </span>
         </div>
+
         <p className="text-gray-600 text-sm mb-3 line-clamp-3">
           Phân loại: {product.category}<br />
           Mô tả: {product.description}

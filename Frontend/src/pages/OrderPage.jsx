@@ -154,7 +154,7 @@ export default function OrderPage() {
     };
 
     return (
-        <div className="p-6">
+        <div className="p-0">
             {/* Header */}
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
                 Danh sách đơn hàng ({filteredOrders.length})

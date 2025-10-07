@@ -1,13 +1,9 @@
 //File này chứa các hàm tiện ích dùng chung trong toàn bộ ứng dụng
 
 // Định dạng tiền tệ VNĐ
-export const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0
-  }).format(amount);
-};
+export const formatCurrency = (amount, suffix = "VNĐ") =>
+  `${new Intl.NumberFormat("vi-VN").format(amount)} ${suffix}`;
+
 
 //Hàm định dạng ngày
 export const formatDate = (dateString) => {
@@ -55,10 +51,10 @@ export const getInitials = (name) => {
 //Hàm xuất dữ liệu thành file JSON
 export const exportToJSON = (data, filename = 'data.json') => {
   const dataStr = JSON.stringify(data, null, 2);
-  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-  
+  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
   const exportFileDefaultName = filename;
-  
+
   const linkElement = document.createElement('a');
   linkElement.setAttribute('href', dataUri);
   linkElement.setAttribute('download', exportFileDefaultName);
