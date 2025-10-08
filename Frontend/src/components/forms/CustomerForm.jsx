@@ -6,8 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { ChevronDown, Edit, Plus, Save, Trash2, X } from "lucide-react";
+import { ChevronDown, Edit, Plus, Save, Trash2, X, History, ArrowLeft } from "lucide-react";
 import { StatusList, CustomerTypes, CustomerSources, Industries } from "@/lib/data";
+import InteractionHistory from "./InteractionHistory";
 
 export function CustomerForm({
   mode = "view",
@@ -15,6 +16,10 @@ export function CustomerForm({
   onSave,
   onDelete,
   setMode,
+  onViewInteractions,
+  showHistory = false,
+  onBackFromHistory,
+  onShowHistoryChange,
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -33,6 +38,8 @@ export function CustomerForm({
   });
 
   const [tagInput, setTagInput] = useState("");
+  const [showInteractionHistory, setShowInteractionHistory] = useState(showHistory);
+  
 
   useEffect(() => {
     if (data) {
@@ -70,6 +77,10 @@ export function CustomerForm({
       });
     }
   }, [data, mode]);
+
+  useEffect(() => {
+    setShowInteractionHistory(showHistory);
+  }, [showHistory]);
 
   const handleChange = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -117,19 +128,49 @@ export function CustomerForm({
       alert("Vui lòng nhập tên khách hàng và email");
       return;
     }
-    
+
     const isCreating = !data?.id;
-    
+
     onSave({
       ...form,
       id: data?.id,
     });
-    
+
     // Nếu là update, chuyển về view mode
     if (!isCreating) {
       setMode?.("view");
     }
   };
+
+  const handleViewInteractions = () => {
+    setShowInteractionHistory(true);
+    // Notify parent that we're now showing history
+    if (onShowHistoryChange) {
+      onShowHistoryChange(true);
+    }
+  };
+
+  const handleBackFromInteractions = () => {
+    setShowInteractionHistory(false);
+    // Notify parent that we're no longer showing history
+    if (onShowHistoryChange) {
+      onShowHistoryChange(false);
+    }
+    if (onBackFromHistory) {
+      onBackFromHistory();
+    }
+  };
+
+  // Show interaction history if requested
+  if (showInteractionHistory && data?.id) {
+    return (
+      <InteractionHistory
+        customerId={data.id}
+        customerName={data.name}
+        onBack={handleBackFromInteractions}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-[70vh]">
@@ -361,33 +402,53 @@ export function CustomerForm({
 
       {/* Fixed Action Buttons */}
       <div className="border-t bg-white p-6 flex-shrink-0">
-        <div className="flex justify-end gap-3">
-          {mode === "view" ? (
-            <>
-              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
-                <Edit className="w-4 h-4" />
-                Chỉnh sửa
+        <div className="flex justify-between items-center">
+          {/* Left side - Interaction History/Back button (only show if customer exists) */}
+          <div>
+            {/* Chỉ hiển thị nút Lịch sử tương tác ở chế độ view */}
+            {data?.id && (
+              <Button
+                variant="actionUpdate"
+                onClick={handleViewInteractions}
+                className="flex items-center gap-2"
+              >
+                <History className="w-4 h-4" />
+                Lịch sử tương tác
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button type="button" variant="outline" onClick={handleCancel}>
-                Hủy
-              </Button>
-              <Button onClick={handleSubmit} variant="actionUpdate">
-                <Save className="w-4 h-4" />
-                Lưu thay đổi
-              </Button>
-            </>
-          )}
+            )}
+          </div>
+
+          {/* Right side - Action buttons */}
+          <div className="flex gap-3">
+            {mode === "view" ? (
+              <>
+                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
+                  <Edit className="w-4 h-4" />
+                  Chỉnh sửa
+                </Button>
+                <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  Hủy
+                </Button>
+                <Button onClick={handleSubmit} variant="actionUpdate">
+                  <Save className="w-4 h-4" />
+                  Lưu thay đổi
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
+      
   );
 }
+
 
 export default CustomerForm;

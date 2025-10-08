@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical, History } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import CustomerForm from "@/components/forms/CustomerForm";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -51,7 +51,19 @@ export default function CustomerListPage() {
     };
 
     const closeModal = () => {
-        setModal({ open: false, mode: 'view', customer: null });
+        setModal({ open: false, mode: 'view', customer: null, showHistory: false });
+    };
+
+    const handleViewHistory = (customer) => {
+        setModal({ open: true, mode: 'view', customer, showHistory: true });
+    };
+
+    const handleBackFromHistory = () => {
+        // Reset showHistory in modal state to change title back
+        setModal(prev => ({
+            ...prev,
+            showHistory: false
+        }));
     };
 
     const handleSave = (customerData) => {
@@ -154,6 +166,13 @@ export default function CustomerListPage() {
             [CustomerTypes.new]: "bg-yellow-100 text-yellow-800"
         };
         return `${baseClass} ${colorMap[type] || colorMap[CustomerTypes.standard]}`;
+    };
+
+    const handleShowHistoryChange = (showHistory) => {
+        setModal(prev => ({
+            ...prev,
+            showHistory
+        }));
     };
 
     return (
@@ -284,6 +303,14 @@ export default function CustomerListPage() {
                                                 : "opacity-0 translate-y-1 pointer-events-none"
                                                 }`}
                                         >
+                                            <Button 
+                                                variant="actionRead"
+                                                size="icon"
+                                                onClick={() => handleViewHistory(customer)}
+                                                className="h-8 w-8"
+                                            >
+                                                <History className="w-4 h-4" />
+                                            </Button>
                                             <Button
                                                 variant="actionRead"
                                                 size="icon"
@@ -339,6 +366,9 @@ export default function CustomerListPage() {
                 data={modal.customer}
                 onSave={handleSave}
                 onDelete={handleDelete}
+                showHistory={modal.showHistory}
+                onBackFromHistory={handleBackFromHistory}
+                onShowHistoryChange={handleShowHistoryChange}
                 maxWidth="sm:max-w-4xl"
             />
         </div>

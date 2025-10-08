@@ -33,10 +33,21 @@ export default function AppDialog({
 
   const getTitle = () => {
     if (typeof title === "string") return title;
+
+    // Prioritize history title if showHistory is true
+    if (additionalProps.showHistory && data) {
+      return `Lịch sử tương tác - ${data.name || ""}`;
+    }
+
+    // Regular mode-based title
     return (
       title?.[mode] ||
       title?.view ||
-      (mode === "edit" ? "Chỉnh sửa" : mode === "create" ? "Thêm mới" : "Chi tiết")
+      (mode === "edit"
+        ? "Chỉnh sửa"
+        : mode === "create"
+          ? "Thêm mới"
+          : "Chi tiết")
     );
   };
 

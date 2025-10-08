@@ -15,6 +15,17 @@ export const formatDateTime = (dateString) => {
   return new Date(dateString).toLocaleString('vi-VN');
 };
 
+//Định dạng ngày và giờ riêng biệt
+export const formatDateTimeSeparate = (dateString) => {
+  const dateObj = new Date(dateString);
+  const date = dateObj.toLocaleDateString('vi-VN');
+  const time = dateObj.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return { date, time };
+};
+
 // Lấy màu sắc theo mức độ ưu tiên
 export const getPriorityColor = (priority) => {
   switch (priority) {

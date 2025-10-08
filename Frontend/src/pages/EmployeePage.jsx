@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, MoreVertical, History } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import EmployeeForm from "@/components/forms/EmployeeForm";
+import InteractionHistory from "@/components/forms/InteractionHistory";
 import AppPagination from "@/components/pagination/AppPagination";
 import { mockEmployees, mockRoles } from "@/lib/data";
 
@@ -11,6 +12,7 @@ export default function EmployeePage() {
     const [roles, setRoles] = useState(mockRoles);
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: 'view', employee: null });
+    const [showHistory, setShowHistory] = useState({ show: false, employee: null });
     const [hoveredRow, setHoveredRow] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const fileInputRef = useRef(null);
@@ -60,7 +62,7 @@ export default function EmployeePage() {
             setEmployees(prev => prev.map(emp =>
                 emp.id === employeeData.id ? { ...emp, ...employeeData } : emp
             ));
-            
+
             // Cập nhật dữ liệu trong modal và chuyển về view mode
             setModal(prev => ({
                 ...prev,
@@ -141,6 +143,8 @@ export default function EmployeePage() {
         };
         return `${baseClass} ${colorMap[role] || colorMap.Support}`;
     };
+
+    
 
     return (
         <div className="p-0">
@@ -228,7 +232,7 @@ export default function EmployeePage() {
                             <tr>
                                 {[
                                     "Nhân viên",
-                                    "Email", 
+                                    "Email",
                                     "SĐT",
                                     "Vai trò",
                                     "Trạng thái",
@@ -270,12 +274,13 @@ export default function EmployeePage() {
                                     </td>
                                     <td className="px-6 py-4 text-center w-36">
                                         <div
-                                            className={`flex justify-center gap-1 transition-all duration-200 ${
-                                                hoveredRow === employee.id
+                                            className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
                                                     ? "opacity-100 translate-y-0 pointer-events-auto"
                                                     : "opacity-0 translate-y-1 pointer-events-none"
-                                            }`}
+                                                }`}
                                         >
+
+                                            
                                             <Button
                                                 variant="actionRead"
                                                 size="icon"
