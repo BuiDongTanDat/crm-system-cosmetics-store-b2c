@@ -36,6 +36,9 @@ class DataManager {
       require('../../Domain/Entities/Product');
     //   require('../../Domain/Entities/User');
       require('../../Domain/Entities/Customer');
+      require('../../Domain/Entities/Category');
+      require('../../Domain/Entities/ProductReviews');
+      require('../../Domain/Entities/ProductSpecifications');
       await this.sequelize.sync(options);
       console.log('Database synced!');
     } catch (err) {

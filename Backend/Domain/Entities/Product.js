@@ -1,30 +1,14 @@
+// Domain/Entities/Product.js
 const { DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
 class Product extends Model {
-  // ---------------- NGHIỆP VỤ ----------------
-
-  // Giảm tồn kho
-  reduceInventory(quantity) {
-    if (this.inventory_qty < quantity) {
-      throw new Error('Not enough stock');
-    }
-    this.inventory_qty -= quantity;
-  }
-
-  // Tăng tồn kho
-  increaseInventory(quantity) {
-    this.inventory_qty += quantity;
-  }
-
-  // Áp dụng khuyến mãi (%)
-  applyPromo(discountPercent) {
-    this.price = this.price * (1 - discountPercent / 100);
+  adjustInventory(amount) {
+    this.inventory_qty = Math.max(0, this.inventory_qty + amount);
   }
 }
 
-// ---------------- MAPPING DB ----------------
 Product.init({
   product_id: {
     type: DataTypes.UUID,
@@ -32,12 +16,26 @@ Product.init({
     primaryKey: true,
   },
   name: { type: DataTypes.STRING, allowNull: false },
+  brand: { type: DataTypes.STRING },
+  short_description: { type: DataTypes.TEXT },
   description: { type: DataTypes.TEXT },
   category: { type: DataTypes.STRING },
-  price: { type: DataTypes.FLOAT, allowNull: false },
-  promo: { type: DataTypes.JSONB, defaultValue: {} },
+  image: { type: DataTypes.STRING },
+  price_current: { type: DataTypes.FLOAT, allowNull: false },
+  price_original: { type: DataTypes.FLOAT },
+  discount_percent: { type: DataTypes.FLOAT },
+  rating: { type: DataTypes.FLOAT, defaultValue: 0 },
+  reviews_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+  monthly_sales: { type: DataTypes.STRING },
+  sell_progress: { type: DataTypes.STRING },
   inventory_qty: { type: DataTypes.INTEGER, defaultValue: 0 },
-  images: { type: DataTypes.ARRAY(DataTypes.STRING), defaultValue: [] },
+  // Trạng thái sản phẩm
+  status: {
+    type: DataTypes.ENUM('AVAILABLE', 'OUT_OF_STOCK', 'DISCONTINUED'),
+    allowNull: false,
+    defaultValue: 'AVAILABLE',
+  },
+  status_updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,
   modelName: 'Product',
