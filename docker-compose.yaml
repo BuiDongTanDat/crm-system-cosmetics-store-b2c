@@ -15,7 +15,7 @@ services:
     networks:
       - crm_net
 
-  # ===== BACKEND (Node.js Clean Architecture) =====
+  # ===== BACKEND (Node.js - Clean Architecture) =====
   backend:
     build:
       context: ./backend
@@ -39,10 +39,11 @@ services:
     networks:
       - crm_net
 
-  # ===== AI SERVICE (Python FastAPI hoặc Flask) =====
+  # ===== AI SERVICE (Python FastAPI) =====
   ai-service:
     build:
       context: ./ai-service
+      dockerfile: Dockerfile
     container_name: crm_ai_service
     ports:
       - "8000:8000"
@@ -66,6 +67,21 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - crm_net
+
+  # ===== PGADMIN (Tùy chọn - UI quản lý DB) =====
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: crm_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@crm.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
     networks:
       - crm_net
 
