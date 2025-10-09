@@ -164,7 +164,7 @@ export default function ProfilePage() {
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Hành động nhanh</CardTitle>
-            </CardHeader>
+            {/* </CardHeader> */}
             <CardContent className="space-y-3">
               <Link to="/auth/change-password">
                 <Button variant="actionUpdate" className="w-full justify-start">

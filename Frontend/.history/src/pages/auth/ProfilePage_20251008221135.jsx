@@ -173,10 +173,10 @@ export default function ProfilePage() {
                 </Button>
               </Link>
 
-              {/* <Button variant="actionUpdate" className="mt-2 w-full justify-start">
+              <Button variant="actionUpdate" className="mt-2 w-full justify-start">
                 <Mail className="h-4 w-4 mr-2" />
                 Cài đặt thông báo
-              </Button> */}
+              </Button>
             </CardContent>
           </Card>
         </div>

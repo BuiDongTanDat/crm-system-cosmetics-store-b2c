@@ -162,9 +162,9 @@ export default function ProfilePage() {
 
           {/* Quick Actions */}
           <Card className="mt-6">
-            <CardHeader>
+            {/* <CardHeader>
               <CardTitle>Hành động nhanh</CardTitle>
-            </CardHeader>
+            </CardHeader> */}
             <CardContent className="space-y-3">
               <Link to="/auth/change-password">
                 <Button variant="actionUpdate" className="w-full justify-start">
