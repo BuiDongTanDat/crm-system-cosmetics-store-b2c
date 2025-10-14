@@ -146,7 +146,7 @@ export const sampleProducts = [
     description: "Serum Vitamin C giúp làm sáng và đều màu da."
   },
   {
-    id: 9,
+    id: 8,
     name: "Kem dưỡng ẩm Majun",
     image: "/images/products/product_temp.png",
     price: 320000,

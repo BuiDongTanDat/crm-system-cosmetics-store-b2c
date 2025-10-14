@@ -276,7 +276,7 @@ export default function KanbanPage() {
   const handleDragStart = () => setIsDragging(true);
 
   return (
-    <div className="p-0 h-full flex flex-col overflow-hidden">
+    <div className="p-0 h-screen overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Pipeline B2C</h1>
@@ -359,12 +359,12 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      {/* Kanban Board - occupies remaining space, horizontal scrollbar only */}
+      {/* Kanban Board */}
       <div
         ref={kanbanBoardRef}
         data-kanban-board
-        className="flex-1 min-h-0 flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 #F1F5F9', scrollbarGutter: 'stable' }}
+        className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth"
+        style={{ height: 'calc(100vh - 200px)', scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 #F1F5F9' }}
       >
         {columns.map(column => (
           <div key={column.id} className="flex-shrink-0 w-64">

@@ -36,7 +36,7 @@ function LayoutInner({ children }) {
         }
       >
         <AppHeader />
-        <div className="p-0 md:pt-5 md:pr-5 md:px-0 flex-1 w-full mx-auto max-w-screen-2xl">
+        <div className="p-0 md:pt-5 md:pr-10 md:px-0 flex-1 w-full mx-auto max-w-screen-2xl">
           {children}
         </div>
       </div>

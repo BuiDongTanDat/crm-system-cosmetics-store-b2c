@@ -94,66 +94,6 @@ export const sampleProducts = [
     stock: 0,
     status: "Hết hàng",
     description: "Kem dưỡng ẩm chuyên sâu cho da khô và nhạy cảm."
-  },
-  {
-    id: 4,
-    name: "Majun Pandora",
-    image: "/images/products/product_temp.png",
-    price: 240000,
-    category: "Mỹ phẩm",
-    stock: 50,
-    status: "Phân phối",
-    description: "Serum dưỡng da, giúp sáng và mịn da. Thành phần tự nhiên."
-  },
-  {
-    id: 5,
-    name: "Serum Vitamin C",
-    image: "/images/products/product_temp.png",
-    price: 280000,
-    category: "Chăm sóc da",
-    stock: 20,
-    status: "Phân phối",
-    description: "Serum Vitamin C giúp làm sáng và đều màu da."
-  },
-  {
-    id: 6,
-    name: "Kem dưỡng ẩm Majun",
-    image: "/images/products/product_temp.png",
-    price: 320000,
-    category: "Chăm sóc da",
-    stock: 0,
-    status: "Hết hàng",
-    description: "Kem dưỡng ẩm chuyên sâu cho da khô và nhạy cảm."
-  },
-  {
-    id: 7,
-    name: "Majun Pandora",
-    image: "/images/products/product_temp.png",
-    price: 240000,
-    category: "Mỹ phẩm",
-    stock: 50,
-    status: "Phân phối",
-    description: "Serum dưỡng da, giúp sáng và mịn da. Thành phần tự nhiên."
-  },
-  {
-    id: 8,
-    name: "Serum Vitamin C",
-    image: "/images/products/product_temp.png",
-    price: 280000,
-    category: "Chăm sóc da",
-    stock: 20,
-    status: "Phân phối",
-    description: "Serum Vitamin C giúp làm sáng và đều màu da."
-  },
-  {
-    id: 9,
-    name: "Kem dưỡng ẩm Majun",
-    image: "/images/products/product_temp.png",
-    price: 320000,
-    category: "Chăm sóc da",
-    stock: 0,
-    status: "Hết hàng",
-    description: "Kem dưỡng ẩm chuyên sâu cho da khô và nhạy cảm."
   }
 ];
 
@@ -683,7 +623,7 @@ export const mockCustomers = [
         status: "Active"
     },
     {
-        id: 7,
+        id: 3,
         name: "Lê Minh Cường",
         type: CustomerTypes.standard,
         birthDate: "1988-12-10",
@@ -699,7 +639,7 @@ export const mockCustomers = [
         status: "Active"
     },
     {
-        id: 8,
+        id: 4,
         name: "Phạm Thu Hà",
         type: CustomerTypes.new,
         birthDate: "1995-05-18",

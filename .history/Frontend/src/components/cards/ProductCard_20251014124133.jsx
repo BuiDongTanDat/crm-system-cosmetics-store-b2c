@@ -4,7 +4,7 @@ import { Eye, Edit, Trash2 } from 'lucide-react'
 
 const ProductCard = ({ product, onView, onEdit, onDelete }) => {
   return (
-    <div className="bg-white border-gray-200 overflow-hidden rounded-sm
+    <div className="bg-white border-gray-200 overflow-hidden rounded-sm rounded-tl-[50px] rounded-tr-[0px]
                 hover:scale-105 hover:shadow-md shadow-sm
                 transition-all duration-150 animate-fade-in group">
       {/* Image */}
@@ -12,7 +12,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
         <img
           src='/images/products/product_temp.png'
           alt={product.name}
-          className="w-full h-15 object-cover"
+          className="w-full h-20 object-cover"
           onError={(e) => {
             e.target.src = '/images/products/product_temp.png'
           }}

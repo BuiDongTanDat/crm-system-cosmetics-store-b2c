@@ -64,7 +64,7 @@ export default function AppHeader() {
   const deleteNotification = (id) => setNotifList(prev => prev.filter(n => n.id !== id));
 
   return (
-    <header className={`sticky top-2 z-30 flex items-center justify-between h-14 px-4 gap-4 transition-all duration-300 ${isScrolled
+    <header className={`sticky top-0 z-30 flex items-center justify-between h-14 px-4 gap-4 transition-all duration-300 ${isScrolled
       ? 'bg-white/90 backdrop-blur-md shadow-lg border border-white/20 rounded-lg mx-4'
       : 'bg-transparent'
       }`}>

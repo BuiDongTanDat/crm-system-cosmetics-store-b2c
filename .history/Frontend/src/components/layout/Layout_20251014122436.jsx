@@ -17,7 +17,7 @@ function LayoutInner({ children }) {
   const { isExpanded, isMobileOpen, isHovered, isMobile } = useSidebar();
 
   const sidebarWidth = isExpanded || isHovered ? 280 : 72;
-  const desktopGap = 8; // Tailwind spacing 5 (px)
+  const desktopGap = 12; // small gap in px
 
   return (
   <div className="relative flex min-h-screen bg-transparent text-foreground">
@@ -28,7 +28,7 @@ function LayoutInner({ children }) {
         style={
           !isMobile
             ? {
-                marginLeft: sidebarWidth + desktopGap * 2, // sidebar left gap + itself + right gap
+                marginLeft: sidebarWidth + desktopGap, // minimal gap from sidebar
                 paddingTop: desktopGap,
                 paddingRight: desktopGap,
               }
@@ -36,7 +36,7 @@ function LayoutInner({ children }) {
         }
       >
         <AppHeader />
-        <div className="p-0 md:pt-5 md:pr-5 md:px-0 flex-1 w-full mx-auto max-w-screen-2xl">
+        <div className="p-0 md:pt-5 md:px-0 flex-1 w-full mx-auto max-w-screen-2xl min-h-0 overflow-hidden">
           {children}
         </div>
       </div>

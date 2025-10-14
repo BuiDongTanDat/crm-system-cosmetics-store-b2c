@@ -261,7 +261,7 @@ export function AppSidebar() {
       aria-label="Main Sidebar"
       className={`fixed z-50 flex flex-col bg-background border border-border transition-all duration-200 ease-in-out shadow-md ${isExpanded || isMobileOpen || isHovered ? "w-[260px]" : "w-[64px]"
         } ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 ${!isMobile ? "top-4 left-2 rounded-xl" : "top-0 left-0 h-screen border-r"
+        } lg:translate-x-0 ${!isMobile ? "top-4 left-4 rounded-xl" : "top-0 left-0 h-screen border-r"
         }`}
       style={!isMobile ? { height: "calc(100vh - 32px)" } : undefined}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}

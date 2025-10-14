@@ -126,7 +126,7 @@ export const sampleProducts = [
     description: "Kem dưỡng ẩm chuyên sâu cho da khô và nhạy cảm."
   },
   {
-    id: 7,
+    id: 1,
     name: "Majun Pandora",
     image: "/images/products/product_temp.png",
     price: 240000,
@@ -136,7 +136,7 @@ export const sampleProducts = [
     description: "Serum dưỡng da, giúp sáng và mịn da. Thành phần tự nhiên."
   },
   {
-    id: 8,
+    id: 2,
     name: "Serum Vitamin C",
     image: "/images/products/product_temp.png",
     price: 280000,
@@ -146,7 +146,7 @@ export const sampleProducts = [
     description: "Serum Vitamin C giúp làm sáng và đều màu da."
   },
   {
-    id: 9,
+    id: 3,
     name: "Kem dưỡng ẩm Majun",
     image: "/images/products/product_temp.png",
     price: 320000,
