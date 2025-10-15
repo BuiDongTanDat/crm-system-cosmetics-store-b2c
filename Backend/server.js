@@ -1,16 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./API/routes/authRoutes');
-const UserRoutes = require('./API/routes/userRoutes');
+const flowRoutes = require('./API/routes/AutomationRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use('/auth', authRoutes);
-app.use('/user', UserRoutes);
-
+app.use('/automation', flowRoutes);
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  
+  next();
+});
 (async () => {
   try {
     await DataManager.connectAndSync({ alter: true }); // gọi 1 lần là đủ

@@ -99,7 +99,7 @@ export default function AutomationPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">
-            Email Automation ({filtered.length})
+            Automation Flow ({filtered.length})
           </h1>
         </div>
 
@@ -127,7 +127,7 @@ export default function AutomationPage() {
           {/* Add Automation */}
           <Button onClick={openAdd} variant="actionCreate" className="gap-2">
             <Plus className="w-4 h-4" />
-            Tạo Automation
+            Tạo Automation flow mới
           </Button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function AutomationPage() {
         onClose={closeModal}
         title={{
           view: `Chi tiết Automation - ${modal.automation?.name || ''}`,
-          edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation mới'
+          edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation flow mới'
         }}
         mode={modal.mode}
         FormComponent={AutomationForm}

@@ -1,22 +1,9 @@
-// backend/src/Domain/Entities/AutomationTrigger.js
+const { DataTypes, Model } = require('sequelize');
+const DataManager = require('../../Infrastructure/database/postgres');
+const sequelize = DataManager.getSequelize();
 
-class AutomationTrigger {
-  constructor({
-    trigger_id,
-    flow_id = null,
-    event_type,       // ví dụ: "order_completed", "cart_abandoned", "birthday"
-    conditions = {},  // JSON logic, e.g. { "days_since_last_purchase": ">30" }
-    is_active = true,
-    created_at = null
-  } = {}) {
-    this.trigger_id = trigger_id;
-    this.flow_id = flow_id;
-    this.event_type = event_type;
-    this.conditions = conditions || {};
-    this.is_active = !!is_active;
-    this.created_at = created_at || new Date();
-  }
-
+class AutomationTrigger extends Model {
+  // ===== Domain logic =====
   activate() {
     this.is_active = true;
   }
@@ -30,10 +17,10 @@ class AutomationTrigger {
   }
 
   matchesEvent(event) {
-    // Very generic matcher - real implementation should parse conditions properly
+    // 🔹 Matcher logic cơ bản, có thể mở rộng sau
     if (!this.is_active) return false;
     if (this.event_type && this.event_type !== event.type) return false;
-    // additional condition checks can be added here
+    // TODO: parse thêm điều kiện phức tạp (JSON logic)
     return true;
   }
 
@@ -48,5 +35,46 @@ class AutomationTrigger {
     };
   }
 }
+
+AutomationTrigger.init(
+  {
+    trigger_id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    flow_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    event_type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      comment: 'Ví dụ: order_completed, cart_abandoned, birthday...',
+    },
+    conditions: {
+      type: DataTypes.JSONB, // PostgreSQL: JSONB, MySQL thì dùng JSON
+      allowNull: true,
+      defaultValue: {},
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'AutomationTrigger',
+    tableName: 'automation_triggers',
+    timestamps: false,
+    underscored: true,
+  }
+);
 
 module.exports = AutomationTrigger;

@@ -1,5 +1,5 @@
-class IRoleService {
-  getAll() { throw new Error("Not implemented"); }
-}
+// class IRoleService {
+//   getAll() { throw new Error("Not implemented"); }
+// }
 
-module.exports = IRoleService;
+// module.exports = IRoleService;
