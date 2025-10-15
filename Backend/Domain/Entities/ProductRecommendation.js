@@ -1,5 +1,3 @@
-// backend/src/Domain/Entities/ProductRecommendation.js
-
 class ProductRecommendation {
   constructor({
     rec_id,

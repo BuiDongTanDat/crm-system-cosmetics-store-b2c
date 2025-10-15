@@ -18,6 +18,12 @@ export default defineConfig(({ mode }) => {
       hmr: {
         clientPort: env.HMR_PORT ? parseInt(env.HMR_PORT) : 5174,
       },
+      proxy: {
+      '^/(api|automation)(/|$)': {
+        target: 'http://backend:5000',
+        changeOrigin: true,
+      },
+  },
     },
     preview: {
       host: "0.0.0.0",

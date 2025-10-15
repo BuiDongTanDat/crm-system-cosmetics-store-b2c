@@ -6,12 +6,12 @@
 // /users/:id	DELETE	Xoá user	UserController.delete()
 // PUT /users/:id/activate → kích hoạt user
 // PUT /users/:id/deactivate → vô hiệu hóa user
-const IUserService = require('../../Application/Interfaces/IUserService');
+// const IUserService = require('../../Application/Interfaces/IUserService');
 const UserService = require('../../Application/Services/UserService');
 class UserController {
   static async getAll(req, res) {
     try {
-      const users = await IUserService.getAll();
+      const users = await UserService.getAll();
       res.status(200).json(users);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -20,7 +20,7 @@ class UserController {
 
   static async getById(req, res) {
     try {
-      const user = await IUserService.getById(req.params.id);
+      const user = await UserService.getById(req.params.id);
       res.status(200).json(user);
     } catch (err) {
       res.status(404).json({ error: err.message });
@@ -29,7 +29,7 @@ class UserController {
 
   static async create(req, res) {
     try {
-      const newUser = await IUserService.create(req.body);
+      const newUser = await UserService.create(req.body);
       res.status(201).json(newUser);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -38,7 +38,7 @@ class UserController {
 
   static async update(req, res) {
     try {
-      const updated = await IUserService.update(req.params.id, req.body);
+      const updated = await UserService.update(req.params.id, req.body);
       res.status(200).json(updated);
     } catch (err) {
       res.status(400).json({ error: err.message });

@@ -31,7 +31,7 @@ import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
 import AutomationPage from './pages/AutomationPage';
 import LandingPage from './landingPage/LandingPage';
-
+import FlowEditorPage from './pages/FlowEditorPage';
 function App() {
 
   // Thêm: kiểm soát tắt/bật redirect (set VITE_DISABLE_AUTH_REDIRECTS=true để tắt redirect)
@@ -186,7 +186,10 @@ function App() {
                   path="/settings"
                   element={privateElement(<SettingsPage />)}
                 />
-
+                 <Route
+                  path="/flows"
+                  element={privateElement(<FlowEditorPage/>)}
+                />
                 <Route
                   path="*"
                   element={<NotFound />}

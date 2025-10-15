@@ -1,20 +1,20 @@
-class IAutomationService {
-  async getAllFlows() {}
-  async getFlowById(id) {}
-  async createFlow(data) {}
-  async updateFlow(id, data) {}
-  async deleteFlow(id) {}
+// class IAutomationService {
+//   async getAllFlows() {}
+//   async getFlowById(id) {}
+//   async createFlow(data) {}
+//   async updateFlow(id, data) {}
+//   async deleteFlow(id) {}
 
-  async runFlow(flowId, customerEvent) {}
+//   async runFlow(flowId, customerEvent) {}
 
-  async listTriggers() {}
-  async listActions() {}
+//   async listTriggers() {}
+//   async listActions() {}
 
-  async createTrigger(data) {}
-  async createAction(data) {}
+//   async createTrigger(data) {}
+//   async createAction(data) {}
 
-  async aiAnalyzeCustomer(customerId) {}
-  async aiRecommendProducts(customerId) {}
-}
+//   async aiAnalyzeCustomer(customerId) {}
+//   async aiRecommendProducts(customerId) {}
+// }
 
-module.exports = IAutomationService;
+// module.exports = IAutomationService;

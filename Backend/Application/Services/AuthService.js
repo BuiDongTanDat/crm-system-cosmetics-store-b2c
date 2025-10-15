@@ -3,11 +3,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('./../../shared/utils/jwt');
 const EmailUtil = require('./../../shared/utils/email');
 const UserRepository = require('../../Infrastructure/Repositories/UserRepository');
-const IAuthService = require('../Interfaces/IAuthService');
-
 const tokenBlacklist = new Set();
 
-class AuthService extends IAuthService {
+class AuthService {
   async login(email, password) {
     const user = await UserRepository.findByEmail(email);
     if (!user) throw new Error('User not found');
