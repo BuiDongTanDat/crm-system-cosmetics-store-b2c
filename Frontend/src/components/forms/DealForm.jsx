@@ -21,11 +21,11 @@ const sourceOptions = [
 
 const statusOptions = [
   { value: 'leads', label: 'Leads', stage: 'leads' },
-  { value: 'contacted', label: 'Đã liên hệ', stage: 'contacted' },
+  { value: 'contacted', label: 'Contacted', stage: 'contacted' },
   { value: 'qualified', label: 'Qualified', stage: 'qualified' },
   { value: 'nurturing ', label: 'Nurturing', stage: 'nurturing ' },
   { value: 'converted', label: 'Converted', stage: 'converted' },
-  { value: 'closed-lost', label: 'Thất bại', stage: 'closed-lost' }
+  { value: 'closed-lost', label: 'Closed-Lost', stage: 'closed-lost' }
 ];
 
 export function DealForm({
