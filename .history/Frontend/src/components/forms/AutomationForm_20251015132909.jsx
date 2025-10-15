@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Send, Calendar, Users, Mail, Settings, Eye, Edit, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Save, Send, Calendar, Users, Mail, Settings, Eye, Edit, Trash2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DropdownOptions from '@/components/ui/DropdownOptions';
 import EmailEditor from '@/components/email/EmailEditor';
@@ -429,12 +429,12 @@ export default function AutomationForm({ mode = 'view', data, onSave, onDelete, 
             {/* Navigation buttons - bên trái */}
             {mode === 'edit' && activeStep > 1 && (
               <Button onClick={handlePrev} variant="outline" className="gap-2 flex">
-                <ChevronLeft />Quay lại
+                Quay lại
               </Button>
             )}
             {mode === 'view' && activeStep > 1 && (
-              <Button onClick={handlePrev} variant="outline" className="gap-2 flex">
-                <ChevronLeft />Quay lại
+              <Button onClick={handlePrev} variant="outline">
+                Quay lại
               </Button>
             )}
             
@@ -470,7 +470,7 @@ export default function AutomationForm({ mode = 'view', data, onSave, onDelete, 
                   Hủy
                 </Button>
                 
-                <Button onClick={() => handleSave('draft')} variant="actionUpdate" className="gap-2">
+                <Button onClick={() => handleSave('draft')} variant="outline" className="gap-2">
                   <Save className="w-4 h-4" />
                   Lưu nháp
                 </Button>

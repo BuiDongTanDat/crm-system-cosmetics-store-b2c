@@ -1,0 +1,265 @@
+/* Bootstrap 5 CSS and custom styles for Landing Page */
+@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Marcellus&display=swap');
+
+.landing-page {
+  font-family: 'Jost', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Navigation Styles */
+.navbar {
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 1rem 0;
+}
+
+.brand-logo {
+  font-family: 'Marcellus', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111;
+  text-decoration: none;
+}
+
+.nav-link {
+  color: #111 !important;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #007bff !important;
+}
+
+/* Hero Section */
+#billboard {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 5rem 0;
+}
+
+.section-title {
+  font-family: 'Marcellus', serif;
+  font-size: 3rem;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 2rem;
+}
+
+/* Features Section */
+.features {
+  background-color: #fff;
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.element-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111;
+  margin: 1rem 0;
+}
+
+/* Categories Section */
+.categories {
+  padding: 5rem 0;
+  background-color: #f8f9fa;
+}
+
+.cat-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.image-holder {
+  position: relative;
+  overflow: hidden;
+}
+
+.product-image {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.image-zoom-effect:hover .product-image {
+  transform: scale(1.1);
+}
+
+.category-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  padding: 2rem;
+  text-align: center;
+}
+
+.product-button {
+  margin-top: 1rem;
+}
+
+/* Newsletter Section */
+.newsletter {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+}
+
+.newsletter .section-title {
+  color: white;
+}
+
+.form-control {
+  border-radius: 50px;
+  padding: 1rem 1.5rem;
+  border: none;
+  margin-bottom: 1rem;
+}
+
+.btn {
+  border-radius: 50px;
+  padding: 1rem 2rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.btn-dark {
+  background-color: #111;
+  border-color: #111;
+}
+
+.btn-dark:hover {
+  background-color: #333;
+  border-color: #333;
+  transform: translateY(-2px);
+}
+
+/* Footer */
+footer {
+  background-color: #111;
+  color: #fff;
+}
+
+.footer-menu h5 {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.footer-menu p {
+  color: #ccc;
+  line-height: 1.6;
+}
+
+.footer-menu a {
+  color: #ccc;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer-menu a:hover {
+  color: #007bff;
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+}
+
+.menu-item {
+  margin-bottom: 0.5rem;
+}
+
+.social-links a {
+  color: #ccc;
+  transition: color 0.3s ease;
+}
+
+.social-links a:hover {
+  color: #007bff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .section-title {
+    font-size: 2rem;
+  }
+  
+  .navbar-nav {
+    text-align: center;
+    margin-top: 1rem;
+  }
+  
+  .product-image {
+    height: 250px;
+  }
+  
+  .category-content {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .section-title {
+    font-size: 1.5rem;
+  }
+  
+  .feature-icon {
+    font-size: 2rem;
+  }
+  
+  .element-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cat-item,
+.features .col-md-3 {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Utility Classes */
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.border-bottom {
+  border-bottom: 1px solid #dee2e6 !important;
+}
+
+.overflow-hidden {
+  overflow: hidden !important;
+}

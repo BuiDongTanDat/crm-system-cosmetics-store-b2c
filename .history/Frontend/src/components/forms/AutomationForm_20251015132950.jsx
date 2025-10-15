@@ -470,7 +470,7 @@ export default function AutomationForm({ mode = 'view', data, onSave, onDelete, 
                   Hủy
                 </Button>
                 
-                <Button onClick={() => handleSave('draft')} variant="actionUpdate" className="gap-2">
+                <Button onClick={() => handleSave('draft')} variant="outline" className="gap-2">
                   <Save className="w-4 h-4" />
                   Lưu nháp
                 </Button>
