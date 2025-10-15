@@ -1,0 +1,118 @@
+import React, { useState } from 'react';
+import './LandingPage.css';
+
+const LandingPage = () => {
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    notes: ''
+  });
+
+  const products = [
+    { id: 1, name: 'Phấn Mắt Ánh Kim', price: '299,000đ', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=300&h=300&fit=crop' },
+    { id: 2, name: 'Son Môi Lì', price: '199,000đ', image: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=300&h=300&fit=crop' },
+    { id: 3, name: 'Kem Nền Cao Cấp', price: '450,000đ', image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=300&h=300&fit=crop' },
+    { id: 4, name: 'Mascara Chống Thấm', price: '350,000đ', image: 'https://images.unsplash.com/photo-1631214540912-9c44beb64448?w=300&h=300&fit=crop' }
+  ];
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Form data:', formData);
+    alert('Cảm ơn bạn đã để lại thông tin!');
+    setShowForm(false);
+    setFormData({ name: '', email: '', phone: '', notes: '' });
+  };
+
+  return (
+    <div className="landing-page">
+      {/* Background Image */}
+      <div
+        className="background-overlay"
+        style={{
+          backgroundImage: 'url("/images/background/bg.jpg")',
+        }}
+      />
+      
+      <div className="header">
+        <h1>Cửa Hàng Của Chúng Tôi</h1>
+        <p>Khám phá những sản phẩm tuyệt vời</p>
+      </div>
+
+      <div className="main-content">
+        {/* Form Section - Left */}
+        <div className="form-section">
+          <h3>Thông Tin Liên Hệ</h3>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Họ và tên *</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Số điện thoại *</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Ghi chú</label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                rows="3"
+              />
+            </div>
+            <button type="submit" className="submit-button">
+              Gửi Thông Tin
+            </button>
+          </form>
+        </div>
+
+        {/* Products Section - Right */}
+        <div className="products-section">
+          <h2>Sản Phẩm Nổi Bật</h2>
+          <div className="products-grid">
+            {products.map(product => (
+              <div key={product.id} className="product-card">
+                <img src={product.image} alt={product.name} />
+                <h3>{product.name}</h3>
+                <p className="price">{product.price}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LandingPage;

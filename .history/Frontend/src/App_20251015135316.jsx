@@ -30,7 +30,6 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
 import AutomationPage from './pages/AutomationPage';
-import LandingPage from './landingPage/LandingPage';
 
 function App() {
 
@@ -175,10 +174,10 @@ function App() {
                   element={privateElement(<RolePage />)}
                 />
 
-                {/* LandingPage */}
+
                 <Route
-                  path="/landing"
-                  element={<LandingPage />}
+                  path="/roles"
+                  element={privateElement(<RolePage />)}
                 />
 
                 {/* Others routes */}

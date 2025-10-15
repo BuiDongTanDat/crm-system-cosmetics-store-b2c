@@ -178,7 +178,9 @@ function App() {
                 {/* LandingPage */}
                 <Route
                   path="/landing"
-                  element={<LandingPage />}
+                  element={
+                    <LandingPage />
+                 }
                 />
 
                 {/* Others routes */}
