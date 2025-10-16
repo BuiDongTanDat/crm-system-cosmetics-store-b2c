@@ -34,10 +34,4 @@
     "@API": "API",
     "@Application": "Application"
   }
-  "_moduleAliases": {
-    "@Domain": "Domain",
-    "@Infrastructure": "Infrastructure",
-    "@API": "API",
-    "@Application": "Application"
-  }
 }
