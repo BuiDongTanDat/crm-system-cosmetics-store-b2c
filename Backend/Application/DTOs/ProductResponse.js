@@ -12,6 +12,8 @@ class ProductResponseDTO {
     this.discount_percent = product.discount_percent;
     this.rating = product.rating;
     this.reviews_count = product.reviews_count;
+    this.monthly_sales = product.monthly_sales;
+    this.sell_progress = product.sell_progress;
     this.inventory_qty = product.inventory_qty;
     this.status = product.status;
     // handle both underscored and camelCase timestamp fields
@@ -26,13 +28,21 @@ class ProductListResponseDTO {
     this.name = product.name;
     this.brand = product.brand;
     this.category = product.category; // chỉ là string
+    this.short_description = product.short_description;
+    this.description = product.description;
     this.image = product.image;
     this.price_current = product.price_current;
     this.price_original = product.price_original;
     this.discount_percent = product.discount_percent;
     this.rating = product.rating;
-    this.status = product.status;
+    this.reviews_count = product.reviews_count;
+    this.monthly_sales = product.monthly_sales;
+    this.sell_progress = product.sell_progress;
     this.inventory_qty = product.inventory_qty;
+    this.status = product.status;
+    // handle both underscored and camelCase timestamp fields
+    this.created_at = product.created_at || product.createdAt;
+    this.updated_at = product.updated_at || product.updatedAt;
   }
 
   static fromEntities(products) {

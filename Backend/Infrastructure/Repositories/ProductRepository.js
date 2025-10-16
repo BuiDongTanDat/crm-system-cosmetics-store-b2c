@@ -16,7 +16,7 @@ class ProductRepository extends IProductRepository {
 
   // Tạo hoặc cập nhật sản phẩm
   async save(product) {
-    console.log('Product to save:', product);
+    //console.log('Product to save:', product);
     if (product && product.product_id) {
       const existingProduct = await Product.findByPk(product.product_id);
       if (existingProduct) {

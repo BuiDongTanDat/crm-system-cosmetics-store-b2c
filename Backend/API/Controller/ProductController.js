@@ -34,13 +34,15 @@ module.exports = {
   },
 
   async update(req, res) {
-    try {
-      const data = await productService.update(req.params.id, req.body);
-      res.json(data);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  },
+  console.log("👉 Body nhận được:", req.body);
+  console.log("👉 Params:", req.params);
+  try {
+    const data = await productService.update(req.params.id, req.body);
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+},
 
   async delete(req, res) {
     try {

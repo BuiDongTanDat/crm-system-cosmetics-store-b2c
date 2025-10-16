@@ -222,7 +222,7 @@ export default function CategoryPage() {
                                         <span className={getStatusBadge(category.status)}>{category.status}</span>
                                     </td>
                                     <td className="px-6 py-4 text-center w-36">
-                                        <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                        <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
                                             <Button
                                                 variant="actionRead"
                                                 size="icon"

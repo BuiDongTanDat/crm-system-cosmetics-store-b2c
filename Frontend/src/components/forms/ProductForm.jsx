@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
-import { Category, ProductStatus } from "@/lib/data";
+import { Edit, Save, Trash2 } from "lucide-react";
+import DropdownOptions from "@/components/ui/DropdownOptions";
+import { api } from "@/utils/api";
 
 export function ProductForm({
   mode = "view",
@@ -17,122 +12,244 @@ export function ProductForm({
   setMode,
 }) {
   const [form, setForm] = useState({});
+  const [categoryOptions, setCategoryOptions] = useState([]);
 
-  // Bảng ánh xạ key → nhãn tiếng Việt - cập nhật theo cấu trúc import
+  // ======= Nhãn tiếng Việt =======
   const LABELS = {
     name: "Tên sản phẩm",
     brand: "Thương hiệu",
-    currentPrice: "Giá hiện tại",
-    originalPrice: "Giá gốc",
-    discount: "Giảm giá",
-    image: "Ảnh",
-    productLink: "Link sản phẩm",
-    shortDescription: "Mô tả ngắn",
-    rating: "Đánh giá sao",
-    reviewCount: "Số lượt đánh giá",
-    monthlySales: "Mua/tháng",
-    salesProgress: "Tiến độ bán",
-    giftOffer: "Ưu đãi/Quà tặng",
-    source: "Nguồn",
-    currentPriceExtra: "Giá hiện tại_extra",
-    description: "Mô tả",
-    specifications: "Thông số",
-    usage: "HDSD",
-    ingredients: "Thành phần",
-    reviews: "Đánh giá",
+    short_description: "Mô tả ngắn",
+    description: "Mô tả chi tiết",
     category: "Danh mục",
+    image: "Ảnh sản phẩm (URL)",
+    price_current: "Giá hiện tại (VNĐ)",
+    price_original: "Giá gốc (VNĐ)",
+    discount_percent: "Giảm giá (%)",
+    rating: "Đánh giá (⭐)",
+    reviews_count: "Số lượt đánh giá",
+    monthly_sales: "Doanh số hàng tháng",
+    sell_progress: "Tiến độ bán hàng",
+    inventory_qty: "Số lượng tồn kho",
     status: "Trạng thái",
-    stock: "Tồn kho"
   };
 
+  // ======= Dropdown trạng thái =======
+  const STATUS_OPTIONS = [
+    { value: "AVAILABLE", label: "Còn hàng" },
+    { value: "OUT_OF_STOCK", label: "Hết hàng" },
+    { value: "DISCONTINUED", label: "Ngừng kinh doanh" },
+  ];
 
-  // Tạo object chứa tất cả key từ LABELS với giá trị mặc định
-  const DEFAULT_FIELDS = Object.keys(LABELS).reduce((acc, k) => {
-    acc[k] = "";
+  // ======= Default state =======
+  const DEFAULT_FIELDS = Object.keys(LABELS).reduce((acc, key) => {
+    acc[key] = "";
     return acc;
   }, {});
 
+  // ======= Load data =======
   useEffect(() => {
     if (data && Object.keys(data).length > 0) {
-      // Đơn giản hóa: chỉ set form = data, không cần mapping phức tạp
-      setForm({ ...DEFAULT_FIELDS, ...data });
+      setForm({
+        ...DEFAULT_FIELDS,
+        name: data.name ?? "",
+        brand: data.brand ?? "",
+        short_description: data.short_description ?? "",
+        description: data.description ?? "",
+        category: data.category ?? "",
+        image: data.image ?? "",
+        price_current: data.price_current?.toString() ?? "",
+        price_original: data.price_original?.toString() ?? "",
+        discount_percent: data.discount_percent?.toString() ?? "",
+        rating: data.rating?.toString() ?? "",
+        reviews_count: data.reviews_count?.toString() ?? "",
+        monthly_sales: data.monthly_sales ?? "",
+        sell_progress: data.sell_progress ?? "",
+        inventory_qty: data.inventory_qty?.toString() ?? "",
+        status: data.status ?? "AVAILABLE",
+      });
     } else if (mode === "add") {
-      setForm({ ...DEFAULT_FIELDS, status: "Hết hàng", stock: 0 });
+      setForm({
+        ...DEFAULT_FIELDS,
+        status: "AVAILABLE",
+        inventory_qty: "0",
+        discount_percent: "0",
+        rating: "0",
+        reviews_count: "0",
+      });
     } else {
       setForm({});
     }
   }, [data, mode]);
 
-  const handleChange = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  // fetch categories for category dropdown
+  useEffect(() => {
+    // Fetch ACTIVE categories and use the category name as the option value
+    // so existing products with category names (e.g. "Trang Điểm Môi") will match.
+    let cancelled = false;
+    (async () => {
+      try {
+        const { ok, data } = await api.getJson("/category");
+        if (!ok || !Array.isArray(data)) return;
+        if (cancelled) return;
+
+        const active = data.filter((c) => c && String(c.status) === "ACTIVE");
+        const opts = active.map((c) => ({
+          // use name as value so it matches product.category strings
+          value: c.name ?? String(c.category_id ?? c.id),
+          label: c.name ?? String(c.category_id ?? c.id),
+        }));
+
+        // If current product has a category name that isn't in the fetched list,
+        // add it so the dropdown can show the existing value.
+        if (data && typeof data !== "undefined" && (data.length >= 0)) {
+          const currentCat = data; // noop, keep linter quiet
+        }
+
+        // If the form already has a category (from data) and it's missing in opts, add it
+        const existingCatName = (typeof data === "undefined") ? undefined : undefined; // noop
+        // actual check: use the prop 'data' (product) available in outer scope
+        if (data && false) { /* keep structure - real logic below */ }
+
+        // Build final options and inject product category if needed
+        let finalOpts = [...opts];
+        if (typeof props !== "undefined") {
+          // no-op guard for static analysis; actual using outer-scope `data` and form below
+        }
+
+        // If the product passed to the form (prop 'data') has a category string and it's not present, add it
+        const prodCategory = (typeof data === "object" && data !== null) ? data.category : undefined;
+        if (prodCategory && !finalOpts.some((o) => String(o.value) === String(prodCategory))) {
+          finalOpts = [{ value: prodCategory, label: prodCategory }, ...finalOpts];
+        }
+
+        if (!cancelled) setCategoryOptions(finalOpts);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data]);
+
+  // ======= Handlers =======
+  const handleChange = (key) => (e) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const handleSubmit = () => {
-    // Validate với key tiếng Anh
-    if (!form.name || form.name.trim() === "") {
-      alert("Vui lòng nhập tên sản phẩm");
-      return;
-    }
+    if (!form.name?.trim()) return alert("Vui lòng nhập tên sản phẩm");
+    if (!form.brand?.trim()) return alert("Vui lòng nhập thương hiệu");
+    if (!form.category?.trim()) return alert("Vui lòng nhập danh mục");
+    if (!form.price_current || parseFloat(form.price_current) <= 0)
+      return alert("Giá hiện tại phải lớn hơn 0");
 
-    if (!form.brand || form.brand.trim() === "") {
-      alert("Vui lòng nhập thương hiệu");
-      return;
-    }
+    const payload = {
+      ...form,
+      price_current: parseFloat(form.price_current) || 0,
+      price_original: parseFloat(form.price_original) || 0,
+      discount_percent: parseFloat(form.discount_percent) || 0,
+      rating: parseFloat(form.rating) || 0,
+      reviews_count: parseInt(form.reviews_count) || 0,
+      inventory_qty: parseInt(form.inventory_qty) || 0,
+      // include product_id when editing so parent can PUT to the correct resource
+      ...(data?.product_id ? { product_id: data.product_id } : {}),
+    };
 
-    if (!form.currentPrice || parseFloat(form.currentPrice) <= 0) {
-      alert("Vui lòng nhập giá hiện tại hợp lệ");
-      return;
-    }
-
-    onSave(form);
+    onSave(payload);
   };
 
   const handleCancel = () => {
     if (mode === "add") {
-      setMode?.("close");
+      // prefer setMode if provided, otherwise fallback to calling setForm/data reset
+      if (setMode) {
+        setMode("close");
+      } else {
+        // fallback: reset form and attempt to close via parent onDelete/onSave patterns if any
+        setForm({});
+      }
     } else {
       setForm(data || {});
       setMode?.("view");
     }
   };
 
+  const longFields = ["short_description", "description", "image"];
+
+  // ======= Render =======
   return (
-    <div className="flex flex-col h-[60vh]">
+    <div className="flex flex-col h-[70vh]">
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Object.entries(form).map(([key, val]) => {
-            // Ẩn các field hệ thống
-            if (key === 'id') return null;
-
-            // Các trường dài chiếm full width
-            const isLongField = [
-              'description', 'specs', 'howToUse', 'ingredients', 'fullReview',
-              'shortDesc', 'productLink', 'giftOffer'
+          {Object.entries(LABELS).map(([key, label]) => {
+            const isNumeric = [
+              "price_current",
+              "price_original",
+              "discount_percent",
+              "rating",
+              "reviews_count",
+              "inventory_qty",
             ].includes(key);
 
-            const itemClass = isLongField ? "md:col-span-2" : "";
+            const isLong = longFields.includes(key);
+            const itemClass = isLong ? "md:col-span-2" : "";
+
+            // Combine category + status into one row so they appear side-by-side
+            if (key === "category") {
+              return (
+                <div key="category-status" className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Category */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{label}</label>
+                    <DropdownOptions
+                      options={categoryOptions}
+                      value={form.category}
+                      onChange={(val) => setForm((prev) => ({ ...prev, category: val }))}
+                      disabled={mode === "view"}
+                      placeholder="Chọn danh mục"
+                      width="w-full"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{LABELS.status}</label>
+                    <DropdownOptions
+                      options={STATUS_OPTIONS}
+                      value={form.status}
+                      onChange={(val) => setForm((prev) => ({ ...prev, status: val }))}
+                      disabled={mode === "view"}
+                      placeholder="Chọn trạng thái"
+                      width="w-full"
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            // Skip separate rendering for status since it's included with category
+            if (key === "status") return null;
 
             return (
               <div key={key} className={itemClass}>
-                <label className="block text-sm font-medium mb-1">
-                  {LABELS[key] || key}
-                </label>
-                {isLongField ? (
+                <label className="block text-sm font-medium mb-1">{label}</label>
+
+                {isLong ? (
                   <textarea
                     disabled={mode === "view"}
-                    value={val || ""}
+                    value={form[key] || ""}
                     onChange={handleChange(key)}
-                    rows={key === 'shortDesc' ? 2 : 4}
+                    rows={key === "short_description" ? 2 : 4}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50 resize-none"
-                    placeholder={`Nhập ${LABELS[key] || key}...`}
+                    placeholder={`Nhập ${label.toLowerCase()}...`}
                   />
                 ) : (
                   <input
                     disabled={mode === "view"}
-                    value={val || ""}
+                    value={form[key] || ""}
                     onChange={handleChange(key)}
-                    type={['currentPrice', 'originalPrice', 'currentPriceExtra', 'stock'].includes(key) ? 'number' : 'text'}
+                    type={isNumeric ? "number" : "text"}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
-                    placeholder={`Nhập ${LABELS[key] || key}...`}
+                    placeholder={`Nhập ${label.toLowerCase()}...`}
                   />
                 )}
               </div>
@@ -141,7 +258,7 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* Fixed Action Buttons */}
+      {/* ======= Footer Buttons ======= */}
       <div className="border-t bg-white p-6 flex-shrink-0">
         <div className="flex justify-end gap-3">
           {mode === "view" ? (
@@ -150,7 +267,10 @@ export function ProductForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
+              <Button
+                variant="actionDelete"
+                onClick={() => onDelete?.(data?.product_id)}
+              >
                 <Trash2 className="w-4 h-4" />
                 Xóa
               </Button>

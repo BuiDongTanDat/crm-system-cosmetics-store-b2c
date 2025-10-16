@@ -1,243 +1,260 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Package, Search, Plus, Edit, Trash2, Eye, Filter, Grid, List, Star, Square } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Edit, Trash2, Eye, Filter, List, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/cards/ProductCard';
 import AppDialog from '@/components/dialogs/AppDialog';
 import ProductForm from '@/components/forms/ProductForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
-import { sampleProducts, Category } from '@/lib/data';
+import { api } from '@/utils/api';
+import DropdownOptions from '@/components/ui/DropdownOptions';
 
 export default function ProductPage() {
-  const [products, setProducts] = useState(sampleProducts);
+  const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const [modal, setModal] = useState({ open: false, mode: 'view', product: null });
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState('card'); // 'card' hoặc 'list'
+  const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
   const productsPerPage = 8;
 
-  // Field mapping for CSV export/import
+  // Mapping CSV <-> API fields
   const productFieldMapping = {
-    name: "Tên sản phẩm",
-    brand: "Thương hiệu",
-    currentPrice: "Giá hiện tại",
-    originalPrice: "Giá gốc",
-    discount: "Giảm giá",
-    image: "Ảnh",
-    productLink: "Link sản phẩm",
-    shortDescription: "Mô tả ngắn",
-    rating: "Đánh giá sao",
-    reviewCount: "Số lượt đánh giá",
-    monthlySales: "Mua/tháng",
-    salesProgress: "Tiến độ bán",
-    giftOffer: "Ưu đãi/Quà tặng",
-    source: "Nguồn",
-    currentPriceExtra: "Giá hiện tại_extra",
-    description: "Mô tả",
-    specifications: "Thông số",
-    usage: "HDSD",
-    ingredients: "Thành phần",
-    reviews: "Đánh giá"
+    name: 'Tên sản phẩm',
+    brand: 'Thương hiệu',
+    category: 'Danh mục',
+    short_description: 'Mô tả ngắn',
+    description: 'Mô tả chi tiết',
+    image: 'Ảnh',
+    price_current: 'Giá hiện tại',
+    price_original: 'Giá gốc',
+    discount_percent: 'Giảm giá (%)',
+    rating: 'Đánh giá',
+    reviews_count: 'Số lượt đánh giá',
+    monthly_sales: 'Doanh số hàng tháng',
+    sell_progress: 'Tiến độ bán hàng',
+    inventory_qty: 'Tồn kho',
+    status: 'Trạng thái',
   };
 
+  const STATUS_FILTER_OPTIONS = [
+    { value: 'all', label: 'Tất cả' },
+    { value: 'AVAILABLE', label: 'Còn hàng' },
+    { value: 'OUT_OF_STOCK', label: 'Hết hàng' },
+    { value: 'DISCONTINUED', label: 'Ngừng kinh doanh' },
+  ];
 
+  //Lấy danh sách sản phẩm
+  const fetchProducts = async () => {
+    try {
+      const { ok, data } = await api.getJson('/product');
+      if (ok) {
+        const normalized = (Array.isArray(data) ? data : []).map(item => ({
+          product_id: item.product_id,
+          name: item.name,
+          brand: item.brand,
+          category: item.category,
+          short_description: item.short_description,
+          description: item.description,
+          image: item.image,
+          price_current: Number(item.price_current ?? 0),
+          price_original: Number(item.price_original ?? 0),
+          discount_percent: Number(item.discount_percent ?? 0),
+          rating: Number(item.rating ?? 0),
+          reviews_count: Number(item.reviews_count ?? 0),
+          monthly_sales: item.monthly_sales ?? "",
+          sell_progress: item.sell_progress ?? "",
+          inventory_qty: Number(item.inventory_qty ?? 0),
+          status: item.status
+        }));
 
-  // Filtered products
-  const filtered = products.filter(p => {
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch = !term || p.name.toLowerCase().includes(term) || p.description.toLowerCase().includes(term);
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+        // Sort to keep deterministic ordering after CRUD
+        normalized.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  // Pagination
-  useEffect(() => setCurrentPage(1), [searchTerm, selectedCategory]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage));
-  const indexOfLast = currentPage * productsPerPage;
-  const indexOfFirst = indexOfLast - productsPerPage;
-  const currentProducts = filtered.slice(indexOfFirst, indexOfLast);
+        setProducts(normalized);
+        return normalized; // <-- return list for callers
+      } else {
+        alert('Không thể tải danh sách sản phẩm.');
+        return [];
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      alert('Lỗi kết nối server.');
+      return [];
+    }
+  };
 
-  // Handlers
-  const openView = (p) => setModal({ open: true, mode: 'view', product: p });
-  const openEdit = (p) => setModal({ open: true, mode: 'edit', product: p });
+  // fetch categories for filter dropdown
+  const fetchCategoriesForFilter = async () => {
+    try {
+      const { ok, data } = await api.getJson('/category');
+      if (!ok || !Array.isArray(data)) return;
+      const active = data.filter((c) => c && String(c.status) === 'ACTIVE');
+      const opts = [{ value: 'all', label: 'Tất cả' }, ...active.map((c) => ({
+        value: c.name ?? String(c.category_id ?? c.id),
+        label: c.name ?? String(c.category_id ?? c.id),
+      }))];
+      setCategoryOptions(opts);
+    } catch (err) {
+      console.error('Failed to load category filter options:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategoriesForFilter();
+  }, []);
+
+  // Xử lý Import CSV
+  const handleImportSuccess = async (importedData) => {
+    try {
+      const rows = Array.isArray(importedData)
+        ? importedData
+        : importedData?.data
+          ? importedData.data
+          : [importedData];
+
+      if (!Array.isArray(rows) || rows.length === 0)
+        throw new Error('Dữ liệu nhập không hợp lệ hoặc rỗng.');
+
+      const cleanNumber = (val) =>
+        val ? Number(val.toString().replace(/[^\d.-]/g, '')) || 0 : 0;
+
+      const getField = (vi, en, def = '') => (rows[0][vi] ?? rows[0][en] ?? def);
+
+      const processed = rows.map((item) => ({
+        product_id: item.product_id || crypto.randomUUID(),
+        name: item['Tên sản phẩm'] ?? item.name ?? '',
+        brand: item['Thương hiệu'] ?? item.brand ?? '',
+        category: item['Danh mục'] ?? item.category ?? '',
+        short_description: item['Mô tả ngắn'] ?? item.short_description ?? '',
+        description: item['Mô tả chi tiết'] ?? item.description ?? '',
+        image: item['Ảnh'] ?? item.image ?? '',
+        price_current: cleanNumber(item['Giá hiện tại'] ?? item.price_current),
+        price_original: cleanNumber(item['Giá gốc'] ?? item.price_original),
+        discount_percent: cleanNumber(item['Giảm giá (%)'] ?? item.discount_percent),
+        rating: parseFloat(item['Đánh giá'] ?? item.rating) || 0,
+        reviews_count: parseInt(item['Số lượt đánh giá'] ?? item.reviews_count) || 0,
+        inventory_qty: parseInt(item['Tồn kho'] ?? item.inventory_qty) || 0,
+        status: item['Trạng thái'] ?? item.status ?? 'AVAILABLE'
+      }));
+
+      const validProducts = processed.filter((p) => p.name);
+      if (!validProducts.length) throw new Error('Không có dữ liệu hợp lệ trong file.');
+
+      // Gửi dữ liệu lên server (tùy API)
+      for (const p of validProducts) {
+        await api.postJson('/product', p);
+      }
+
+      // success: no alert per request
+      await fetchProducts();
+    } catch (err) {
+      console.error('Lỗi xử lý import:', err);
+      alert(`Lỗi khi nhập CSV: ${err.message}`);
+    }
+  };
+
+  const handleImportError = (msg) => alert(`Lỗi nhập file: ${msg}`);
+
+  // CRUD handlers
   const openAdd = () => setModal({ open: true, mode: 'add', product: null });
+  const openEdit = (p) => setModal({ open: true, mode: 'edit', product: p });
+  const openView = (p) => setModal({ open: true, mode: 'view', product: p });
   const closeModal = () => setModal({ open: false, mode: 'view', product: null });
 
-  const handleSave = (prod) => {
-    if (modal.mode === 'add') {
-      const newProd = { ...prod, id: Date.now() };
-      setProducts(prev => [newProd, ...prev]);
-      closeModal();
-    } else if (modal.mode === 'edit') {
-      const updatedProd = { ...modal.product, ...prod };
-      setProducts(prev => prev.map(p => p.id === updatedProd.id ? updatedProd : p));
-
-      setModal(prev => ({
-        ...prev,
-        mode: 'view',
-        product: updatedProd
-      }));
-    }
-  };
-
-  const handleDelete = (id) => {
-    if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-      setProducts(prev => prev.filter(p => p.id !== id));
-      closeModal();
-    }
-  };
-
-  // Import/Export handlers
-  const handleImportSuccess = (importedData) => {
+  const handleSave = async (prod) => {
     try {
-      console.log('Raw importedData:', importedData);
+      if (modal.mode === 'add') {
+        const { ok } = await api.postJson('/product', prod);
+        if (ok) {
+           await fetchProducts();
+           closeModal();
+        }
+      } else if (modal.mode === 'edit' && modal.product) {
+        // ensure we target the correct id
+        const id = modal.product.product_id || prod.product_id;
+        const { ok } = await api.putJson(`/product/${id}`, prod);
+        if (ok) {
+          // refresh list and get the updated product
+          const updatedList = await fetchProducts();
+          const updatedProduct =
+            updatedList.find((p) => p.product_id === id) || { ...modal.product, ...prod };
 
-      // Lấy dữ liệu từ importedData
-      const rows = Array.isArray(importedData) ? importedData :
-        importedData?.data ? importedData.data :
-          [importedData];
+          // Này đã xóa code alert thông báo thành công
 
-      console.log(' Processed rows:', rows);
-
-      if (!Array.isArray(rows) || rows.length === 0) {
-        throw new Error("Dữ liệu nhập không hợp lệ hoặc rỗng");
+          // Trở về chế độ xem với dữ liệu mới
+          setModal({ open: true, mode: 'view', product: updatedProduct });
+        }
       }
-
-      // Log header của file CSV để debug
-      if (rows.length > 0) {
-        console.log('CSV Headers:', Object.keys(rows[0]));
-        console.log('Expected mapping:', productFieldMapping);
-      }
-
-      const processedProducts = rows.map((item, index) => {
-        console.log(`Processing item ${index + 1}:`, item);
-
-        const cleanNumber = (val) => {
-          if (!val) return 0;
-          // Chuyển dấu ',' thành '' để parse chính xác
-          let str = val.toString().trim()
-            .replace(/\./g, '')   // loại bỏ dấu chấm phân cách nghìn
-            .replace(/,/g, '')    // loại bỏ dấu phẩy
-            .replace(/[^\d.-]/g, ''); // loại bỏ ký tự khác
-
-          if (str === '') return 0;
-
-          return Number(str);
-        };
-
-
-        const getFieldValue = (csvField, englishField, defaultValue = '') => {
-          // Thử cả Vietnamese và English field names
-          return item[csvField] ?? item[englishField] ?? defaultValue;
-        };
-
-        // Chuyển đổi dữ liệu CSV tiếng Việt sang key tiếng Anh
-        const newProduct = {
-          id: Math.max(...products.map(p => p.id), 0) + index + 1,
-          name: getFieldValue("Tên sản phẩm", "name"),
-          brand: getFieldValue("Thương hiệu", "brand"),
-          currentPrice: cleanNumber(getFieldValue("Giá hiện tại", "currentPrice")),
-          originalPrice: cleanNumber(getFieldValue("Giá gốc", "originalPrice")),
-          discount: getFieldValue("Giảm giá", "discount"),
-          image: getFieldValue("Ảnh", "image"),
-          productLink: getFieldValue("Link sản phẩm", "productLink"),
-          shortDescription: getFieldValue("Mô tả ngắn", "shortDescription"),
-          rating: parseFloat(getFieldValue("Đánh giá sao", "rating")) || 0,
-          reviewCount: parseInt(getFieldValue("Số lượt đánh giá", "reviewCount")) || 0,
-          monthlySales: getFieldValue("Mua/tháng", "monthlySales"),
-          salesProgress: getFieldValue("Tiến độ bán", "salesProgress"),
-          giftOffer: getFieldValue("Ưu đãi/Quà tặng", "giftOffer"),
-          source: getFieldValue("Nguồn", "source"),
-          currentPriceExtra: getFieldValue("Giá hiện tại_extra", "currentPriceExtra"),
-          description: getFieldValue("Mô tả", "description"),
-          specifications: getFieldValue("Thông số", "specifications"),
-          usage: getFieldValue("HDSD", "usage"),
-          ingredients: getFieldValue("Thành phần", "ingredients"),
-          reviews: getFieldValue("Đánh giá", "reviews"),
-          category: getFieldValue("Danh mục", "category", "Son môi"),
-          status: getFieldValue("Trạng thái", "status", "Còn hàng"),
-          stock: parseInt(getFieldValue("Tồn kho", "stock")) || 0
-        };
-
-
-        console.log(`Processed product ${index + 1}:`, newProduct);
-        return newProduct;
-      });
-
-      console.log(' All processed products:', processedProducts);
-
-      // Kiểm tra xem có sản phẩm nào được xử lý thành công không
-      const validProducts = processedProducts.filter(p => p.name && p.name !== `Sản phẩm ${processedProducts.indexOf(p) + 1}`);
-
-      if (validProducts.length === 0) {
-        throw new Error("Không tìm thấy dữ liệu sản phẩm hợp lệ. Vui lòng kiểm tra format file CSV.");
-      }
-
-      setProducts(prev => [...prev, ...processedProducts]);
-      alert(`Đã nhập thành công ${processedProducts.length} sản phẩm!\nSố sản phẩm có tên hợp lệ: ${validProducts.length}`);
-
-    } catch (error) {
-      console.error('Lỗi xử lý dữ liệu nhập:', error);
-      console.error('Error stack:', error.stack);
-      alert(`Có lỗi xảy ra khi xử lý dữ liệu nhập: ${error.message}\nVui lòng kiểm tra console để biết thêm chi tiết.`);
+      // Không tắt model ở chỗ này nha, code cũ có closeModal() ở đây
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Lỗi khi lưu sản phẩm!');
     }
   };
 
-
-
-  const handleImportError = (errorMessage) => {
-    alert(`Lỗi nhập file: ${errorMessage}`);
+  const handleDelete = async (id) => {
+    if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+    try {
+      const { ok } = await api.deleteJson(`/product/${id}`);
+      if (ok) {
+        // success: no alert
+        await fetchProducts();
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert(' Lỗi khi xóa sản phẩm!');
+    }
   };
 
-  // Pagination handlers
-  const handleNext = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  const handlePrev = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  const handlePageChange = (page) => setCurrentPage(page);
+  // Lọc và phân trang
+  const filtered = products.filter((p) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term || p.name.toLowerCase().includes(term);
+    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
-  // Helper functions for status and category badges
-  const getStatusBadge = (status) => {
-    const baseClass = "px-2 py-1 text-xs font-medium w-[100px] text-center inline-block";
-    return (status || '').includes('available') || (status || '').includes('Còn hàng')
-      ? `${baseClass} text-green-800`
-      : `${baseClass} text-red-800`;
-  };
+  useEffect(() => setCurrentPage(1), [searchTerm, selectedCategory, statusFilter]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage));
+  const currentProducts = filtered.slice(
+    (currentPage - 1) * productsPerPage,
+    currentPage * productsPerPage
+  );
 
-  const getCategoryBadge = (category) => {
-    const baseClass = "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block";
-    const colorMap = {
-      "Son môi": "bg-pink-100 text-pink-800",
-      "Kem dưỡng": "bg-blue-100 text-blue-800",
-      "Serum": "bg-purple-100 text-purple-800",
-      "Toner": "bg-green-100 text-green-800"
-    };
-    return `${baseClass} ${colorMap[category] || "bg-gray-100 text-gray-800"}`;
-  };
+  const handlePageChange = (p) => setCurrentPage(p);
+  const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
+  const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));
+
+  //Lấy màu badge trạng thái
+  const getStatusBadge = (status) =>
+    status === 'AVAILABLE'
+      ? 'px-2 py-1 text-xs font-medium text-success   rounded w-[100px] text-center inline-block bg-green-100'
+      : 'px-2 py-1 text-xs font-medium text-destructive rounded w-[100px] text-center inline-block bg-red-100';
 
   return (
     <div className="p-0">
-      {/* Header theo hình */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">
             Danh sách sản phẩm ({filtered.length})
           </h1>
-          {/* View Mode Toggle */}
-          <div className="flex gap-1  overflow-hidden">
+          <div className="flex gap-1">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
-             
               onClick={() => setViewMode('card')}
-              
             >
               <Square className="w-4 h-4" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
-              
               onClick={() => setViewMode('list')}
-              
             >
               <List className="w-4 h-4" />
             </Button>
@@ -251,27 +268,33 @@ export default function ProductPage() {
             <input
               type="text"
               placeholder="Tìm kiếm..."
-              className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+              className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          
+          {/* Category filter */}
+          <DropdownOptions
+            options={categoryOptions}
+            value={selectedCategory}
+            onChange={(val) => setSelectedCategory(val)}
+            width="w-48"
+            placeholder="Danh mục"
+          />
+          {/* Status filter */}
+          <DropdownOptions
+            options={STATUS_FILTER_OPTIONS}
+            value={statusFilter}
+            onChange={(val) => setStatusFilter(val)}
+            width="w-40"
+            placeholder="Trạng thái"
+          />
 
-          {/* Filter */}
-          <Button variant="actionNormal" className="gap-2">
-            <Filter className="w-5 h-5" />
-            Lọc
-          </Button>
-
-          {/* Add Product */}
           <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Thêm SP
+            <Plus className="w-4 h-4" /> Thêm SP
           </Button>
 
-          {/* Import/Export Dropdown */}
           <ImportExportDropdown
             data={products}
             filename="products"
@@ -284,136 +307,104 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* Conditional Rendering based on viewMode */}
+      {/* View Mode */}
       {viewMode === 'card' ? (
-        /* Products grid - 4 columns */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {currentProducts.map(p => (
-            <div key={p.id}>
-              <ProductCard
-                product={p}
-                onView={openView}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            </div>
+          {currentProducts.map((p) => (
+            <ProductCard
+              key={p.product_id}
+              product={p}
+              onView={openView}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       ) : (
-        /* Products table - list view */
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px]">
               <thead className="bg-gray-50">
                 <tr>
                   {[
-                    "Sản phẩm",
-                    "Thương hiệu", 
-                    "Giá hiện tại",
-                    "Giá gốc",
-                    "Đánh giá",
-                    "Danh mục",
-                    "Trạng thái",
-                    ""
-                  ].map((header) => (
+                    'Sản phẩm',
+                    'Thương hiệu',
+                    'Giá hiện tại',
+                    'Giá gốc',
+                    'Giảm (%)',
+                    'Tồn kho',
+                    'Đánh giá',
+                    'Trạng thái',
+                    ''
+                  ].map((h) => (
                     <th
-                      key={header}
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      key={h}
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase"
                     >
-                      {header}
+                      {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentProducts.map((product) => (
+                {currentProducts.map((p) => (
                   <tr
-                    key={product.id}
-                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(product.id)}
+                    key={p.product_id}
+                    onMouseEnter={() => setHoveredRow(p.product_id)}
                     onMouseLeave={() => setHoveredRow(null)}
+                    className="hover:bg-gray-50 transition"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <div className="flex items-center">
                         <img
-                          src={product.image || '/images/products/product_temp.png'}
-                          alt={product.name}
-                          className="w-10 h-10 rounded object-cover mr-3"
-                          onError={(e) => {
-                            e.target.src = '/images/products/product_temp.png'
-                          }}
+                          src={p.image || '/images/products/product_temp.png'}
+                          alt={p.name}
+                          className="w-10 h-10 rounded mr-3"
                         />
                         <div>
-                          <div className="text-sm font-medium text-gray-900 max-w-[200px] truncate">
-                            {product.name}
+                          <div className="font-medium text-gray-900 truncate max-w-[180px]">
+                            {p.name}
                           </div>
-                          <div className="text-xs text-gray-500 max-w-[200px] truncate">
-                            {product.shortDescription || product.description}
+                          <div className="text-xs text-gray-500 truncate max-w-[180px]">
+                            {p.short_description}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{product.brand}</div>
+                    <td className="text-center text-sm text-gray-800">{p.brand}</td>
+                    <td className="text-center font-semibold">
+                      {p.price_current.toLocaleString('vi-VN')}₫
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="text-sm font-semibold text-gray-900">
-                        {Number(product.currentPrice || 0).toLocaleString('vi-VN')} VNĐ
-                      </div>
+                    <td className="text-center text-gray-500 line-through">
+                      {p.price_original ? p.price_original.toLocaleString('vi-VN') + '₫' : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="text-sm text-gray-500 line-through">
-                        {product.originalPrice && product.originalPrice > 0 
-                          ? `${Number(product.originalPrice).toLocaleString('vi-VN')} VNĐ`
-                          : '-'
-                        }
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className=" text-sm text-yellow-500">
-                        {product.rating || 0}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={getCategoryBadge(product.category)}>
-                        {product.category || 'Chưa phân loại'}
+                    <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
+                    <td className="text-center text-sm">{p.inventory_qty}</td>
+                    <td className="text-center text-yellow-500">{p.rating}</td>
+                    <td className="text-center">
+                      <span className={getStatusBadge(p.status)}>
+                        {p.status === 'AVAILABLE'
+                          ? 'Còn hàng'
+                          : p.status === 'OUT_OF_STOCK'
+                            ? 'Hết hàng'
+                            : 'Ngừng kinh doanh'}
+
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                      <span className={getStatusBadge(product.status)}>
-                        {product.status || 'Đang bán'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center w-36">
+                    <td className="text-center w-36">
                       <div
-                        className={`flex justify-center gap-1 transition-all duration-200 ${
-                          hoveredRow === product.id
-                            ? "opacity-100 translate-y-0 pointer-events-auto"
-                            : "opacity-0 translate-y-1 pointer-events-none"
-                        }`}
+                        className={`flex justify-center gap-1  ${hoveredRow === p.product_id
+                          ? 'opacity-100 animate-fade-in duration-200'
+                          : 'opacity-0 pointer-events-none '
+                          }`}
                       >
-                        <Button
-                          variant="actionRead"
-                          size="icon"
-                          onClick={() => openView(product)}
-                          className="h-8 w-8"
-                        >
+                        <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="actionUpdate"
-                          size="icon"
-                          onClick={() => openEdit(product)}
-                          className="h-8 w-8"
-                        >
+                        <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="actionDelete"
-                          size="icon"
-                          onClick={() => handleDelete(product.id)}
-                          className="h-8 w-8"
-                        >
+                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(p.product_id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -426,26 +417,38 @@ export default function ProductPage() {
         </div>
       )}
 
-      {/* Pagination */}
       <AppPagination
         totalPages={totalPages}
         currentPage={currentPage}
-        handlePageChange={handlePageChange}
         handleNext={handleNext}
         handlePrev={handlePrev}
+        handlePageChange={handlePageChange}
       />
 
-      {/* Modal Popup */}
       <AppDialog
         open={modal.open}
         onClose={closeModal}
         title={{
           view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
-          edit: modal.product ? `Chỉnh sửa sản phẩm - ${modal.product.name}` : 'Thêm sản phẩm mới',
+          edit: modal.product
+            ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
+            : 'Thêm sản phẩm mới',
           add: 'Thêm sản phẩm mới'
         }}
         mode={modal.mode}
-        FormComponent={ProductForm}
+        /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
+        FormComponent={(props) => (
+          <ProductForm
+            {...props}
+            setMode={(m) => {
+              if (m === 'close') {
+                setModal({ open: false, mode: 'view', product: null });
+              } else {
+                setModal((prev) => ({ ...prev, mode: m }));
+              }
+            }}
+          />
+        )}
         data={modal.product}
         onSave={handleSave}
         onDelete={handleDelete}

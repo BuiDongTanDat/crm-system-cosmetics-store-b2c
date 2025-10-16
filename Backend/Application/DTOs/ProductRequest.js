@@ -41,7 +41,7 @@ class UpdateProductRequestDTO {
     product_id,
     name,
     brand,
-    category, // string
+    category,
     short_description,
     description,
     image,
@@ -75,6 +75,7 @@ class UpdateProductRequestDTO {
     this.status_updated_at = status_updated_at;
   }
 }
+
 
 class ImportCSVRequestDTO {
   constructor({ filePath, source }) {

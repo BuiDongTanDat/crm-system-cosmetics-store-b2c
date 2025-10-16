@@ -90,8 +90,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
               items-center justify-center gap-2
               bg-white
               transition-opacity duration-200
-              animate-fade-in
-            "
+              animate-slide-up            "
           >
             <Button
               variant="actionRead"
