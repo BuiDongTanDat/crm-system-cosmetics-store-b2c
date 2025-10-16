@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from app.routers.ai_routes import router as ai_router
 
-app = FastAPI(title="AI Service")
+app = FastAPI(title="CRM AI Service", version="1.0.0")
+app.include_router(ai_router)
 
-app.include_router(ai_router, prefix="/ai")
-
-@app.get("/")
-def root():
-    return {"message": "AI Service is running!"}
+@app.get("/health")
+def health():
+    return {"status": "ok"}

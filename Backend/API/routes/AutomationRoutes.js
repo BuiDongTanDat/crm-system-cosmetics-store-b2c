@@ -10,12 +10,11 @@ const AutomationActionController = require('../Controller/AutomationActionContro
 // FLOW
 router.post('/flows', AutomationFlowController.create);
 router.get('/flows', AutomationFlowController.list);
-router.get('/flows/:flow_id', AutomationFlowController.get);
 router.patch('/flows/:flow_id', AutomationFlowController.update);
 router.delete('/flows/:flow_id', AutomationFlowController.remove);
 router.post('/flows/:flow_id/enable', AutomationFlowController.enable);
 router.post('/flows/:flow_id/disable', AutomationFlowController.disable);
-// router.get('/flows/:flow_id/detail', AutomationFlowController.detail);
+router.get('/flows/:flow_id', AutomationFlowController.getFlow);
 
 // Validate & chuyển trạng thái
 router.post('/flows/:flow_id/validate', AutomationFlowController.validate);     // kiểm tra cấu hình

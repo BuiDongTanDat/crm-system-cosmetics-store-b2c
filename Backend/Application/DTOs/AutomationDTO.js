@@ -140,11 +140,11 @@ class AutomationFlowResponseDTO {
     this.created_at = flow.created_at;
     this.updated_at = flow.updated_at;
     this.triggersid = flow.triggers; // mảng trigger_id
-    this.actionsid  = flow.actions;  // mảng action_id
+    this.actionsid = flow.actions;  // mảng action_id
     const trigList = Array.isArray(flow.triggers) ? flow.triggers : [];
-    const actList  = Array.isArray(flow.actions)  ? flow.actions  : [];
+    const actList = Array.isArray(flow.actions) ? flow.actions : [];
     this.triggers = trigList.map(t => new TriggerResponseDTO(t));
-    this.actions  = actList.map(a => new ActionResponseDTO(a));
+    this.actions = actList.map(a => new ActionResponseDTO(a));
   }
 }
 
@@ -182,16 +182,17 @@ class FlowDetailResponseDTO {
   }
 }
 
-/* ---------- SaveEditor / Publish — NO validate ---------- */
 
 class SaveEditorRequestDTO {
   static from(body = {}) {
-    // Nếu client đã gửi đúng format cũ -> giữ nguyên (có ép kiểu nhẹ)
-    if (body.upserts || body.deletes || body.flow_meta) {
+    const hasFullStructure = !!(body.upserts || body.deletes || body.flow_meta);
+
+    if (hasFullStructure) {
       const flow_meta = asObject(body.flow_meta, {});
       const upserts = asObject(body.upserts, {});
       const deletes = asObject(body.deletes, {});
-      return {
+
+      const dto = {
         flow_meta: stripNullish({
           name: asString(flow_meta?.name),
           description: asString(flow_meta?.description),
@@ -199,65 +200,89 @@ class SaveEditorRequestDTO {
         }),
         upserts: {
           triggers: Array.isArray(upserts?.triggers)
-            ? upserts.triggers.map(t => stripNullish({
+            ? upserts.triggers.map((t) =>
+              stripNullish({
                 trigger_id: asString(t.trigger_id),
                 event_type: asString(t.event_type) || 'event',
                 is_active: asBool(t.is_active, true),
                 conditions: asObject(t.conditions, {}),
-              }))
+              })
+            )
             : [],
           actions: Array.isArray(upserts?.actions)
-            ? upserts.actions.map(a => stripNullish({
+            ? upserts.actions.map((a) =>
+              stripNullish({
                 action_id: asString(a.action_id),
                 trigger_id: asString(a.trigger_id),
                 action_type: asString(a.action_type) || 'custom',
                 channel: asString(a.channel),
-                // chấp nhận cả content (format cũ) và action_config (format mới)
+                // chấp nhận cả content (cũ) và action_config (mới)
                 content: asObject(a.content, asObject(a.action_config, {})) || {},
-                delay_minutes: Number.isInteger(a.delay_minutes) ? a.delay_minutes
-                              : parseInt(a.delay_minutes, 10) || 0,
+                delay_minutes: Number.isInteger(a.delay_minutes)
+                  ? a.delay_minutes
+                  : Number.isFinite(parseInt(a.delay_minutes, 10))
+                    ? parseInt(a.delay_minutes, 10)
+                    : 0,
                 order_index: Number.isInteger(a.order_index) ? a.order_index : 0,
                 branch_key: asString(a.branch_key, null),
                 status: asString(a.status) || 'pending',
-              }))
+              })
+            )
             : [],
         },
         deletes: {
           trigger_ids: Array.isArray(deletes?.trigger_ids) ? deletes.trigger_ids.map(String) : [],
           action_ids: Array.isArray(deletes?.action_ids) ? deletes.action_ids.map(String) : [],
-        }
+        },
       };
+
+      // Cờ thay đổi (autosave): có gì trong upserts/deletes là true
+      dto.isNewRecord =
+        dto.upserts.triggers.length > 0 ||
+        dto.upserts.actions.length > 0 ||
+        dto.deletes.trigger_ids.length > 0 ||
+        dto.deletes.action_ids.length > 0;
+
+      return dto;
     }
 
-    // Nếu client gửi format RÚT GỌN (chỉ có triggers/actions) -> tự bọc vào upserts
+    // ---- FORMAT RÚT GỌN (triggers/actions ở root) ----
     const triggers = Array.isArray(body.triggers) ? body.triggers : [];
-    const actions  = Array.isArray(body.actions)  ? body.actions  : [];
+    const actions = Array.isArray(body.actions) ? body.actions : [];
 
-    const normTriggers = triggers.map(t => stripNullish({
-      trigger_id: asString(t.trigger_id),
-      event_type: asString(t.event_type) || 'event',
-      is_active: asBool(t.is_active, true),
-      conditions: asObject(t.conditions, {}),
-    }));
+    const normTriggers = triggers.map((t) =>
+      stripNullish({
+        trigger_id: asString(t.trigger_id),
+        event_type: asString(t.event_type) || 'event',
+        is_active: asBool(t.is_active, true),
+        conditions: asObject(t.conditions, {}),
+      })
+    );
 
-    const normActions = actions.map(a => stripNullish({
-      action_id: asString(a.action_id),
-      trigger_id: asString(a.trigger_id),
-      action_type: asString(a.action_type) || 'custom',
-      channel: asString(a.channel),
-      content: asObject(a.action_config, asObject(a.content, {})) || {},
-      delay_minutes: Number.isInteger(a.delay_minutes) ? a.delay_minutes
-                    : parseInt(a.delay_minutes, 10) || 0,
-      order_index: Number.isInteger(a.order_index) ? a.order_index : 0,
-      branch_key: asString(a.branch_key, null),
-      status: asString(a.status) || 'pending',
-    }));
-
-    return {
+    const normActions = actions.map((a) =>
+      stripNullish({
+        action_id: asString(a.action_id),
+        trigger_id: asString(a.trigger_id),
+        action_type: asString(a.action_type) || 'custom',
+        channel: asString(a.channel),
+        content: asObject(a.action_config, asObject(a.content, {})) || {},
+        delay_minutes: Number.isInteger(a.delay_minutes)
+          ? a.delay_minutes
+          : Number.isFinite(parseInt(a.delay_minutes, 10))
+            ? parseInt(a.delay_minutes, 10)
+            : 0,
+        order_index: Number.isInteger(a.order_index) ? a.order_index : 0,
+        branch_key: asString(a.branch_key, null),
+        status: asString(a.status) || 'pending',
+      })
+    );
+    const dto = {
       flow_meta: {},
       upserts: { triggers: normTriggers, actions: normActions },
       deletes: { trigger_ids: [], action_ids: [] },
     };
+    dto.isNewRecord = normTriggers.length > 0 || normActions.length > 0;
+    return dto;
   }
 }
 

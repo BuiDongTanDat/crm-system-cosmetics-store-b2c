@@ -2,6 +2,9 @@ const { Op } = require('sequelize');
 const Lead = require('../../Domain/Entities/Lead'); // file Model.init kiểu Product bạn đã làm
 
 class LeadRepository {
+  async create(leadData) {
+    return await Lead.create(leadData);
+  }
   // Lấy lead theo ID
   async findById(leadId) {
     return await Lead.findByPk(leadId);
@@ -52,9 +55,9 @@ class LeadRepository {
       where: {
         [Op.or]: [
           { full_name: { [Op.iLike]: `%${q}%` } },
-          { email:     { [Op.iLike]: `%${q}%` } },
-          { phone:     { [Op.iLike]: `%${q}%` } },
-          { notes:     { [Op.iLike]: `%${q}%` } },
+          { email: { [Op.iLike]: `%${q}%` } },
+          { phone: { [Op.iLike]: `%${q}%` } },
+          { notes: { [Op.iLike]: `%${q}%` } },
         ]
       },
       order: [['updated_at', 'DESC']],
