@@ -31,6 +31,7 @@ import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
 import AutomationPage from './pages/AutomationPage';
 import LandingPage from './landingPage/LandingPage';
+import FlowEditorPage from './pages/FlowEditorPage';
 import CategoryPage from './pages/CategoryPage';
 
 function App() {
@@ -193,7 +194,10 @@ function App() {
                   path="/settings"
                   element={privateElement(<SettingsPage />)}
                 />
-
+                 <Route
+                  path="/flows"
+                  element={privateElement(<FlowEditorPage/>)}
+                />
                 <Route
                   path="*"
                   element={<NotFound />}

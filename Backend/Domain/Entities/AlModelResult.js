@@ -1,28 +1,15 @@
-const { DataTypes } = require("sequelize");
-class AIModelResult {
-  constructor({
-    model_result_id,
-    model_name,
-    customer_id = null,
-    lead_id = null,
-    result = {},
-    score = 0.0,
-    created_at = null,
-  } = {}) {
-    this.model_result_id = model_result_id;
-    this.model_name = model_name;
-    this.customer_id = customer_id;
-    this.lead_id = lead_id;
-    this.result = result;
-    this.score = parseFloat(score) || 0.0;
-    this.created_at = created_at || new Date();
-  }
+const { DataTypes, Model } = require('sequelize');
+const DataManager = require('../../Infrastructure/database/postgres');
+const sequelize = DataManager.getSequelize();
 
+class AIModelResult extends Model {
+  // ✅ Method cập nhật kết quả model
   updateResult(newResult, newScore = null) {
     this.result = newResult;
     if (newScore !== null) this.score = newScore;
   }
 
+  // ✅ Chuẩn hóa output JSON
   toJSON() {
     return {
       model_result_id: this.model_result_id,
@@ -34,25 +21,50 @@ class AIModelResult {
       created_at: this.created_at,
     };
   }
-  static definePostgresModel(sequelize) {
-    return sequelize.define(
-      "AIModelResult",
-      {
-        model_result_id: {
-          type: DataTypes.UUID,
-          defaultValue: DataTypes.UUIDV4,
-          primaryKey: true,
-        },
-        model_name: { type: DataTypes.STRING, allowNull: false },
-        customer_id: { type: DataTypes.UUID },
-        lead_id: { type: DataTypes.UUID },
-        result: { type: DataTypes.JSONB },
-        score: { type: DataTypes.FLOAT, defaultValue: 0.0 },
-        created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-      },
-      { tableName: "ai_model_results", timestamps: false }
-    );
-  }
 }
+
+AIModelResult.init(
+  {
+    model_result_id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    model_name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    customer_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    lead_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    result: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: {},
+    },
+    score: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0.0,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'AIModelResult',
+    tableName: 'ai_model_results',
+    timestamps: false,
+    underscored: true, 
+  }
+);
 
 module.exports = AIModelResult;

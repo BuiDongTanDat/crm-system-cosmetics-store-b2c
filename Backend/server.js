@@ -5,7 +5,6 @@ const userRoutes = require('./API/routes/userRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
-
 const app = express();
 
 // Middlewares

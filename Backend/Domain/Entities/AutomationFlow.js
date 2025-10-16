@@ -1,29 +1,10 @@
-// backend/src/Domain/Entities/AutomationFlow.js
+// đổi dòng import
+const { Sequelize, DataTypes, Model } = require('sequelize');
+const DataManager = require('../../Infrastructure/database/postgres');
+const sequelize = DataManager.getSequelize();
 
-class AutomationFlow {
-  constructor({
-    flow_id,
-    name,
-    description = "",
-    enabled = true,
-    created_by = null,
-    created_at = null,
-    updated_at = null,
-    // actions / triggers are stored separately (relation), but we can keep a simple in-memory list
-    triggers = [],    // array of trigger ids
-    actions = []      // array of action ids
-  } = {}) {
-    this.flow_id = flow_id;
-    this.name = name;
-    this.description = description;
-    this.enabled = !!enabled;
-    this.created_by = created_by;
-    this.created_at = created_at || new Date();
-    this.updated_at = updated_at || new Date();
-    this.triggers = triggers;
-    this.actions = actions;
-  }
-
+class AutomationFlow extends Model {
+  // ===== Domain logic =====
   enable() {
     this.enabled = true;
     this.touch();
@@ -35,12 +16,16 @@ class AutomationFlow {
   }
 
   addTrigger(triggerId) {
-    if (!this.triggers.includes(triggerId)) this.triggers.push(triggerId);
+    const triggers = this.triggers || [];
+    if (!triggers.includes(triggerId)) triggers.push(triggerId);
+    this.triggers = triggers;
     this.touch();
   }
 
   addAction(actionId) {
-    if (!this.actions.includes(actionId)) this.actions.push(actionId);
+    const actions = this.actions || [];
+    if (!actions.includes(actionId)) actions.push(actionId);
+    this.actions = actions;
     this.touch();
   }
 
@@ -53,6 +38,8 @@ class AutomationFlow {
       flow_id: this.flow_id,
       name: this.name,
       description: this.description,
+      status: this.status,
+      tags: this.tags,
       enabled: this.enabled,
       created_by: this.created_by,
       created_at: this.created_at,
@@ -62,5 +49,68 @@ class AutomationFlow {
     };
   }
 }
+
+AutomationFlow.init(
+  {
+    flow_id: {
+      type: DataTypes.UUID,
+      defaultValue: Sequelize.literal('gen_random_uuid()'),
+      primaryKey: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: '',
+    },
+    status:{
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: 'DRAFT',
+    },
+    tags:{
+      type: DataTypes.ARRAY(DataTypes.TEXT),
+      allowNull:false,
+      defaultValue:[],
+    },
+    enabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    triggers: {
+      type: DataTypes.ARRAY(DataTypes.UUID),
+      allowNull: false,
+      defaultValue: [],
+    },
+    actions: {
+      type: DataTypes.ARRAY(DataTypes.UUID),
+      allowNull: false,
+      defaultValue: [],
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.literal('NOW()'),
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.literal('NOW()'),
+    },
+  },
+  {
+    sequelize,
+    modelName: 'AutomationFlow',
+    tableName: 'automation_flows',
+    timestamps: true,
+    underscored: true,      
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  }
+);
 
 module.exports = AutomationFlow;
