@@ -1,7 +1,6 @@
-const ICategoryRepository = require('../../Domain/Interfaces/ICategoryRepository');
 const Category = require('../../Domain/Entities/Category');
 
-class CategoryRepository extends ICategoryRepository {
+class CategoryRepository {
   // Lấy tất cả danh mục
   async getAll() {
     return await Category.findAll();

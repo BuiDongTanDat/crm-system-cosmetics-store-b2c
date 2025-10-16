@@ -31,6 +31,7 @@ import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
 import AutomationPage from './pages/AutomationPage';
 import LandingPage from './landingPage/LandingPage';
+import CategoryPage from './pages/CategoryPage';
 
 function App() {
 
@@ -100,6 +101,12 @@ function App() {
                 <Route
                   path="/profile"
                   element={privateElement(<ProfilePage />)}
+                />
+
+                {/* Sản phẩm */}
+                <Route
+                  path="/categories"
+                  element={privateElement(<CategoryPage />)}
                 />
                 <Route
                   path="/products"

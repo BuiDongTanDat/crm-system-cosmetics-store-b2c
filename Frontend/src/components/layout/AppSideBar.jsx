@@ -30,7 +30,10 @@ const navItems = [
   {
     icon: <Package className="w-5 h-5" />,
     name: "Sản phẩm",
-    path: "/products",
+    subItems: [
+      { name: "Danh mục", path: "/categories", pro: false },
+      { name: "Sản phẩm", path: "/products", pro: false },
+    ],
   },
   {
     icon: <Users className="w-5 h-5" />,
