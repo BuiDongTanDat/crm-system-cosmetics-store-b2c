@@ -12,11 +12,21 @@
 // POST	/leads/:id/convert	AI tự chuyển thành khách hàng
 // POST	/leads/import	Import danh sách khách hàng tiềm năng từ CSV
 // const LeadService = require('../../Application/Services/LeadService');
-const ILeadService = require('../../Application/Interfaces/ILeadService');
+const LeadService = require('../../Application/Services/LeadService');
+const {CreateRequestLeadDTO} = require('../../Application/DTOs/LeadDTO');
 class LeadController {
+  static async create(req, res) {
+    try {
+      const leadData = CreateRequestLeadDTO.from(req.body);
+      const result = await LeadService.createLead(leadData);
+      res.status(201).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
   static async getAll(req, res) {
     try {
-      const result = await ILeadService.getAll();
+      const result = await LeadService.getAll();
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -25,21 +35,14 @@ class LeadController {
 
   static async getById(req, res) {
     try {
-      const result = await ILeadService.getById(req.params.id);
+      const result = await LeadService.getById(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(404).json({ error: err.message });
     }
   }
 
-  static async create(req, res) {
-    try {
-      const result = await ILeadService.create(req.body);
-      res.status(201).json(result);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  }
+  
 
   static async update(req, res) {
     try {

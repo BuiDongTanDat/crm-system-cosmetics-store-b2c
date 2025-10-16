@@ -57,15 +57,17 @@ class DataManager {
    */
   loadModels() {
     // ===== Import các model =====
+    require('../../Domain/Entities/User');
+    require('../../Domain/Entities/Role');
     require('../../Domain/Entities/Product');
     require('../../Domain/Entities/Customer');
     require('../../Domain/Entities/Category');
     require('../../Domain/Entities/ProductReviews');
     require('../../Domain/Entities/ProductSpecifications');
 
-    // require('../../Domain/Entities/Lead');
-    // require('../../Domain/Entities/LeadStatusHistory');
-    // require('../../Domain/Entities/LeadInteraction');
+    require('../../Domain/Entities/Lead');
+    require('../../Domain/Entities/LeadStatusHistory');
+    require('../../Domain/Entities/LeadInteraction');
 
     require('../../Domain/Entities/AlModelResult');
     require('../../Domain/Entities/AutomationFlow');
