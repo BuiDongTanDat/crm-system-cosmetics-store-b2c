@@ -22,8 +22,9 @@ app.use('/leads', LeadRoutes);
 app.use('/Ai', AiRoutes);
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  
+
   next();
+});
 app.use('/user', userRoutes);
 app.use('/category', categoryRoutes);
 app.use('/product', productRoutes);
