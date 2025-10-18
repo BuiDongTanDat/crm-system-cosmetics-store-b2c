@@ -41,7 +41,7 @@ export default function ProductPage() {
   };
 
   const STATUS_FILTER_OPTIONS = [
-    { value: 'all', label: 'Tất cả' },
+    { value: 'all', label: 'Tất cả Trạng thái' },
     { value: 'AVAILABLE', label: 'Còn hàng' },
     { value: 'OUT_OF_STOCK', label: 'Hết hàng' },
     { value: 'DISCONTINUED', label: 'Ngừng kinh doanh' },
@@ -93,7 +93,7 @@ export default function ProductPage() {
       const { ok, data } = await api.getJson('/category');
       if (!ok || !Array.isArray(data)) return;
       const active = data.filter((c) => c && String(c.status) === 'ACTIVE');
-      const opts = [{ value: 'all', label: 'Tất cả' }, ...active.map((c) => ({
+      const opts = [{ value: 'all', label: 'Tất cả Danh mục' }, ...active.map((c) => ({
         value: c.name ?? String(c.category_id ?? c.id),
         label: c.name ?? String(c.category_id ?? c.id),
       }))];
