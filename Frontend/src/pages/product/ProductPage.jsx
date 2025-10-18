@@ -7,7 +7,7 @@ import ProductForm from '@/pages/product/components/ProductForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import { api } from '@/utils/api';
-import DropdownOptions from '@/components/ui/DropdownOptions';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -44,7 +44,7 @@ export default function ProductPage() {
     { value: 'all', label: 'Trạng thái' },
     { value: 'AVAILABLE', label: 'Còn hàng' },
     { value: 'OUT_OF_STOCK', label: 'Hết hàng' },
-    { value: 'DISCONTINUED', label: 'Ngừng kinh doanh' },
+    { value: 'DISCONTINUED', label: 'Đã ngừng' },
   ];
 
   //Lấy danh sách sản phẩm
@@ -171,8 +171,8 @@ export default function ProductPage() {
       if (modal.mode === 'add') {
         const { ok } = await api.postJson('/product', prod);
         if (ok) {
-           await fetchProducts();
-           closeModal();
+          await fetchProducts();
+          closeModal();
         }
       } else if (modal.mode === 'edit' && modal.product) {
         // ensure we target the correct id
@@ -234,17 +234,58 @@ export default function ProductPage() {
   //Lấy màu badge trạng thái
   const getStatusBadge = (status) =>
     status === 'AVAILABLE'
-      ? 'px-2 py-1 text-xs font-medium text-success   rounded w-[100px] text-center inline-block bg-green-100'
-      : 'px-2 py-1 text-xs font-medium text-destructive rounded w-[100px] text-center inline-block bg-red-100';
+      ? 'px-2 py-1 text-xs font-medium text-success   rounded-full w-[100px] text-center inline-block bg-green-100'
+      : 'px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100';
 
   return (
-    <div className="p-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Danh sách sản phẩm ({filtered.length})
-          </h1>
+    <div className=" flex flex-col">
+      {/* Sticky header */}
+      <div
+        className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        style={{ backdropFilter: 'blur' }}
+      >
+        {/* Cụm tiêu đề  */}
+        <div className="flex items-center justify-between">
+          {/* Tiêu đề bên trái */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-900">
+              Quản lý Sản phẩm ({filtered.length})
+            </h1>
+
+          </div>
+
+          {/* Các nút bên phải */}
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 transition-all border-gray-200 bg-white/90"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <Button onClick={openAdd} variant="actionCreate" className="gap-2">
+              <Plus className="w-4 h-4" /> Thêm SP
+            </Button>
+
+            <ImportExportDropdown
+              data={products}
+              filename="products"
+              fieldMapping={productFieldMapping}
+              onImportSuccess={handleImportSuccess}
+              onImportError={handleImportError}
+              trigger="icon"
+              variant="actionNormal"
+            />
+          </div>
+        </div>
+
+        {/* Cụm nằm dưới */}
+        <div className="flex items-center justify-between gap-3">
           <div className="flex gap-1">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
@@ -259,201 +300,180 @@ export default function ProductPage() {
               <List className="w-4 h-4" />
             </Button>
           </div>
-        </div>
+          <div className="flex items-center gap-3">
+            {/* Category filter */}
+            <DropdownOptions
+              options={categoryOptions}
+              value={selectedCategory}
+              onChange={(val) => setSelectedCategory(val)}
+              width="w-40"
+              placeholder="Danh mục"
+            />
 
-        <div className="flex items-center gap-3">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+            {/* Status filter */}
+            <DropdownOptions
+              options={STATUS_FILTER_OPTIONS}
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              width="w-40"
+              placeholder="Trạng thái"
             />
           </div>
-
-          {/* Category filter */}
-          <DropdownOptions
-            options={categoryOptions}
-            value={selectedCategory}
-            onChange={(val) => setSelectedCategory(val)}
-            width="w-48"
-            placeholder="Danh mục"
-          />
-          {/* Status filter */}
-          <DropdownOptions
-            options={STATUS_FILTER_OPTIONS}
-            value={statusFilter}
-            onChange={(val) => setStatusFilter(val)}
-            width="w-40"
-            placeholder="Trạng thái"
-          />
-
-          <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-            <Plus className="w-4 h-4" /> Thêm SP
-          </Button>
-
-          <ImportExportDropdown
-            data={products}
-            filename="products"
-            fieldMapping={productFieldMapping}
-            onImportSuccess={handleImportSuccess}
-            onImportError={handleImportError}
-            trigger="icon"
-            variant="actionNormal"
-          />
         </div>
+
       </div>
 
-      {/* View Mode */}
-      {viewMode === 'card' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {currentProducts.map((p) => (
-            <ProductCard
-              key={p.product_id}
-              product={p}
-              onView={openView}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    'Sản phẩm',
-                    'Thương hiệu',
-                    'Giá hiện tại',
-                    'Giá gốc',
-                    'Giảm (%)',
-                    'Tồn kho',
-                    'Đánh giá',
-                    'Trạng thái',
-                    ''
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase"
+
+      {/* Scrollable content: product cards / list, pagination, dialog */}
+      <div className="flex-1 overflow-auto p-6">
+        {/* View Mode */}
+        {viewMode === 'card' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            {currentProducts.map((p) => (
+              <ProductCard
+                key={p.product_id}
+                product={p}
+                onView={openView}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1000px]">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      'Sản phẩm',
+                      'Thương hiệu',
+                      'Giá hiện tại',
+                      'Giá gốc',
+                      'Giảm (%)',
+                      'Tồn kho',
+                      'Đánh giá',
+                      'Trạng thái',
+                      ''
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentProducts.map((p) => (
+                    <tr
+                      key={p.product_id}
+                      onMouseEnter={() => setHoveredRow(p.product_id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      className="hover:bg-gray-50 transition"
                     >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentProducts.map((p) => (
-                  <tr
-                    key={p.product_id}
-                    onMouseEnter={() => setHoveredRow(p.product_id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                    className="hover:bg-gray-50 transition"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-left">
-                      <div className="flex items-center">
-                        <img
-                          src={p.image || '/images/products/product_temp.png'}
-                          alt={p.name}
-                          className="w-10 h-10 rounded mr-3"
-                        />
-                        <div>
-                          <div className="font-medium text-gray-900 truncate max-w-[180px]">
-                            {p.name}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                            {p.short_description}
+                      <td className="px-6 py-4 whitespace-nowrap text-left">
+                        <div className="flex items-center">
+                          <img
+                            src={p.image || '/images/products/product_temp.png'}
+                            alt={p.name}
+                            className="w-10 h-10 rounded mr-3"
+                          />
+                          <div>
+                            <div className="font-small text-gray-900 truncate max-w-[180px]">
+                              {p.name}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate max-w-[180px]">
+                              {p.short_description}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="text-center text-sm text-gray-800">{p.brand}</td>
-                    <td className="text-center font-semibold">
-                      {p.price_current.toLocaleString('vi-VN')}₫
-                    </td>
-                    <td className="text-center text-gray-500 line-through">
-                      {p.price_original ? p.price_original.toLocaleString('vi-VN') + '₫' : '-'}
-                    </td>
-                    <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
-                    <td className="text-center text-sm">{p.inventory_qty}</td>
-                    <td className="text-center text-yellow-500">{p.rating}</td>
-                    <td className="text-center">
-                      <span className={getStatusBadge(p.status)}>
-                        {p.status === 'AVAILABLE'
-                          ? 'Còn hàng'
-                          : p.status === 'OUT_OF_STOCK'
-                            ? 'Hết hàng'
-                            : 'Ngừng kinh doanh'}
+                      </td>
+                      <td className="text-center text-sm text-gray-800">{p.brand}</td>
+                      <td className="text-center font-semibold">
+                        {p.price_current.toLocaleString('vi-VN')}₫
+                      </td>
+                      <td className="text-center text-gray-500 line-through">
+                        {p.price_original ? p.price_original.toLocaleString('vi-VN') + '₫' : '-'}
+                      </td>
+                      <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
+                      <td className="text-center text-sm">{p.inventory_qty}</td>
+                      <td className="text-center text-yellow-500">{p.rating}</td>
+                      <td className="text-center">
+                        <span className={getStatusBadge(p.status)}>
+                          {p.status === 'AVAILABLE'
+                            ? 'Còn hàng'
+                            : p.status === 'OUT_OF_STOCK'
+                              ? 'Hết hàng'
+                              : 'Đã ngừng'}
 
-                      </span>
-                    </td>
-                    <td className="text-center w-36">
-                      <div
-                        className={`flex justify-center gap-1  ${hoveredRow === p.product_id
-                          ? 'opacity-100 animate-fade-in duration-200'
-                          : 'opacity-0 pointer-events-none '
-                          }`}
-                      >
-                        <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(p.product_id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </span>
+                      </td>
+                      <td className="text-center w-36">
+                        <div
+                          className={`flex justify-center gap-1  ${hoveredRow === p.product_id
+                            ? 'opacity-100 animate-fade-in duration-200'
+                            : 'opacity-0 pointer-events-none '
+                            }`}
+                        >
+                          <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="actionDelete" size="icon" onClick={() => handleDelete(p.product_id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
-
-      <AppPagination
-        totalPages={totalPages}
-        currentPage={currentPage}
-        handleNext={handleNext}
-        handlePrev={handlePrev}
-        handlePageChange={handlePageChange}
-      />
-
-      <AppDialog
-        open={modal.open}
-        onClose={closeModal}
-        title={{
-          view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
-          edit: modal.product
-            ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
-            : 'Thêm sản phẩm mới',
-          add: 'Thêm sản phẩm mới'
-        }}
-        mode={modal.mode}
-        /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
-        FormComponent={(props) => (
-          <ProductForm
-            {...props}
-            setMode={(m) => {
-              if (m === 'close') {
-                setModal({ open: false, mode: 'view', product: null });
-              } else {
-                setModal((prev) => ({ ...prev, mode: m }));
-              }
-            }}
-          />
         )}
-        data={modal.product}
-        onSave={handleSave}
-        onDelete={handleDelete}
-        maxWidth="sm:max-w-2xl"
-      />
+
+        <AppPagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          handleNext={handleNext}
+          handlePrev={handlePrev}
+          handlePageChange={handlePageChange}
+        />
+
+        <AppDialog
+          open={modal.open}
+          onClose={closeModal}
+          title={{
+            view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
+            edit: modal.product
+              ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
+              : 'Thêm sản phẩm mới',
+            add: 'Thêm sản phẩm mới'
+          }}
+          mode={modal.mode}
+          /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
+          FormComponent={(props) => (
+            <ProductForm
+              {...props}
+              setMode={(m) => {
+                if (m === 'close') {
+                  setModal({ open: false, mode: 'view', product: null });
+                } else {
+                  setModal((prev) => ({ ...prev, mode: m }));
+                }
+              }}
+            />
+          )}
+          data={modal.product}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          maxWidth="sm:max-w-2xl"
+        />
+      </div>
     </div>
   );
 }

@@ -1,32 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { Target, Filter, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Filter, Plus } from 'lucide-react';
 import CountUp from 'react-countup';
 import { Button } from '@/components/ui/button';
 import AppDialog from '@/components/dialogs/AppDialog';
 import DealForm from '@/pages/crm/components/DealForm';
-import { kanbanCards as initialCards } from '@/lib/data';
+import { kanbanCards as initialCards, kanbanColumns as initialColumns } from '@/lib/data';
+import { formatCurrency, getPriorityColor, getPriorityLabel, getInitials, formatDate } from '@/utils/helper';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 }).format(amount);
 
 export default function LeadsPage() {
+  // KanbanPage-like states
   const [cards, setCards] = useState(initialCards || []);
+  const [columns, setColumns] = useState(initialColumns || []);
+  const [columnCounts, setColumnCounts] = useState({});
   const [prevStats, setPrevStats] = useState({ totalDeals: 0, totalValue: 0, conversionRate: 0, activeDeals: 0 });
   const [shouldAnimateStats, setShouldAnimateStats] = useState(true);
   const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [filterStage, setFilterStage] = useState('');
+  const FILTER_OPTIONS = [
+    { value: '', label: 'Tất cả trạng thái' },
+    ...columns.map(col => ({ value: col.id, label: col.title }))
+  ];
 
-  useEffect(() => {
-    const t = setTimeout(() => setShouldAnimateStats(false), 900);
-    return () => clearTimeout(t);
-  }, []);
-
+  // Stats calculation (KanbanPage logic)
   const stats = {
     totalDeals: cards.length,
     totalValue: cards.reduce((s, c) => s + (c.value || 0), 0),
     conversionRate: (cards.filter(c => c.stage === 'closed-won').length / Math.max(cards.length, 1)) * 100,
     activeDeals: cards.filter(c => !['closed-won', 'closed-lost'].includes(c.stage)).length
   };
+
+  // Animation control (KanbanPage logic)
+  useEffect(() => {
+    const t = setTimeout(() => setShouldAnimateStats(false), 900);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const changed =
@@ -45,6 +55,16 @@ export default function LeadsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats]);
 
+  // Column count update (KanbanPage logic)
+  useEffect(() => {
+    const counts = {};
+    columns.forEach(col => {
+      counts[col.id] = cards.filter(card => card.stage === col.id).length;
+    });
+    setColumnCounts(counts);
+  }, [cards, columns]);
+
+  // Handlers (KanbanPage logic)
   const handleView = (deal) => setModal({ open: true, mode: 'view', deal });
   const handleEdit = (deal) => setModal({ open: true, mode: 'edit', deal });
   const handleCreate = () => setModal({ open: true, mode: 'edit', deal: null });
@@ -75,77 +95,195 @@ export default function LeadsPage() {
     }
   };
 
+
+  // Status badge helper
+  const getStatusBadge = (stage) => {
+    const col = columns.find(c => c.id === stage);
+    if (!col) return <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 text-xs">-</span>;
+    // Lấy màu bg-100 tương ứng từ col.color, text màu theo trạng thái
+    let textColor = 'text-gray-700';
+    switch (col.id) {
+      case 'leads':
+        textColor = 'text-blue-700';
+        break;
+      case 'contacted':
+        textColor = 'text-yellow-700';
+        break;
+      case 'qualified':
+        textColor = 'text-purple-700';
+        break;
+      case 'nurturing ':
+        textColor = 'text-orange-700';
+        break;
+      case 'converted':
+        textColor = 'text-green-700';
+        break;
+      case 'closed-lost':
+        textColor = 'text-red-700';
+        break;
+      default:
+        textColor = 'text-gray-700';
+    }
+    return (
+      <span
+        className={`px-2 py-1 text-xs font-medium rounded-full w-[90px] text-center inline-block ${col.color} ${textColor}`}
+      >
+        {col.title}
+      </span>
+    );
+  };
+
+  // Filtered cards by stage
+  const filteredCards = filterStage
+    ? cards.filter(card => (card.stage || card.status) === filterStage)
+    : cards;
+
   return (
-    <div className="p-0 h-full flex flex-col overflow-hidden">
-      <div className="flex items-center gap-3 mb-6">
-        <Target className="w-8 h-8 text-brand" />
-        <h1 className="text-3xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h2 className="text-xl font-semibold mb-4">Quản lý Lead</h2>
-        <p className="text-gray-600 mb-4">
-          Theo dõi và quản lý các khách hàng tiềm năng từ nhiều nguồn khác nhau.
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-cyan-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-cyan-900">Tổng Lead</h3>
-            <p className="text-2xl font-bold text-cyan-700">456</p>
-          </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-yellow-900">Lead mới</h3>
-            <p className="text-2xl font-bold text-yellow-700">89</p>
-          </div>
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-blue-900">Đang liên hệ</h3>
-            <p className="text-2xl font-bold text-blue-700">234</p>
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-green-900">Chuyển đổi</h3>
-            <p className="text-2xl font-bold text-green-700">133</p>
+    <div className="h-screen flex flex-col">
+      {/* Sticky header */}
+      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className="flex items-center gap-3 mb-2 justify-between">
+          <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
+          <div className="flex gap-3">
+            <DropdownOptions
+              options={FILTER_OPTIONS}
+              value={filterStage}
+              onChange={setFilterStage}
+              width="w-44"
+              placeholder="Lọc trạng thái"
+            />
+            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+              <Plus className="w-4 h-4" /> Thêm Deal
+            </Button>
           </div>
         </div>
+        <div className="">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+            <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Target className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Tổng Lead</p>
+                {shouldAnimateStats ? (
+                  <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
+                ) : (
+                  <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
+                )}
+              </div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Tổng giá trị</p>
+                {shouldAnimateStats ? (
+                  <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
+                    formattingFn={(value) => formatCurrency(Math.floor(value))}
+                    className="text-sm font-bold text-gray-900" />
+                ) : (
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
+                )}
+              </div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Tỷ lệ chuyển đổi</p>
+                {shouldAnimateStats ? (
+                  <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
+                ) : (
+                  <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
+                )}
+              </div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <Users className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Deals đang xử lý</p>
+                {shouldAnimateStats ? (
+                  <CountUp end={stats.activeDeals} start={prevStats.activeDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
+                ) : (
+                  <p className="text-lg font-bold text-gray-900">{stats.activeDeals}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div className="flex-1 min-h-0 bg-white rounded-lg shadow-sm border p-4 mt-4 overflow-auto">
-        <h2 className="text-xl font-semibold mb-4">Danh sách deals</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[800px]">
-            <thead className="bg-gray-50">
-              <tr>
-                {["Tiêu đề", "Công ty", "Giá trị", "Giai đoạn", "Hoạt động cuối", ""].map(h => (
-                  <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {cards.map(card => (
-                <tr
-                  key={card.id}
-                  className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                  onMouseEnter={() => setHoveredRow(card.id)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                >
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{card.title}</div>
-                    <div className="text-xs text-gray-500">{card.contact || card.owner || ''}</div>
-                  </td>
-                  <td className="px-6 py-4 text-center">{card.company || '-'}</td>
-                  <td className="px-6 py-4 text-center">{formatCurrency(card.value || 0)}</td>
-                  <td className="px-6 py-4 text-center capitalize">{card.stage || card.status}</td>
-                  <td className="px-6 py-4 text-center">{card.lastActivity || card.createdDate || '-'}</td>
-                  <td className="px-6 py-4 text-center w-36">
-                    <div className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === card.id ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-1 pointer-events-none"}`}>
-                      <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
-                      <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
-                      <Button variant="actionDelete" size="icon" onClick={() => handleDelete(card.id)} className="h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-                  </td>
+      {/* Scrollable content: deals list and dialog */}
+      <div className="flex-1 overflow-auto p-4">
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-gray-50">
+                <tr>
+
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deal</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá trị</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nhân viên</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hoạt động cuối</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredCards.map(card => (
+                  <tr
+                    key={card.id}
+                    className="group hover:bg-gray-50 transition-colors"
+                    onMouseEnter={() => setHoveredRow(card.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                  >
+
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 truncate">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(card.priority)}`}>
+                          {getPriorityLabel(card.priority)}
+                        </span>
+                        {card.title}
+                      </div>
+
+
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 truncate">{card.customer}</td>
+                    <td className="px-6 py-4 text-sm text-emerald-600 font-semibold">{formatCurrency(card.value || 0)}</td>
+                    <td className="px-6 py-4">
+
+                      <span className="truncate max-w-20 text-xs">{card.assignee}</span>
+
+                    </td>
+
+                    <td className="px-6 py-4 text-xs text-gray-500">{formatDate(card.lastActivity) || '-'}</td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(card.stage)}
+                    </td>
+                    <td className="px-6 py-4 text-center w-36">
+                      <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
+                        <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
+                        <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
+                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(card.id)} className="h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    </td>
+
+                  </tr>
+                ))}
+                {filteredCards.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center text-gray-400 py-8">Không có deal nào.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

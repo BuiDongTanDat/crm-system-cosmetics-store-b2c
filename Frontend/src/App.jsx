@@ -29,9 +29,9 @@ import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
-import AutomationPage from './pages/autimation/AutomationPage';
+import AutomationPage from './pages/automation/AutomationPage';
 import LandingPage from './pages/landingPage/LandingPage';
-import FlowEditorPage from './pages/autimation/FlowEditorPage';
+import FlowEditorPage from './pages/automation/FlowEditorPage';
 import CategoryPage from './pages/category/CategoryPage';
 
 function App() {
@@ -165,6 +165,10 @@ function App() {
                 <Route
                   path="/automation"
                   element={privateElement(<AutomationPage />)}
+                />
+                <Route
+                  path="/automation/create"
+                  element={privateElement(<FlowEditorPage />)}
                 />
 
                 {/* Reports routes */}

@@ -7,6 +7,7 @@ import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import CountUp from 'react-countup';
 import { mockOrders, OrderStatus, PaymentMethod } from "@/lib/data";
+import { formatCurrency, formatDate } from "@/utils/helper";
 
 export default function OrderPage() {
     const [orders, setOrders] = useState(mockOrders);
@@ -70,7 +71,7 @@ export default function OrderPage() {
             setOrders((prev) =>
                 prev.map((order) => (order.id === orderData.id ? { ...order, ...orderData } : order))
             );
-            
+
             setModal(prev => ({
                 ...prev,
                 mode: 'view',
@@ -143,14 +144,6 @@ export default function OrderPage() {
         return statusMap[status] || baseClass;
     };
 
-    const formatCurrency = (amount) =>
-        new Intl.NumberFormat("vi-VN", {
-            style: "currency",
-            currency: "VND",
-            minimumFractionDigits: 0,
-        }).format(amount);
-
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString("vi-VN");
 
     // Click chọn trạng thái
     const handleStatusClick = (status) => {
@@ -158,234 +151,242 @@ export default function OrderPage() {
     };
 
     return (
-        <div className="p-0">
-            {/* Header */}
-            <h1 className="text-2xl font-bold  mb-6">
-                Danh sách đơn hàng ({filteredOrders.length})
-            </h1>
-
-            {/* Status Cards with react-countup */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                {Object.entries(stats).map(([status, count]) => {
-                    const iconMap = {
-                        [OrderStatus.new]: PackagePlus,
-                        [OrderStatus.processing]: Loader,
-                        [OrderStatus.completed]: CheckCircle2,
-                        [OrderStatus.cancelled]: XCircle,
-                    };
-
-                    const colorMap = {
-                        [OrderStatus.new]: {
-                            base: "bg-blue-50 text-blue-900 border-blue-200",
-                            active: "bg-blue-600 text-white border-blue-600",
-                        },
-                        [OrderStatus.processing]: {
-                            base: "bg-yellow-50 text-yellow-900 border-yellow-200",
-                            active: "bg-yellow-500 text-white border-yellow-500",
-                        },
-                        [OrderStatus.completed]: {
-                            base: "bg-green-50 text-green-900 border-green-200",
-                            active: "bg-green-600 text-white border-green-600",
-                        },
-                        [OrderStatus.cancelled]: {
-                            base: "bg-red-50 text-red-900 border-red-200",
-                            active: "bg-red-600 text-white border-red-600",
-                        },
-                    };
-
-                    const isActive = selectedStatus === status;
-                    const Icon = iconMap[status];
-                    const colorClass = isActive
-                        ? colorMap[status].active
-                        : colorMap[status].base;
-
-                    return (
-                        <div
-                            key={status}
-                            onClick={() => handleStatusClick(status)}
-                            className={`animate-fade-in p-4 rounded-xl border shadow-sm transition cursor-pointer flex items-center gap-4 ${colorClass}
-          hover:shadow-md hover:scale-105 active:scale-95 duration-200`}
-                        >
-                            {/* Icon bên trái */}
-                            <div className="flex-shrink-0">
-                                <Icon
-                                    className={`w-10 h-10 ${isActive ? "text-white" : "opacity-90"
-                                        }`}
-                                />
-                            </div>
-
-                            {/* Tiêu đề + số lượng bên phải */}
-                            <div className="flex flex-col">
-                                <h3 className="font-semibold text-base capitalize leading-tight">
-                                    {status}
-                                </h3>
-                                <CountUp 
-                                    end={count}
-                                    duration={0.6}
-                                    className="text-2xl font-bold leading-snug"
-                                />
-                            </div>
+        <div className="h-screen flex flex-col">
+            {/* Sticky header*/}
+            <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+                <div className="flex justify-between w-full mb-2">
+                    <h1 className="text-xl font-bold mb-2">
+                        Danh sách đơn hàng ({filteredOrders.length})
+                    </h1>
+                    {/* Search + Actions Row */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-end gap-3 mb-2">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm..."
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
-                    );
-                })}
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                                <Plus className="w-4 h-4" />
+                                Thêm ĐH
+                            </Button>
+
+                            {/* Import/Export Dropdown */}
+                            <ImportExportDropdown
+                                data={orders}
+                                filename="orders"
+                                fieldMapping={orderFieldMapping}
+                                onImportSuccess={handleImportSuccess}
+                                onImportError={handleImportError}
+                                trigger="icon"
+                                variant="actionNormal"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+
+                {/* Status Cards with react-countup */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+                    {Object.entries(stats).map(([status, count]) => {
+                        const iconMap = {
+                            [OrderStatus.new]: PackagePlus,
+                            [OrderStatus.processing]: Loader,
+                            [OrderStatus.completed]: CheckCircle2,
+                            [OrderStatus.cancelled]: XCircle,
+                        };
+
+
+                        const colorMap = {
+                            [OrderStatus.new]: {
+                                base: "bg-white text-gray-900 border-gray-200",
+                                hover: "hover:bg-blue-600 hover:text-white hover:border-blue-600",
+                                active: "bg-blue-600 text-white border-blue-600",
+                            },
+                            [OrderStatus.processing]: {
+                                base: "bg-white text-gray-900 border-gray-200",
+                                hover: "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
+                                active: "bg-yellow-500 text-white border-yellow-500",
+                            },
+                            [OrderStatus.completed]: {
+                                base: "bg-white text-gray-900 border-gray-200",
+                                hover: "hover:bg-green-600 hover:text-white hover:border-green-600",
+                                active: "bg-green-600 text-white border-green-600",
+                            },
+                            [OrderStatus.cancelled]: {
+                                base: "bg-white text-gray-900 border-gray-200",
+                                hover: "hover:bg-red-600 hover:text-white hover:border-red-600",
+                                active: "bg-red-600 text-white border-red-600",
+                            },
+                        };
+
+                        const isActive = selectedStatus === status;
+                        const Icon = iconMap[status];
+                        const baseClass = colorMap[status].base;
+                        const hoverClass = colorMap[status].hover;
+                        const activeClass = colorMap[status].active;
+                        const colorClass = isActive ? activeClass : baseClass;
+
+                        return (
+                            <div
+                                key={status}
+                                onClick={() => handleStatusClick(status)}
+                                className={`group p-4 rounded-md border  transition cursor-pointer flex items-center gap-4 ${colorClass} ${hoverClass} hover:shadow-md duration-100 active:scale-95`}
+                            >
+                                {/* Icon bên trái */}
+                                <div className="flex-shrink-0">
+                                    <Icon
+                                        className={`w-10 h-10 ${isActive ? "text-white" : "text-gray-600"} group-hover:text-white`}
+                                    />
+                                </div>
+
+                                {/* Tiêu đề + số lượng bên phải */}
+                                <div className="flex flex-col">
+                                    <h3 className="font-semibold text-base capitalize leading-tight">
+                                        {status}
+                                    </h3>
+                                    <CountUp
+                                        end={count}
+                                        duration={0.6}
+                                        className="text-2xl font-bold leading-snug"
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+
             </div>
 
-            {/* Search + Actions Row */}
-            <div className="flex flex-col md:flex-row md:items-center justify-end gap-3 mb-4">
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Tìm kiếm..."
-                        className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="flex items-center gap-2 self-end md:self-auto">
-                    <Button variant="actionNormal" className="gap-2">
-                        <Filter className="w-5 h-5" />
-                        Lọc
-                    </Button>
+            {/* Scrollable content: table, pagination, dialog */}
+            <div className="flex-1 overflow-auto p-6">
+                {/* Table */}
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[800px]">
+                            <thead className="bg-gray-50">
+                                <tr >
+                                    {[
+                                        "Mã đơn",
+                                        "Người đặt hàng",
+                                        "Ngày đặt hàng",
+                                        "Tổng giá trị",
+                                        "Phương thức thanh toán",
+                                        "Trạng thái",
+                                        ""
+                                    ].map((header) => (
+                                        <th
+                                            key={header}
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            {header}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentOrders.map((order) => (
+                                    <tr
+                                        key={order.id}
+                                        className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                                        onMouseEnter={() => setHoveredRow(order.id)}
+                                        onMouseLeave={() => setHoveredRow(null)}
 
-                    <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Thêm ĐH
-                    </Button>
-
-                    {/* Import/Export Dropdown */}
-                    <ImportExportDropdown
-                        data={orders}
-                        filename="orders"
-                        fieldMapping={orderFieldMapping}
-                        onImportSuccess={handleImportSuccess}
-                        onImportError={handleImportError}
-                        trigger="icon"
-                        variant="actionNormal"
-                    />
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px]">
-                        <thead className="bg-gray-50">
-                            <tr >
-                                {[
-                                    "Mã đơn",
-                                    "Người đặt hàng",
-                                    "Ngày đặt hàng",
-                                    "Tổng giá trị",
-                                    "Phương thức thanh toán",
-                                    "Trạng thái",
-                                    ""
-                                ].map((header) => (
-                                    <th
-                                        key={header}
-                                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                     >
-                                        {header}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {currentOrders.map((order) => (
-                                <tr
-                                    key={order.id}
-                                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onMouseEnter={() => setHoveredRow(order.id)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-
-                                >
-                                    <td className="px-6 py-4 text-center text-sm font-medium text-gray-900">
-                                        {order.id}
-                                    </td>
-                                    <td className="px-6 py-4  text-sm text-gray-900">
-                                        {order.customerName}
-                                    </td>
-                                    <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                        {formatDate(order.orderDate)}
-                                    </td>
-                                    <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                        {formatCurrency(order.totalAmount)}
-                                    </td>
-                                    <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                        {order.paymentMethod}
-                                    </td>
-                                    <td className="px-6 py-4 text-center w-32">
-                                        <span className={getStatusBadge(order.status)}>
-                                            {order.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center w-36">
-                                        <div
-                                            className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.id
+                                        <td className="px-6 py-4 text-center text-sm font-medium text-gray-900">
+                                            {order.id}
+                                        </td>
+                                        <td className="px-6 py-4  text-sm text-gray-900">
+                                            {order.customerName}
+                                        </td>
+                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
+                                            {formatDate(order.orderDate)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
+                                            {formatCurrency(order.totalAmount)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
+                                            {order.paymentMethod}
+                                        </td>
+                                        <td className="px-6 py-4 text-center w-32">
+                                            <span className={getStatusBadge(order.status)}>
+                                                {order.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center w-36">
+                                            <div
+                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.id
                                                     ? "opacity-100 translate-y-0 pointer-events-auto"
                                                     : "opacity-0 translate-y-1 pointer-events-none"
-                                                }`}
-                                        >
-                                            <Button
-                                                variant="actionRead"
-                                                size="icon"
-                                                onClick={() => handleView(order)}
-                                                className="h-8 w-8"
+                                                    }`}
                                             >
-                                                <Eye className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionUpdate"
-                                                size="icon"
-                                                onClick={() => handleEdit(order)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionDelete"
-                                                size="icon"
-                                                onClick={() => handleDelete(order.id)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </td>
+                                                <Button
+                                                    variant="actionRead"
+                                                    size="icon"
+                                                    onClick={() => handleView(order)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="actionUpdate"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(order)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="actionDelete"
+                                                    size="icon"
+                                                    onClick={() => handleDelete(order.id)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
 
 
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                {/* Pagination */}
+                <AppPagination
+                    totalPages={totalPages}
+                    currentPage={currentPage}
+                    handlePageChange={handlePageChange}
+                    handleNext={handleNext}
+                    handlePrev={handlePrev}
+                />
+
+                {/* Dialog */}
+                <AppDialog
+                    open={modal.open}
+                    onClose={closeModal}
+                    title={{
+                        view: `Chi tiết đơn hàng #${modal.order?.id || ''}`,
+                        edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.id}` : 'Thêm đơn hàng mới'
+                    }}
+                    mode={modal.mode}
+                    FormComponent={OrderForm}
+                    data={modal.order}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    maxWidth="sm:max-w-5xl"
+                />
             </div>
-
-            {/* Pagination */}
-            <AppPagination
-                totalPages={totalPages}
-                currentPage={currentPage}
-                handlePageChange={handlePageChange}
-                handleNext={handleNext}
-                handlePrev={handlePrev}
-            />
-
-            {/* Dialog */}
-            <AppDialog
-                open={modal.open}
-                onClose={closeModal}
-                title={{
-                    view: `Chi tiết đơn hàng #${modal.order?.id || ''}`,
-                    edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.id}` : 'Thêm đơn hàng mới'
-                }}
-                mode={modal.mode}
-                FormComponent={OrderForm}
-                data={modal.order}
-                onSave={handleSave}
-                onDelete={handleDelete}
-                maxWidth="sm:max-w-5xl"
-            />
         </div>
     );
 }

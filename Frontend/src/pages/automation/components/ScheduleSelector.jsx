@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, Clock, Zap, Repeat, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import DropdownOptions from '@/components/ui/DropdownOptions';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
 export default function ScheduleSelector({ schedule, onChange }) {
   const handleScheduleChange = (field, value) => {

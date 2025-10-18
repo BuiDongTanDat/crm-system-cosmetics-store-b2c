@@ -178,181 +178,190 @@ export default function CustomerListPage() {
     };
 
     return (
-        <div className="p-0">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        Quản lý Khách hàng ({filteredCustomers.length})
-                    </h1>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm..."
-                            className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+        <div className=" flex flex-col">
+            {/* Sticky header */}
+            <div
+                className="sticky top-[70px] z-20 flex  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md "
+                style={{ backdropFilter: 'blur' }}
+            >
+                <div className="flex justify-between w-full">
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-xl font-bold text-gray-900">
+                            Quản lý Khách hàng ({filteredCustomers.length})
+                        </h1>
                     </div>
 
-                    {/* Filter */}
-                    <Button variant="actionNormal" className="gap-2">
-                        <Filter className="w-5 h-5" />
-                        Lọc
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm..."
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
 
-                    {/* Add Customer */}
-                    <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Thêm KH
-                    </Button>
+                        {/* Filter */}
+                        <Button variant="actionNormal" className="gap-2">
+                            <Filter className="w-5 h-5" />
+                            Lọc
+                        </Button>
 
-                    {/* Import/Export Dropdown */}
-                    <ImportExportDropdown
-                        data={customers}
-                        filename="customers"
-                        fieldMapping={customerFieldMapping}
-                        onImportSuccess={handleImportSuccess}
-                        onImportError={handleImportError}
-                        trigger="icon"
-                        variant="actionNormal"
-                    />
+                        {/* Add Customer */}
+                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                            <Plus className="w-4 h-4" />
+                            Thêm KH
+                        </Button>
+
+                        {/* Import/Export Dropdown */}
+                        <ImportExportDropdown
+                            data={customers}
+                            filename="customers"
+                            fieldMapping={customerFieldMapping}
+                            onImportSuccess={handleImportSuccess}
+                            onImportError={handleImportError}
+                            trigger="icon"
+                            variant="actionNormal"
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1000px]">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                {[
-                                    "Khách hàng",
-                                    "Email",
-                                    "SĐT",
-                                    "Ngành nghề",
-                                    "Nguồn KH",
-                                    "Trạng thái",
-                                    ""
-                                ].map((header) => (
-                                    <th
-                                        key={header}
-                                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                    >
-                                        {header}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {currentCustomers.map((customer) => (
-                                <tr
-                                    key={customer.id}
-                                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onMouseEnter={() => setHoveredRow(customer.id)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-                                >
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                                        <span className={getTypeBadge(customer.type)}>{customer.type}</span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{customer.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <div className="text-sm text-gray-900">{customer.phone}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <div className="text-sm text-gray-900">{customer.industry}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <div className="text-sm text-gray-900">{customer.source}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                                        <span className={getStatusBadge(customer.status)}>
-                                            {customer.status === "Active" ? "Hoạt động" : "Không hoạt động"}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center w-36">
-                                        <div
-                                            className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === customer.id
-                                                ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                : "opacity-0 translate-y-1 pointer-events-none"
-                                                }`}
+            {/* Scrollable content: table, pagination, dialog */}
+            <div className="flex-1 overflow-auto p-6">
+                {/* Table */}
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1000px]">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    {[
+                                        "Khách hàng",
+                                        "Email",
+                                        "SĐT",
+                                        "Ngành nghề",
+                                        "Nguồn KH",
+                                        "Trạng thái",
+                                        ""
+                                    ].map((header) => (
+                                        <th
+                                            key={header}
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
-                                            <Button 
-                                                variant="actionRead"
-                                                size="icon"
-                                                onClick={() => handleViewHistory(customer)}
-                                                className="h-8 w-8"
-                                            >
-                                                <History className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionRead"
-                                                size="icon"
-                                                onClick={() => handleView(customer)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionUpdate"
-                                                size="icon"
-                                                onClick={() => handleEdit(customer)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionDelete"
-                                                size="icon"
-                                                onClick={() => handleDelete(customer.id)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </td>
+                                            {header}
+                                        </th>
+                                    ))}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentCustomers.map((customer) => (
+                                    <tr
+                                        key={customer.id}
+                                        className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                                        onMouseEnter={() => setHoveredRow(customer.id)}
+                                        onMouseLeave={() => setHoveredRow(null)}
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                                            <span className={getTypeBadge(customer.type)}>{customer.type}</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">{customer.email}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <div className="text-sm text-gray-900">{customer.phone}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <div className="text-sm text-gray-900">{customer.industry}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <div className="text-sm text-gray-900">{customer.source}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
+                                            <span className={getStatusBadge(customer.status)}>
+                                                {customer.status === "Active" ? "Hoạt động" : "Không hoạt động"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center w-36">
+                                            <div
+                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === customer.id
+                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                    : "opacity-0 translate-y-1 pointer-events-none"
+                                                    }`}
+                                            >
+                                                <Button 
+                                                    variant="actionRead"
+                                                    size="icon"
+                                                    onClick={() => handleViewHistory(customer)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <History className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="actionRead"
+                                                    size="icon"
+                                                    onClick={() => handleView(customer)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="actionUpdate"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(customer)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="actionDelete"
+                                                    size="icon"
+                                                    onClick={() => handleDelete(customer.id)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                {/* Pagination */}
+                <AppPagination
+                    totalPages={totalPages}
+                    currentPage={currentPage}
+                    handlePageChange={handlePageChange}
+                    handleNext={handleNext}
+                    handlePrev={handlePrev}
+                />
+
+                {/* Customer Dialog */}
+                <AppDialog
+                    open={modal.open}
+                    onClose={closeModal}
+                    title={{
+                        view: 'Chi tiết khách hàng',
+                        edit: modal.customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'
+                    }}
+                    mode={modal.mode}
+                    FormComponent={CustomerForm}
+                    data={modal.customer}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    showHistory={modal.showHistory}
+                    onBackFromHistory={handleBackFromHistory}
+                    onShowHistoryChange={handleShowHistoryChange}
+                    maxWidth="sm:max-w-4xl"
+                />
             </div>
-
-            {/* Pagination */}
-            <AppPagination
-                totalPages={totalPages}
-                currentPage={currentPage}
-                handlePageChange={handlePageChange}
-                handleNext={handleNext}
-                handlePrev={handlePrev}
-            />
-
-            {/* Customer Dialog */}
-            <AppDialog
-                open={modal.open}
-                onClose={closeModal}
-                title={{
-                    view: 'Chi tiết khách hàng',
-                    edit: modal.customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'
-                }}
-                mode={modal.mode}
-                FormComponent={CustomerForm}
-                data={modal.customer}
-                onSave={handleSave}
-                onDelete={handleDelete}
-                showHistory={modal.showHistory}
-                onBackFromHistory={handleBackFromHistory}
-                onShowHistoryChange={handleShowHistoryChange}
-                maxWidth="sm:max-w-4xl"
-            />
         </div>
     );
 }

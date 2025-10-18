@@ -19,7 +19,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
         <img
           src={product.image || '/images/products/product_temp.png'}
           alt={product.name}
-          className="w-full h-30 object-cover"
+          className="w-full h-20 object-cover"
           onError={(e) => {
             e.target.src = '/images/products/product_temp.png'
           }}
@@ -29,7 +29,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
       {/* Content */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <p className="font-semibold text-gray-900 text-base text-sm truncate">
+          <p className="font-semibold text-gray-900 text-sm truncate">
             {product.name}
           </p>
 
@@ -43,12 +43,12 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
               ? 'Còn hàng'
               : product.status?.toString().toUpperCase() === 'OUT_OF_STOCK'
                 ? 'Hết hàng'
-                : 'Ngừng kinh doanh'}
+                : 'Đã ngừng'}
 
           </span>
         </div>
 
-        <p className="text-gray-600 text-[12px] mb-3 line-clamp-3">
+        <p className="text-gray-600 text-[12px] mb-0 line-clamp-3">
           Thương hiệu: {product.brand}<br />
           Mô tả: {product.short_description}
         </p>
@@ -58,7 +58,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
           <div className={`flex justify-between items-end transition-opacity duration-150 ease-in-out ${hovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             {/* Rating bên trái */}
             <span className="flex text-yellow-500 text-sm font-medium gap-1">
-              <Star />  {product.rating || 0}
+              <Star className="w-4 h-4"/>  {product.rating || 0}
             </span>
 
             {/* Giá bên phải */}

@@ -17,17 +17,6 @@ import {
 } from "lucide-react";
 
 /* ---------- UI helpers ---------- */
-const Section = ({ title, subtitle, children, footer }) => (
-  <div>
-    <div className="mb-2">
-      <h3 className="text-gray-900 font-semibold">{title}</h3>
-      {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
-    </div>
-    <div className="space-y-3">{children}</div>
-    {footer && <div className="mt-3">{footer}</div>}
-  </div>
-);
-
 const Toggle = ({ checked, onChange }) => (
   <button
     onClick={() => onChange(!checked)}
@@ -407,19 +396,21 @@ export default function FlowBuilderPage() {
                   </div>
                   <div className="mt-3 max-h-96 overflow-auto pr-1">
                     {filteredTriggerCatalog.map((it) => (
-                     <button
+                      <button
+                        key={it.key}
+                        onClick={() => addTrigger(it)}
                         className="w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
-                        >
+                      >
                         <it.icon className="w-5 h-5 mt-0.5 text-violet-600" />
                         <div className="min-w-0 text-left">
-                            <div className="text-sm font-medium text-gray-900 truncate">
+                          <div className="text-sm font-medium text-gray-900 truncate">
                             {it.label}
-                            </div>
-                            <div className="text-xs text-gray-500">
+                          </div>
+                          <div className="text-xs text-gray-500">
                             Kích hoạt khi điều kiện phù hợp
-                            </div>
+                          </div>
                         </div>
-                    </button>
+                      </button>
                     ))}
                   </div>
                 </div>

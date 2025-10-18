@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit, Save, Trash2 } from "lucide-react";
-import DropdownOptions from "@/components/ui/DropdownOptions";
+import DropdownOptions from "@/components/common/DropdownOptions";
 import { api } from "@/utils/api";
 
 export function ProductForm({

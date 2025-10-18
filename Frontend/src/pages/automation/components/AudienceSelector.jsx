@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Filter, Search, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import DropdownOptions from '@/components/ui/DropdownOptions';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
 export default function AudienceSelector({ selectedAudience, selectedSegment, onAudienceChange, onSegmentChange }) {
   const [showAdvanced, setShowAdvanced] = useState(false);

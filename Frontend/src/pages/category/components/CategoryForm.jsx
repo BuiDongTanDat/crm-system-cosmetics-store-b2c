@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import DropdownOptions from "@/components/ui/DropdownOptions";
+import DropdownOptions from "@/components/common/DropdownOptions";
 import { Edit, Save, Trash2 } from "lucide-react";
 
 const STATUS_OPTIONS = [

@@ -79,103 +79,109 @@ export default function OpportunitiesPage() {
   };
 
   return (
-    <div className="p-0 h-screen flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Handshake className="w-8 h-8 text-brand" />
-          <h1 className="text-2xl font-bold text-gray-900">Cơ hội bán hàng</h1>
+    <div className="h-screen flex flex-col">
+      {/* Sticky top: header + action buttons + stats */}
+      <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className="flex items-center justify-between mb-4">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <Handshake className="w-8 h-8 text-brand" />
+            <h1 className="text-xl font-bold text-gray-900">Cơ hội bán hàng</h1>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="actionNormal" className="gap-2"><Filter className="w-4 h-4" /> Lọc</Button>
+            <Button onClick={handleCreate} variant="actionCreate" className="gap-2"><Plus className="w-4 h-4" /> Thêm</Button>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="actionNormal" className="gap-2"><Filter className="w-4 h-4" /> Lọc</Button>
-          <Button onClick={handleCreate} variant="actionCreate" className="gap-2"><Plus className="w-4 h-4" /> Thêm</Button>
+
+        {/* Stats area */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-600">Tổng cơ hội</p>
+            {shouldAnimateStats ? (
+              <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
+            ) : (
+              <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
+            )}
+          </div>
+
+          <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-600">Tổng giá trị</p>
+            {shouldAnimateStats ? (
+              <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
+                formattingFn={(value) => formatCurrency(Math.floor(value))}
+                className="text-sm font-bold text-gray-900" />
+            ) : (
+              <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
+            )}
+          </div>
+
+          <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-600">Tỷ lệ thành công</p>
+            {shouldAnimateStats ? (
+              <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
+            ) : (
+              <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
+            )}
+          </div>
+
+          <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-600">Deals closed</p>
+            {shouldAnimateStats ? (
+              <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
+            ) : (
+              <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <p className="text-xs text-gray-600">Tổng cơ hội</p>
-          {shouldAnimateStats ? (
-            <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
-          ) : (
-            <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
-          )}
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <p className="text-xs text-gray-600">Tổng giá trị</p>
-          {shouldAnimateStats ? (
-            <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
-              formattingFn={(value) => formatCurrency(Math.floor(value))}
-              className="text-sm font-bold text-gray-900" />
-          ) : (
-            <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
-          )}
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <p className="text-xs text-gray-600">Tỷ lệ thành công</p>
-          {shouldAnimateStats ? (
-            <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
-          ) : (
-            <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
-          )}
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <p className="text-xs text-gray-600">Deals closed</p>
-          {shouldAnimateStats ? (
-            <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
-          ) : (
-            <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
-          )}
-        </div>
-      </div>
-
-      {/* List view */}
-      <div className="flex-1 min-h-0 bg-white rounded-lg shadow-sm border p-4 overflow-auto">
-        <h2 className="text-xl font-semibold mb-4">Danh sách cơ hội (Converted / Lost)</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
-            <thead className="bg-gray-50">
-              <tr>
-                {["Tiêu đề", "Công ty", "Giá trị", "Giai đoạn", "Hoạt động cuối", ""].map(h => (
-                  <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {cards.map(card => (
-                <tr
-                  key={card.id}
-                  className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                  onMouseEnter={() => setHoveredRow(card.id)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                >
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{card.title}</div>
-                    <div className="text-xs text-gray-500">{card.contact || card.owner || ''}</div>
-                  </td>
-                  <td className="px-6 py-4 text-center">{card.company || '-'}</td>
-                  <td className="px-6 py-4 text-center">{formatCurrency(card.value || 0)}</td>
-                  <td className="px-6 py-4 text-center capitalize">{card.stage || card.status}</td>
-                  <td className="px-6 py-4 text-center">{card.lastActivity || card.createdDate || '-'}</td>
-                  <td className="px-6 py-4 text-center w-36">
-                    <div className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === card.id ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-1 pointer-events-none"}`}>
-                      <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
-                      <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
-                      <Button variant="actionDelete" size="icon" onClick={() => handleDelete(card.id)} className="h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-                  </td>
+      {/* Scrollable list area */}
+      <div className="flex-1 overflow-auto p-4">
+        {/* List view */}
+        <div className="flex-1 min-h-0 bg-white rounded-lg shadow-sm border p-4 overflow-auto">
+          <h2 className="text-xl font-semibold mb-4">Danh sách cơ hội (Converted / Lost)</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  {["Tiêu đề", "Công ty", "Giá trị", "Giai đoạn", "Hoạt động cuối", ""].map(h => (
+                    <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {cards.map(card => (
+                  <tr
+                    key={card.id}
+                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                    onMouseEnter={() => setHoveredRow(card.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{card.title}</div>
+                      <div className="text-xs text-gray-500">{card.contact || card.owner || ''}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">{card.company || '-'}</td>
+                    <td className="px-6 py-4 text-center">{formatCurrency(card.value || 0)}</td>
+                    <td className="px-6 py-4 text-center capitalize">{card.stage || card.status}</td>
+                    <td className="px-6 py-4 text-center">{card.lastActivity || card.createdDate || '-'}</td>
+                    <td className="px-6 py-4 text-center w-36">
+                      <div className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === card.id ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-1 pointer-events-none"}`}>
+                        <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
+                        <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
+                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(card.id)} className="h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* Dialog */}
+      {/* Dialog stays at root (AppDialog doesn't need to be inside scroller) */}
       <AppDialog
         open={modal.open}
         onClose={closeModal}

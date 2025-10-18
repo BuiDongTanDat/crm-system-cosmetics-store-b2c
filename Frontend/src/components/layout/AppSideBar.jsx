@@ -48,8 +48,8 @@ const navItems = [
     name: "Bán hàng",
     icon: <BadgeDollarSign   className="w-5 h-5" />,
     subItems: [
-      { name: "Pipeline B2C", path: "/kanban", pro: false },
-      { name: "Khách hàng tiềm năng", path: "/leads", pro: false },
+      { name: "Pipeline", path: "/kanban", pro: false },
+      { name: "Leads", path: "/leads", pro: false },
       { name: "Cơ hội bán hàng", path: "/opporturnities", pro: false }
     ],
   },
@@ -105,7 +105,7 @@ export function AppSidebar() {
 
   const [openSubmenu, setOpenSubmenu] = useState(null); //Trạng thái đóng/mở submenu
   const [subMenuHeight, setSubMenuHeight] = useState({});
-  const subMenuRefs = useRef({});  // Tham chiếu DOM từng submenu
+  const subMenuRefs = useRef({}); // Tham chiếu đến các phần tử submenu
 
   const isActive = useCallback(
     (path) => location.pathname === path,

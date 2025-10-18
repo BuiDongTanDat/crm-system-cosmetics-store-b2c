@@ -8,6 +8,7 @@ import MarketingForm from '@/pages/marketing/components/MarketingForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import { mockCampaigns } from '@/lib/data';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
 export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState(mockCampaigns);
@@ -34,6 +35,14 @@ export default function MarketingPage() {
     assignee: 'Người phụ trách',
     expectedKPI: 'KPI mong đợi'
   };
+
+  // Dropdown options for campaign types
+  const CAMPAIGN_TYPE_OPTIONS = [
+    { value: 'all', label: 'Loại chiến dịch' },
+    { value: 'Email', label: 'Email' },
+    { value: 'Social', label: 'Social' },
+    { value: 'Paid', label: 'Paid' },
+  ];
 
   // Filtered campaigns
   const filtered = campaigns.filter(c => {
@@ -124,13 +133,52 @@ export default function MarketingPage() {
   const handlePageChange = (page) => setCurrentPage(page);
 
   return (
-    <div className="p-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Chiến dịch Marketing ({filtered.length})
-          </h1>
+    <div className="h-screen flex flex-col">
+      {/* Sticky header: two-row (title/actions) like ProductPage */}
+      <div
+        className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        style={{ backdropFilter: 'blur' }}
+      >
+        {/* First row: title (left) and search/add/import (right) */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Chiến dịch Marketing ({filtered.length})
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 transition-all border-gray-200 bg-white/90"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <Button onClick={openAdd} variant="actionCreate" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Thêm chiến dịch
+            </Button>
+
+            <ImportExportDropdown
+              data={campaigns}
+              filename="campaigns"
+              fieldMapping={campaignFieldMapping}
+              onImportSuccess={handleImportSuccess}
+              onImportError={handleImportError}
+              trigger="icon"
+              variant="actionNormal"
+            />
+          </div>
+        </div>
+
+        {/* Second row: view toggles (left) and filters/actions (right) */}
+        <div className="flex items-center justify-between">
           <div className="flex gap-1">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
@@ -145,140 +193,123 @@ export default function MarketingPage() {
               <List className="w-4 h-4" />
             </Button>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+          <div className="flex items-center gap-3">
+            {/* Keep existing filter button (you can replace with a dropdown later) */}
+            <Button variant="actionNormal" className="gap-2">
+              <Filter className="w-5 h-5" />
+              Lọc
+            </Button>
+
+            {/* Type selector using DropdownOptions */}
+            <DropdownOptions
+              options={CAMPAIGN_TYPE_OPTIONS}
+              value={selectedType}
+              onChange={(val) => setSelectedType(val)}
+              width="w-40"
+              placeholder="Loại chiến dịch"
             />
           </div>
-
-          {/* Filter */}
-          <Button variant="actionNormal" className="gap-2">
-            <Filter className="w-5 h-5" />
-            Lọc
-          </Button>
-
-          {/* Add Campaign */}
-          <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Thêm chiến dịch
-          </Button>
-
-          {/* Import/Export Dropdown */}
-          <ImportExportDropdown
-            data={campaigns}
-            filename="campaigns"
-            fieldMapping={campaignFieldMapping}
-            onImportSuccess={handleImportSuccess}
-            onImportError={handleImportError}
-            trigger="icon"
-            variant="actionNormal"
-          />
         </div>
       </div>
 
-      {/* View modes */}
-      {viewMode === 'card' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
-          {currentCampaigns.map(campaign => (
-            <MarketingCard
-              key={campaign.id}
-              campaign={campaign}
-              onView={openView}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['Chiến dịch', 'Loại', 'Ngân sách', 'Thời gian', 'Trạng thái', 'Người phụ trách', ''].map(h => (
-                    <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentCampaigns.map(c => (
-                  <tr
-                    key={c.id}
-                    onMouseEnter={() => setHoveredRow(c.id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                    className="hover:bg-gray-50 transition"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-left">
-                      <div className="flex items-center">
-                        <div className="font-medium text-gray-900 truncate max-w-[220px]">{c.name}</div>
-                        <div className="text-xs text-gray-500 ml-3 truncate max-w-[220px]">{c.targetAudience}</div>
-                      </div>
-                    </td>
-                    <td className="text-center text-sm text-gray-800">{c.type}</td>
-                    <td className="text-center font-semibold">{c.budget ? Number(c.budget).toLocaleString('vi-VN') + '₫' : '-'}</td>
-                    <td className="text-center text-sm text-gray-700">
-                      {c.startDate ? c.startDate : '-'}{c.endDate ? ` → ${c.endDate}` : ''}
-                    </td>
-                    <td className="text-center text-sm">{c.status || 'Draft'}</td>
-                    <td className="text-center text-sm">{c.assignee || '-'}</td>
-                    <td className="text-center w-36">
-                      <div
-                        className={`flex justify-center gap-1 ${hoveredRow === c.id ? 'opacity-100 animate-fade-in duration-200' : 'opacity-0 pointer-events-none'}`}
-                      >
-                        <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="actionUpdate" size="icon" onClick={() => openEdit(c)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(c.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Scrollable content: campaigns list/cards, pagination, dialog */}
+      <div className="flex-1 overflow-auto p-6">
+        {/* View modes */}
+        {viewMode === 'card' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+            {currentCampaigns.map(campaign => (
+              <MarketingCard
+                key={campaign.id}
+                campaign={campaign}
+                onView={openView}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['Chiến dịch', 'Loại', 'Ngân sách', 'Thời gian', 'Trạng thái', 'Người phụ trách', ''].map(h => (
+                      <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentCampaigns.map(c => (
+                    <tr
+                      key={c.id}
+                      onMouseEnter={() => setHoveredRow(c.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      className="hover:bg-gray-50 transition"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-left">
+                        <div className="flex items-center">
+                          <div className="font-medium text-gray-900 truncate max-w-[220px]">{c.name}</div>
+                          <div className="text-xs text-gray-500 ml-3 truncate max-w-[220px]">{c.targetAudience}</div>
+                        </div>
+                      </td>
+                      <td className="text-center text-sm text-gray-800">{c.type}</td>
+                      <td className="text-center font-semibold">{c.budget ? Number(c.budget).toLocaleString('vi-VN') + '₫' : '-'}</td>
+                      <td className="text-center text-sm text-gray-700">
+                        {c.startDate ? c.startDate : '-'}{c.endDate ? ` → ${c.endDate}` : ''}
+                      </td>
+                      <td className="text-center text-sm">{c.status || 'Draft'}</td>
+                      <td className="text-center text-sm">{c.assignee || '-'}</td>
+                      <td className="text-center w-36">
+                        <div
+                          className={`flex justify-center gap-1 ${hoveredRow === c.id ? 'opacity-100 animate-fade-in duration-200' : 'opacity-0 pointer-events-none'}`}
+                        >
+                          <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(c)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="actionDelete" size="icon" onClick={() => handleDelete(c.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-      {/* Pagination */}
-      <AppPagination
-        totalPages={totalPages}
-        currentPage={currentPage}
-        handlePageChange={handlePageChange}
-        handleNext={handleNext}
-        handlePrev={handlePrev}
-      />
+        {/* Pagination */}
+        <AppPagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          handlePageChange={handlePageChange}
+          handleNext={handleNext}
+          handlePrev={handlePrev}
+        />
 
-      {/* Modal */}
-      <AppDialog
-        open={modal.open}
-        onClose={closeModal}
-        title={{
-          view: `Chi tiết chiến dịch - ${modal.campaign?.name || ''}`,
-          edit: modal.campaign ? `Chỉnh sửa chiến dịch - ${modal.campaign.name}` : 'Thêm chiến dịch mới'
-        }}
-        mode={modal.mode}
-        FormComponent={MarketingForm}
-        data={modal.campaign}
-        onSave={handleSave}
-        onDelete={handleDelete}
-        maxWidth="sm:max-w-4xl"
-      />
+        {/* Modal */}
+        <AppDialog
+          open={modal.open}
+          onClose={closeModal}
+          title={{
+            view: `Chi tiết chiến dịch - ${modal.campaign?.name || ''}`,
+            edit: modal.campaign ? `Chỉnh sửa chiến dịch - ${modal.campaign.name}` : 'Thêm chiến dịch mới'
+          }}
+          mode={modal.mode}
+          FormComponent={MarketingForm}
+          data={modal.campaign}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          maxWidth="sm:max-w-4xl"
+        />
+      </div>
     </div>
   );
 }

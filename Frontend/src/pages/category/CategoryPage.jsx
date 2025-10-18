@@ -5,7 +5,7 @@ import AppDialog from "@/components/dialogs/AppDialog";
 import CategoryForm from "@/pages/category/components/CategoryForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
-import DropdownOptions from "@/components/ui/DropdownOptions";
+import DropdownOptions from "@/components/common/DropdownOptions";
 import { api } from "@/utils/api";
 
 export default function CategoryPage() {
@@ -142,7 +142,7 @@ export default function CategoryPage() {
     };
 
     const getStatusBadge = (status) => {
-        const baseClass = "px-2 py-1 text-xs font-medium rounded w-[80px] text-center inline-block";
+        const baseClass = "px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block";
         return status === "ACTIVE"
             ? `${baseClass} text-green-800 bg-green-100`
             : `${baseClass} text-red-800 bg-red-100`;
@@ -156,12 +156,18 @@ export default function CategoryPage() {
     };
 
     return (
-        <div className="p-0">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">
-                    Quản lý Danh mục ({filteredCategories.length})
-                </h1>
+        <div className=" flex flex-col">
+            {/* Sticky header */}
+            <div
+                className="sticky top-[70px] z-20 flex justify-between gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-7"
+                style={{ backdropFilter: 'blur' }}
+            >
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-bold text-gray-900">
+                        Quản lý Khách hàng ({filteredCategories.length})
+                    </h1>
+                </div>
                 <div className="flex items-center gap-3">
                     {/* Search */}
                     <div className="relative">

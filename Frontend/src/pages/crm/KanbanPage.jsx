@@ -6,6 +6,7 @@ import AppDialog from '@/components/dialogs/AppDialog';
 import DealForm from '@/pages/crm/components/DealForm';
 import CountUp from 'react-countup';
 import { kanbanColumns as initialColumns, kanbanCards as initialCards } from '@/lib/data';
+import { formatCurrency } from '@/utils/helper';
 
 export default function KanbanPage() {
   const [cards, setCards] = useState(initialCards);
@@ -144,7 +145,7 @@ export default function KanbanPage() {
       // Check if clicked on column header area
       const columnHeader = e.target.closest('[data-column-header]');
       if (!columnHeader) return;
-      
+
       setIsDraggingBoard(true);
       setDragStartX(e.clientX);
       setBoardScrollLeft(board.scrollLeft);
@@ -154,7 +155,7 @@ export default function KanbanPage() {
     const handleMouseMove = (e) => {
       if (!isDraggingBoard) return;
       e.preventDefault();
-      
+
       const deltaX = e.clientX - dragStartX;
       const newScrollLeft = boardScrollLeft - deltaX * 1.2; // Scroll speed multiplier
       board.scrollLeft = Math.max(0, Math.min(newScrollLeft, board.scrollWidth - board.clientWidth));
@@ -175,9 +176,7 @@ export default function KanbanPage() {
     };
   }, [isDraggingBoard, dragStartX, boardScrollLeft]);
 
-  // Helpers
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 }).format(amount);
+  
 
   const getCardsByStage = (stageId, list = cards) => list.filter(card => (card.status || card.stage) === stageId);
 
@@ -278,86 +277,91 @@ export default function KanbanPage() {
   return (
     <div className="p-0 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Pipeline B2C</h1>
-        <div className="flex gap-3">
-          <Button variant="actionNormal" className="gap-2">
-            <Filter className="w-4 h-4" /> Lọc
-          </Button>
-          <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
-            <Plus className="w-4 h-4" /> Thêm Deal
-          </Button>
+      <div className="flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
+          <div className="flex gap-3">
+            {/* <Button variant="actionNormal" className="gap-2">
+              <Filter className="w-4 h-4" /> Lọc
+            </Button> */}
+            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
+              <Plus className="w-4 h-4" /> Thêm Deal
+            </Button>
+          </div>
+        </div>
+        <div>
+          {/* Statistics */}
+          <div className="grid grid-cols-4 gap-3 mb-2">
+            <div className="bg-white p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Target className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Tổng số deals</p>
+                  {shouldAnimateStats ? (
+                    <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Tổng giá trị</p>
+                  {shouldAnimateStats ? (
+                    <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
+                      formattingFn={(value) => formatCurrency(Math.floor(value))}
+                      className="text-sm font-bold text-gray-900" />
+                  ) : (
+                    <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Tỷ lệ chuyển đổi</p>
+                  {shouldAnimateStats ? (
+                    <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Users className="w-4 h-4 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Deals đang xử lý</p>
+                  {shouldAnimateStats ? (
+                    <CountUp end={stats.activeDeals} start={prevStats.activeDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900">{stats.activeDeals}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <Target className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Tổng số deals</p>
-              {shouldAnimateStats ? (
-                <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
-              ) : (
-                <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-              <DollarSign className="w-4 h-4 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Tổng giá trị</p>
-              {shouldAnimateStats ? (
-                <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
-                  formattingFn={(value) => formatCurrency(Math.floor(value))}
-                  className="text-sm font-bold text-gray-900" />
-              ) : (
-                <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Tỷ lệ chuyển đổi</p>
-              {shouldAnimateStats ? (
-                <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
-              ) : (
-                <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-              <Users className="w-4 h-4 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Deals đang xử lý</p>
-              {shouldAnimateStats ? (
-                <CountUp end={stats.activeDeals} start={prevStats.activeDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
-              ) : (
-                <p className="text-lg font-bold text-gray-900">{stats.activeDeals}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Kanban Board - occupies remaining space, horizontal scrollbar only */}
       <div
