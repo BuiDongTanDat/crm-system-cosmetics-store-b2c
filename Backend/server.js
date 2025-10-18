@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./API/routes/authRoutes');
+const flowRoutes = require('./API/routes/AutomationRoutes');
+const LeadRoutes = require('./API/routes/LeadRoutes');
+const AiRoutes = require('./API/routes/aiRoutes');
 const userRoutes = require('./API/routes/userRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
@@ -14,6 +17,13 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/auth', authRoutes);
+app.use('/automation', flowRoutes);
+app.use('/leads', LeadRoutes);
+app.use('/Ai', AiRoutes);
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  
+  next();
 app.use('/user', userRoutes);
 app.use('/category', categoryRoutes);
 app.use('/product', productRoutes);
