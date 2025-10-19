@@ -725,172 +725,143 @@ export const notifications = [
 export const mockAutomations = [
   {
     id: 1,
-    name: "Welcome Email Series",
+    flow_id: "flow_001",
+    name: "Chúc mừng sinh nhật",
+    description: "Gửi email chúc mừng sinh nhật khách hàng",
     type: "Email",
-    campaignType: "automated",
-    subject: "Chào mừng bạn đến với chúng tôi!",
-    senderEmail: "welcome@company.com",
-    senderName: "Team Marketing",
-    targetAudience: "Khách hàng mới",
-    segment: "new_customers",
-    emailContent: {
-      html: "<h1>Chào mừng!</h1><p>Cảm ơn bạn đã đăng ký...</p>",
-      text: "Chào mừng! Cảm ơn bạn đã đăng ký...",
-      template: "welcome"
-    },
-    schedule: {
-      type: "trigger",
-      trigger: "user_signup"
-    },
-    status: "active",
-    stats: {
-      sent: 1250,
-      opened: 875,
-      clicked: 234,
-      bounced: 12
-    },
-    createdAt: "2024-01-15T08:00:00Z"
+    status: "ACTIVE",
+    tags: ["sinh nhật", "khách hàng"],
+    enabled: true,
+    created_by: "admin",
+    created_at: "2024-06-01T08:00:00Z",
+    updated_at: "2024-06-05T10:00:00Z",
+    triggers: [
+      {
+        trigger_id: "trigger_001",
+        flow_id: "flow_001",
+        event_type: "birthday",
+        conditions: [{ field: "dob", operator: "equals_today" }],
+        is_active: true,
+        created_at: "2024-06-01T08:00:00Z"
+      }
+    ],
+    actions: [
+      {
+        action_id: "action_001",
+        trigger_id: "trigger_001",
+        flow_id: "flow_001",
+        action_type: "email",
+        channel: "email",
+        content: {
+          subject: "Chúc mừng sinh nhật!",
+          body: "Chúc bạn một ngày sinh nhật vui vẻ!"
+        },
+        order_index: 1,
+        delay_minutes: 0,
+        status: "READY",
+        executed_at: null,
+        created_at: "2024-06-01T08:00:00Z",
+        retry_count: 0,
+        last_retry_at: null
+      }
+    ]
   },
   {
     id: 2,
-    name: "Product Launch Announcement",
-    type: "Email",
-    campaignType: "standard",
-    subject: "Sản phẩm mới đã ra mắt - Ưu đãi đặc biệt!",
-    senderEmail: "marketing@company.com",
-    senderName: "Marketing Team",
-    targetAudience: "Khách hàng hiện tại",
-    segment: "existing_customers",
-    emailContent: {
-      html: "<h1>Sản phẩm mới!</h1><p>Khám phá sản phẩm mới với ưu đãi đặc biệt...</p>",
-      text: "Sản phẩm mới! Khám phá sản phẩm mới với ưu đãi đặc biệt...",
-      template: "product_launch"
-    },
-    schedule: {
-      type: "scheduled",
-      date: "2024-02-01",
-      time: "09:00"
-    },
-    status: "paused",
-    stats: {
-      sent: 2100,
-      opened: 1386,
-      clicked: 567,
-      bounced: 23
-    },
-    createdAt: "2024-01-20T10:30:00Z"
+    flow_id: "flow_002",
+    name: "Gửi tin nhắn khách hàng mới",
+    description: "Gửi SMS khi khách hàng đăng ký mới",
+    type: "SMS",
+    status: "INACTIVE",
+    tags: ["khách hàng mới", "sms"],
+    enabled: false,
+    created_by: "marketing",
+    created_at: "2024-06-02T09:00:00Z",
+    updated_at: "2024-06-06T11:00:00Z",
+    triggers: [
+      {
+        trigger_id: "trigger_002",
+        flow_id: "flow_002",
+        event_type: "signup",
+        conditions: [{ field: "source", operator: "equals", value: "website" }],
+        is_active: true,
+        created_at: "2024-06-02T09:00:00Z"
+      }
+    ],
+    actions: [
+      {
+        action_id: "action_002",
+        trigger_id: "trigger_002",
+        flow_id: "flow_002",
+        action_type: "sms",
+        channel: "sms",
+        content: {
+          message: "Cảm ơn bạn đã đăng ký!"
+        },
+        order_index: 1,
+        delay_minutes: 5,
+        status: "READY",
+        executed_at: null,
+        created_at: "2024-06-02T09:00:00Z",
+        retry_count: 0,
+        last_retry_at: null
+      }
+    ]
   },
   {
     id: 3,
-    name: "Cart Abandonment Recovery",
+    flow_id: "flow_003",
+    name: "Nhắc lịch hẹn",
+    description: "Gửi email nhắc lịch hẹn khách hàng",
     type: "Email",
-    campaignType: "automated",
-    subject: "Bạn quên sản phẩm trong giỏ hàng rồi!",
-    senderEmail: "support@company.com",
-    senderName: "Customer Support",
-    targetAudience: "Khách hàng bỏ giỏ hàng",
-    segment: "cart_abandoners",
-    emailContent: {
-      html: "<h1>Đừng bỏ lỡ!</h1><p>Các sản phẩm trong giỏ hàng của bạn đang chờ...</p>",
-      text: "Đừng bỏ lỡ! Các sản phẩm trong giỏ hàng của bạn đang chờ...",
-      template: "cart_recovery"
-    },
-    schedule: {
-      type: "trigger",
-      trigger: "cart_abandonment_24h"
-    },
-    status: "active",
-    stats: {
-      sent: 850,
-      opened: 425,
-      clicked: 127,
-      bounced: 8
-    },
-    createdAt: "2024-01-10T14:15:00Z"
-  },
-  {
-    id: 4,
-    name: "Monthly Newsletter",
-    type: "Email",
-    campaignType: "standard",
-    subject: "Bản tin tháng 2 - Những cập nhật mới nhất",
-    senderEmail: "newsletter@company.com",
-    senderName: "Newsletter Team",
-    targetAudience: "Tất cả subscribers",
-    segment: "newsletter_subscribers",
-    emailContent: {
-      html: "<h1>Bản tin tháng 2</h1><p>Cập nhật những tin tức mới nhất...</p>",
-      text: "Bản tin tháng 2. Cập nhật những tin tức mới nhất...",
-      template: "newsletter"
-    },
-    schedule: {
-      type: "scheduled",
-      date: "2024-02-01",
-      time: "08:00"
-    },
-    status: "draft",
-    stats: {
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      bounced: 0
-    },
-    createdAt: "2024-01-25T16:45:00Z"
-  },
-  {
-    id: 5,
-    name: "Birthday Special Offers",
-    type: "Email",
-    campaignType: "automated",
-    subject: "🎉 Chúc mừng sinh nhật! Quà tặng đặc biệt dành cho bạn",
-    senderEmail: "birthday@company.com",
-    senderName: "Birthday Team",
-    targetAudience: "Khách hàng sinh nhật",
-    segment: "birthday_customers",
-    emailContent: {
-      html: "<h1>🎉 Chúc mừng sinh nhật!</h1><p>Quà tặng đặc biệt dành riêng cho bạn...</p>",
-      text: "🎉 Chúc mừng sinh nhật! Quà tặng đặc biệt dành riêng cho bạn...",
-      template: "birthday"
-    },
-    schedule: {
-      type: "trigger",
-      trigger: "customer_birthday"
-    },
-    status: "active",
-    stats: {
-      sent: 156,
-      opened: 134,
-      clicked: 78,
-      bounced: 2
-    },
-    createdAt: "2024-01-05T11:20:00Z"
-  },
-  {
-    id: 6,
-    name: "Re-engagement Campaign",
-    type: "Email",
-    campaignType: "automated",
-    subject: "Chúng tôi nhớ bạn! Quay lại với ưu đãi 30%",
-    senderEmail: "winback@company.com",
-    senderName: "Win-back Team",
-    targetAudience: "Khách hàng không hoạt động",
-    segment: "inactive_customers",
-    emailContent: {
-      html: "<h1>Chúng tôi nhớ bạn!</h1><p>Ưu đãi đặc biệt để chào đón bạn trở lại...</p>",
-      text: "Chúng tôi nhớ bạn! Ưu đãi đặc biệt để chào đón bạn trở lại...",
-      template: "winback"
-    },
-    schedule: {
-      type: "trigger",
-      trigger: "inactive_90_days"
-    },
-    status: "completed",
-    stats: {
-      sent: 1890,
-      opened: 567,
-      clicked: 145,
-      bounced: 34
-    },
-    createdAt: "2023-12-15T09:10:00Z"
+    status: "DRAFT",
+    tags: ["lịch hẹn", "email"],
+    enabled: true,
+    created_by: "admin",
+    created_at: "2024-06-03T10:00:00Z",
+    updated_at: "2024-06-07T12:00:00Z",
+    triggers: [
+      {
+        trigger_id: "trigger_003",
+        flow_id: "flow_003",
+        event_type: "calendar",
+        conditions: [{ field: "date", operator: "equals_today" }],
+        is_active: true,
+        created_at: "2024-06-03T10:00:00Z"
+      }
+    ],
+    actions: [
+      {
+        action_id: "action_003",
+        trigger_id: "trigger_003",
+        flow_id: "flow_003",
+        action_type: "email",
+        channel: "email",
+        content: {
+          subject: "Nhắc lịch hẹn",
+          body: "Bạn có lịch hẹn hôm nay!"
+        },
+        order_index: 1,
+        delay_minutes: 10,
+        status: "READY",
+        executed_at: null,
+        created_at: "2024-06-03T10:00:00Z",
+        retry_count: 0,
+        last_retry_at: null
+      }
+    ]
   }
+];
+
+// Mock options cho trigger/action
+export const triggerOptions = [
+  { value: "birthday", label: "Sinh nhật khách hàng" },
+  { value: "signup", label: "Đăng ký mới" },
+  { value: "tag_added", label: "Được gắn Tag" }
+];
+
+export const actionOptions = [
+  { value: "email", label: "Gửi Email" },
+  { value: "sms", label: "Gửi SMS" },
+  { value: "messenger", label: "Gửi tin Messenger" }
 ];

@@ -11,7 +11,7 @@ export default function DropdownOptions({
   options = [],
   value,
   onChange,
-  placeholder = "Chọn...",
+  placeholder = "Chọn",
   disabled = false,
   className = "",
   triggerClassName = "",

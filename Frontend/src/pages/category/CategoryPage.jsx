@@ -6,7 +6,7 @@ import CategoryForm from "@/pages/category/components/CategoryForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import DropdownOptions from "@/components/common/DropdownOptions";
-import { api } from "@/utils/api";
+import { getCategories, getCategory, createCategory, updateCategory, deleteCategory } from "@/services/categories";
 
 export default function CategoryPage() {
     const [categories, setCategories] = useState([]);
@@ -20,33 +20,6 @@ export default function CategoryPage() {
         { value: "ACTIVE", label: "ACTIVE" },
         { value: "INACTIVE", label: "INACTIVE" },
     ];
-
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const categoriesPerPage = 6;
-
-    const categoryFieldMapping = {
-        name: "Tên danh mục",
-        description: "Mô tả",
-        status: "Trạng thái",
-    };
-
-    // Fetch all categories
-    useEffect(() => {
-        fetchCategories();
-    }, []);
-
-    const fetchCategories = async () => {
-        try {
-            const { ok, data } = await api.getJson("/category");
-            if (!ok) throw new Error("Fetch failed");
-            setCategories(data || []);
-        } catch (err) {
-            console.error("Lỗi tải danh mục:", err);
-            setCategories([]);
-        }
-    };
-
     const filteredCategories = categories.filter(
         (category) =>
             (category.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,104 +28,103 @@ export default function CategoryPage() {
             // apply status filter when selected
             (filterStatus ? (category.status === filterStatus) : true)
     );
+    const handleFilterChange = (value) => {
+        setFilterStatus(value);
+        setCurrentPage(1);
+    };
 
+
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const categoriesPerPage = 6;
     const totalPages = Math.max(1, Math.ceil(filteredCategories.length / categoriesPerPage));
     const currentCategories = filteredCategories.slice(
         (currentPage - 1) * categoriesPerPage,
         currentPage * categoriesPerPage
     );
 
+    
+
+    // Fetch all categories
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const data = await getCategories();
+            setCategories(data || []);
+        } catch (err) {
+            console.error("Lỗi tải danh mục:", err);
+            setCategories([]);
+        }
+    };
+
+
     const handleView = (category) => setModal({ open: true, mode: "view", category });
     const handleEdit = (category) => setModal({ open: true, mode: "edit", category });
     const handleCreate = () => setModal({ open: true, mode: "edit", category: null });
     const closeModal = () => setModal({ open: false, mode: "view", category: null });
-
     const handleSave = async (categoryData) => {
         console.log("Saving categoryData:", categoryData);
         try {
-            let res;
             const idForUpdate = categoryData.category_id || categoryData.id;
-
-            // Prepare payload: remove falsy id fields so backend can auto-generate
             const payloadToSend = { ...categoryData };
             if (!payloadToSend.category_id) delete payloadToSend.category_id;
             if (!payloadToSend.id) delete payloadToSend.id;
 
+            let savedItem;
             if (idForUpdate) {
-                // Update via api helper
-                res = await api.putJson(`/category/${idForUpdate}`, payloadToSend);
+                await updateCategory(idForUpdate, payloadToSend);
+                savedItem = await getCategory(idForUpdate);
             } else {
-                // Create via api helper
-                res = await api.postJson("/category", payloadToSend);
+                savedItem = await createCategory(payloadToSend);
             }
 
-            if (res.ok) {
+            if (savedItem) {
                 if (idForUpdate) {
-                    // prefer returned updated item
-                    const updatedItem = res.data ?? (await (async () => {
-                        const r = await api.getJson(`/category/${idForUpdate}`);
-                        return r.ok ? r.data : null;
-                    })());
-
-                    if (updatedItem) {
-                        setCategories((prev) => {
-                            const idx = prev.findIndex((c) => (c.category_id || c.id) == idForUpdate);
-                            if (idx !== -1) {
-                                const newArr = [...prev];
-                                newArr[idx] = updatedItem;
-                                return newArr;
-                            }
-                            return [...prev, updatedItem];
-                        });
-                        setModal({ open: true, mode: "view", category: updatedItem });
-                    } else {
-                        await fetchCategories();
-                        setModal({ open: true, mode: "view", category: { ...categoryData, category_id: idForUpdate } });
-                    }
+                    setCategories((prev) => {
+                        const idx = prev.findIndex((c) => (c.category_id || c.id) == idForUpdate);
+                        if (idx !== -1) {
+                            const newArr = [...prev];
+                            newArr[idx] = savedItem;
+                            return newArr;
+                        }
+                        return [...prev, savedItem];
+                    });
+                    setModal({ open: true, mode: "view", category: savedItem });
                 } else {
-                    const created = res.data ?? null;
-                    if (created) {
-                        setCategories((prev) => [created, ...prev]);
-                    } else {
-                        await fetchCategories();
-                    }
+                    setCategories((prev) => [savedItem, ...prev]);
                     closeModal();
                 }
             } else {
-                alert("Không thể lưu danh mục!");
+                await fetchCategories();
+                closeModal();
             }
         } catch (err) {
+            alert("Không thể lưu danh mục!");
             console.error("Lỗi lưu danh mục:", err);
         }
     };
-
     const handleDelete = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
         try {
-            const { ok } = await api.deleteJson(`/category/${id}`);
-            if (ok) {
-                await fetchCategories();
-                closeModal();
-            } else {
-                alert("Không thể xóa danh mục!");
-            }
+            await deleteCategory(id);
+            await fetchCategories();
+            closeModal();
         } catch (err) {
+            alert("Không thể xóa danh mục!");
             console.error("Lỗi xóa danh mục:", err);
         }
     };
+
 
     const getStatusBadge = (status) => {
         const baseClass = "px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block";
         return status === "ACTIVE"
             ? `${baseClass} text-green-800 bg-green-100`
             : `${baseClass} text-red-800 bg-red-100`;
-    };
-
-
-
-    const handleFilterChange = (value) => {
-        setFilterStatus(value);
-        setCurrentPage(1);
     };
 
     return (

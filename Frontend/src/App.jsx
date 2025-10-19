@@ -23,16 +23,17 @@ import OrderPage from './pages/order/OrderPage';
 import ReportPage from './pages/report/ReportPage';
 import KanbanPage from './pages/crm/KanbanPage';
 import RolePage from './pages/role/RolePage';
+import AutomationPage from './pages/automation/AutomationPage';
+import LandingPage from './pages/landingPage/LandingPage';
+import FlowEditorPage from './pages/automation/FlowBuilderPage';
+import CategoryPage from './pages/category/CategoryPage';
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
-import AutomationPage from './pages/automation/AutomationPage';
-import LandingPage from './pages/landingPage/LandingPage';
-import FlowEditorPage from './pages/automation/FlowEditorPage';
-import CategoryPage from './pages/category/CategoryPage';
+
 
 function App() {
 
@@ -167,7 +168,11 @@ function App() {
                   element={privateElement(<AutomationPage />)}
                 />
                 <Route
-                  path="/automation/create"
+                  path="/automation/flow/new"
+                  element={privateElement(<FlowEditorPage />)}
+                />
+                <Route
+                  path="/automation/flow/:id"
                   element={privateElement(<FlowEditorPage />)}
                 />
 
@@ -198,9 +203,9 @@ function App() {
                   path="/settings"
                   element={privateElement(<SettingsPage />)}
                 />
-                 <Route
+                <Route
                   path="/flows"
-                  element={privateElement(<FlowEditorPage/>)}
+                  element={privateElement(<FlowEditorPage />)}
                 />
                 <Route
                   path="*"

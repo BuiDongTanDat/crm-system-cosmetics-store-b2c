@@ -205,24 +205,28 @@ export default function OrderPage() {
 
                         const colorMap = {
                             [OrderStatus.new]: {
-                                base: "bg-white text-gray-900 border-gray-200",
+                                base: "bg-white text-blue-600 border-gray-200",
                                 hover: "hover:bg-blue-600 hover:text-white hover:border-blue-600",
                                 active: "bg-blue-600 text-white border-blue-600",
+                                icon: "text-blue-600",
                             },
                             [OrderStatus.processing]: {
-                                base: "bg-white text-gray-900 border-gray-200",
+                                base: "bg-white text-yellow-600 border-gray-200",
                                 hover: "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
                                 active: "bg-yellow-500 text-white border-yellow-500",
+                                icon: "text-yellow-600",
                             },
                             [OrderStatus.completed]: {
-                                base: "bg-white text-gray-900 border-gray-200",
+                                base: "bg-white text-green-600 border-gray-200",
                                 hover: "hover:bg-green-600 hover:text-white hover:border-green-600",
                                 active: "bg-green-600 text-white border-green-600",
+                                icon: "text-green-600",
                             },
                             [OrderStatus.cancelled]: {
-                                base: "bg-white text-gray-900 border-gray-200",
+                                base: "bg-white text-red-600 border-gray-200",
                                 hover: "hover:bg-red-600 hover:text-white hover:border-red-600",
                                 active: "bg-red-600 text-white border-red-600",
+                                icon: "text-red-600",
                             },
                         };
 
@@ -237,14 +241,15 @@ export default function OrderPage() {
                             <div
                                 key={status}
                                 onClick={() => handleStatusClick(status)}
-                                className={`group p-4 rounded-md border  transition cursor-pointer flex items-center gap-4 ${colorClass} ${hoverClass} hover:shadow-md duration-100 active:scale-95`}
+                                className={`group p-4 rounded-md border  transition cursor-pointer flex items-center gap-4 ${colorClass} ${hoverClass} hover:shadow-sm duration-100 active:scale-95`}
                             >
                                 {/* Icon bên trái */}
-                                <div className="flex-shrink-0">
-                                    <Icon
-                                        className={`w-10 h-10 ${isActive ? "text-white" : "text-gray-600"} group-hover:text-white`}
-                                    />
-                                </div>
+                                <Icon
+                                    className={`w-10 h-10 ${isActive
+                                            ? "text-white"
+                                            : `${colorMap[status].icon} group-hover:text-white`
+                                        } transition-colors duration-100`}
+                                />
 
                                 {/* Tiêu đề + số lượng bên phải */}
                                 <div className="flex flex-col">

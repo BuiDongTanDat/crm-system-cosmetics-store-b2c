@@ -1,4 +1,3 @@
-// ...existing code...
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Play, Pause, Mail, Settings, Users, Calendar, List, Square, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,9 @@ import AppDialog from '@/components/dialogs/AppDialog';
 import AutomationForm from '@/pages/automation/components/AutomationForm';
 import AutomationCard from '@/pages/automation/components/AutomationCard';
 import AppPagination from '@/components/pagination/AppPagination';
-import { mockAutomations } from '@/lib/data';
+import { mockAutomations, triggerOptions, actionOptions } from '@/lib/data';
 import { useNavigate } from 'react-router-dom'; // Nếu dùng react-router
+import { formatDate } from '@/utils/helper';
 
 export default function AutomationPage() {
   const [automations, setAutomations] = useState(mockAutomations);
@@ -16,7 +16,7 @@ export default function AutomationPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [modal, setModal] = useState({ open: false, mode: 'view', automation: null });
   const [currentPage, setCurrentPage] = useState(1);
-  const automationsPerPage = 6;
+  const automationsPerPage = 3;
 
   // view mode (card | list)
   const [viewMode, setViewMode] = useState('card');
@@ -39,13 +39,16 @@ export default function AutomationPage() {
 
   // Handlers
   const openView = (a) => setModal({ open: true, mode: 'view', automation: a });
-  const openEdit = (a) => setModal({ open: true, mode: 'edit', automation: a });
-  const navigate = useNavigate(); // Nếu không dùng react-router, dùng window.location
+  const navigate = useNavigate();
 
   // Thay đổi nút tạo automation để chuyển hướng
   const openAdd = () => {
-    navigate('/automation/create');
-    // Nếu không dùng react-router: window.location.href = '/automation/create';
+    navigate('/automation/flow/new');
+  };
+
+  // Khi bấm Edit, chuyển hướng sang FlowEditorPage với id
+  const openEdit = (a) => {
+    navigate(`/automation/flow/${a.flow_id}`);
   };
 
   const closeModal = () => setModal({ open: false, mode: 'view', automation: null });
@@ -53,8 +56,8 @@ export default function AutomationPage() {
   const handleSave = (automationData) => {
     if (modal.mode === 'edit' && !automationData.id) {
       // Create new
-      const newAutomation = { 
-        ...automationData, 
+      const newAutomation = {
+        ...automationData,
         id: Math.max(...automations.map(a => a.id)) + 1,
         createdAt: new Date().toISOString(),
         stats: { sent: 0, opened: 0, clicked: 0, bounced: 0 }
@@ -80,7 +83,7 @@ export default function AutomationPage() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setAutomations(prev => prev.map(a => 
+    setAutomations(prev => prev.map(a =>
       a.id === id ? { ...a, status: newStatus } : a
     ));
   };
@@ -93,92 +96,44 @@ export default function AutomationPage() {
   // Stats
   const stats = {
     total: automations.length,
-    active: automations.filter(a => a.status === 'active').length,
-    paused: automations.filter(a => a.status === 'paused').length,
-    draft: automations.filter(a => a.status === 'draft').length
+    active: automations.filter(a => a.status === 'ACTIVE').length,
+    paused: automations.filter(a => a.status === 'INACTIVE').length,
+    draft: automations.filter(a => a.status === 'DRAFT').length
   };
 
   const statusOptions = [
     { value: 'all', label: 'Tất cả trạng thái' },
-    { value: 'active', label: 'Đang chạy' },
-    { value: 'paused', label: 'Tạm dừng' },
-    { value: 'draft', label: 'Bản nháp' },
-    { value: 'completed', label: 'Hoàn thành' }
+    { value: 'ACTIVE', label: 'Đang chạy' },
+    { value: 'DRAFT', label: 'Bản nháp' },
+    { value: 'INACTIVE', label: 'Ngưng hoạt động' }
   ];
 
-  // Hiển thị trigger/action trên AutomationCard
-  // Sửa AutomationCard truyền thêm prop trigger/action nếu có
 
-  // Modal xem chi tiết: bổ sung các step/tab để xem toàn bộ nội dung
-  const [detailStep, setDetailStep] = useState(1);
-  const detailSteps = [
-    { id: 1, label: 'Thông tin' },
-    { id: 2, label: 'Trigger' },
-    { id: 3, label: 'Action' },
-    { id: 4, label: 'Lịch gửi' },
-    { id: 5, label: 'Nội dung Email' }
-  ];
-
-  const renderAutomationDetail = (automation) => (
-    <div>
-      <div className="flex gap-2 mb-4">
-        {detailSteps.map(step => (
-          <Button
-            key={step.id}
-            variant={detailStep === step.id ? 'actionCreate' : 'outline'}
-            onClick={() => setDetailStep(step.id)}
-            className="text-xs"
-          >
-            {step.label}
-          </Button>
-        ))}
-      </div>
-      <div>
-        {detailStep === 1 && (
-          <div>
-            <div className="mb-2"><strong>Tên:</strong> {automation.name}</div>
-            <div className="mb-2"><strong>Mô tả:</strong> {automation.description}</div>
-            <div className="mb-2"><strong>Trạng thái:</strong> {automation.status}</div>
-            <div className="mb-2"><strong>Loại:</strong> {automation.type}</div>
-            <div className="mb-2"><strong>Đối tượng:</strong> {automation.targetAudience}</div>
-          </div>
-        )}
-        {detailStep === 2 && (
-          <div>
-            <strong>Trigger:</strong>
-            <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(automation.trigger, null, 2)}</pre>
-          </div>
-        )}
-        {detailStep === 3 && (
-          <div>
-            <strong>Action:</strong>
-            <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(automation.action, null, 2)}</pre>
-          </div>
-        )}
-        {detailStep === 4 && (
-          <div>
-            <strong>Lịch gửi:</strong>
-            <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(automation.schedule, null, 2)}</pre>
-          </div>
-        )}
-        {detailStep === 5 && (
-          <div>
-            <strong>Nội dung Email:</strong>
-            <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(automation.emailContent, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const getStatusBadge = (status) => {
+    let color = 'bg-gray-100 text-gray-700';
+    let text = status ? status : 'UNDEFINED';
+    if (status === 'ACTIVE') {
+      color = 'bg-green-100 text-green-700';
+    } else if (status === 'DRAFT') {
+      color = 'bg-gray-100 text-gray-700';
+    } else if (status === 'INACTIVE') {
+      color = 'bg-red-100 text-red-700';
+    }
+    return (
+      <span className={`inline-block px-1 py-1 rounded-full w-[80px] text-center text-xs font-medium ${color}`}>
+        {text}
+      </span>
+    );
+  };
 
   return (
-    <div className=" flex flex-col">
+    <div className="flex flex-col  min-h-screen">
       {/* Sticky header: title + view toggles + search + status filter + actions */}
-      <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md">
-         <div className="flex items-center justify-between mb-6">
+      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className="flex items-center justify-between mb-6">
           {/* Header */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">
               Automation Flow ({filtered.length})
             </h1>
             <div className="flex gap-1">
@@ -196,20 +151,18 @@ export default function AutomationPage() {
               </Button>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Tìm kiếm automation..."
-                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 transition-all border-gray-200 bg-white/90"
+                className="h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 border-gray-200 bg-white"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
-
             {/* Status Filter */}
             <DropdownOptions
               options={statusOptions}
@@ -217,67 +170,56 @@ export default function AutomationPage() {
               onChange={setSelectedStatus}
               width="w-48"
             />
-
             {/* Add Automation */}
             <Button onClick={openAdd} variant="actionCreate" className="gap-2">
               <Plus className="w-4 h-4" />
-              Tạo Automation flow mới
+              Tạo Automation mới
             </Button>
           </div>
         </div>
-
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 ">
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Mail className="w-8 h-8 text-blue-500" />
-              <div>
-                <p className="text-sm text-gray-600">Tổng số</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg border flex items-center gap-3">
+            <Mail className="w-8 h-8 text-blue-500" />
+            <div>
+              <p className="text-sm text-gray-600">Tổng số</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Play className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-sm text-gray-600">Đang chạy</p>
-                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-              </div>
+          <div className="bg-white p-4 rounded-lg border flex items-center gap-3">
+            <Play className="w-8 h-8 text-green-500" />
+            <div>
+              <p className="text-sm text-gray-600">Đang chạy</p>
+              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Pause className="w-8 h-8 text-orange-500" />
-              <div>
-                <p className="text-sm text-gray-600">Tạm dừng</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.paused}</p>
-              </div>
+          <div className="bg-white p-4 rounded-lg border flex items-center gap-3">
+            <Pause className="w-8 h-8 text-orange-500" />
+            <div>
+              <p className="text-sm text-gray-600">Tạm dừng</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.paused}</p>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Settings className="w-8 h-8 text-gray-500" />
-              <div>
-                <p className="text-sm text-gray-600">Bản nháp</p>
-                <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
-              </div>
+          <div className="bg-white p-4 rounded-lg border flex items-center gap-3">
+            <Settings className="w-8 h-8 text-gray-500" />
+            <div>
+              <p className="text-sm text-gray-600">Bản nháp</p>
+              <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
             </div>
           </div>
         </div>
       </div>
-
       {/* Scrollable automations list */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto pt-4 px-6">
         {/* Automations view */}
         {viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6 duration-150 animate-fade-in group">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
             {currentAutomations.map(automation => (
               <AutomationCard
                 key={automation.id}
                 automation={automation}
                 onView={openView}
-                onEdit={openEdit}
+                onEdit={openEdit} //Hàm edit chỗ này sẽ chuyển trang nha
                 onDelete={handleDelete}
                 onStatusChange={handleStatusChange}
               />
@@ -286,10 +228,10 @@ export default function AutomationPage() {
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[1100px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['Flow', 'Loại', 'Trạng thái', 'Tạo lúc', 'Tác vụ'].map(h => (
+                    {['Tên Flow', 'Loại', 'Tags', 'Người tạo', 'Triggers', 'Actions', 'Tạo lúc', 'Trạng thái', 'Kích hoạt', 'Tác vụ'].map(h => (
                       <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{h}</th>
                     ))}
                   </tr>
@@ -307,21 +249,44 @@ export default function AutomationPage() {
                         <div className="text-xs text-gray-500 truncate max-w-[220px]">{a.description || ''}</div>
                       </td>
                       <td className="text-center text-sm text-gray-800">{a.type}</td>
-                      <td className="text-center text-sm">{a.status}</td>
-                      <td className="text-center text-sm">{a.createdAt ? new Date(a.createdAt).toLocaleString() : '-'}</td>
+                      <td className="text-center text-xs">{(a.tags || []).join(', ')}</td>
+                      <td className="text-center text-xs">{a.created_by}</td>
+                      <td className="text-center text-xs">{a.triggers?.length || 0}</td>
+                      <td className="text-center text-xs">{a.actions?.length || 0}</td>
+                      <td className="text-center text-sm">{a.created_at ? formatDate(a.created_at) : '-'}</td>
+                      <td className="text-center text-sm">
+                        {getStatusBadge(a.status)}
+                      </td>
+                      <td className="text-center text-sm">
+                        <Button
+                          variant={a.status === 'active' ? 'actionUpdate' : 'actionCreate'}
+                          size="sm"
+                          onClick={() =>
+                            handleStatusChange(a.id, a.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+                          }
+                          className="flex items-center gap-1 px-3 py-1"
+                        >
+                          {a.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="w-4 h-4" />
+                              <span className=" font-medium">Tạm dừng</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 " />
+                              <span className=" font-medium">Kích hoạt</span>
+                            </>
+                          )}
+                        </Button>
+                      </td>
+
+
                       <td className="text-center w-44">
-                        <div className={`flex justify-center gap-1 ${hoveredRow === a.id ? 'opacity-100 animate-fade-in duration-200' : 'opacity-0 pointer-events-none'}`}>
+                        <div className={`flex justify-center gap-1 transition-opacity duration-200 ${hoveredRow === a.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                           <Button variant="actionRead" size="icon" onClick={() => openView(a)}><Eye className="w-4 h-4" /></Button>
                           <Button variant="actionUpdate" size="icon" onClick={() => openEdit(a)}><Edit className="w-4 h-4" /></Button>
                           <Button variant="actionDelete" size="icon" onClick={() => handleDelete(a.id)}><Trash2 className="w-4 h-4" /></Button>
-                          {/* Quick status toggle */}
-                          <Button
-                            variant={a.status === 'active' ? 'actionNormal' : 'actionCreate'}
-                            size="icon"
-                            onClick={() => handleStatusChange(a.id, a.status === 'active' ? 'paused' : 'active')}
-                          >
-                            {a.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
+
                         </div>
                       </td>
                     </tr>
@@ -345,19 +310,25 @@ export default function AutomationPage() {
           onClose={closeModal}
           title={{
             view: `Chi tiết Automation - ${modal.automation?.name || ''}`,
-            edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation flow mới'
+            edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation mới'
           }}
           mode={modal.mode}
-          FormComponent={modal.mode === 'view'
-            ? (props) => <AutomationForm {...props} data={modal.automation} onDelete={handleDelete} onClose={closeModal} />
-            : AutomationForm}
+          FormComponent={(props) => (
+            <AutomationForm
+              {...props}
+              mode={modal.mode}
+              data={modal.automation}
+              onSave={handleSave}
+              onDelete={handleDelete}
+              onClose={closeModal}
+            />
+          )}
           data={modal.automation}
           onSave={handleSave}
           onDelete={handleDelete}
-          maxWidth="sm:max-w-6xl"
+          maxWidth="sm:max-w-2xl"
         />
       </div>
     </div>
   );
 }
-// ...existing code...

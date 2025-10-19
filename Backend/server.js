@@ -11,7 +11,10 @@ const DataManager = require('./Infrastructure/database/postgres');
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // domain FE
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

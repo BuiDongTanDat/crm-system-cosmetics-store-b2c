@@ -6,8 +6,10 @@ import AppDialog from '@/components/dialogs/AppDialog';
 import ProductForm from '@/pages/product/components/ProductForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
-import { api } from '@/utils/api';
+import { request } from '@/utils/api';
 import DropdownOptions from '@/components/common/DropdownOptions';
+import { getCategories } from '@/services/categories';
+import { deleteProduct, getProduct, getProducts, createProduct, updateProduct } from '@/services/products';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -50,8 +52,18 @@ export default function ProductPage() {
   //Lấy danh sách sản phẩm
   const fetchProducts = async () => {
     try {
-      const { ok, data } = await api.getJson('/product');
+      let res = await getProducts();
+      if (Array.isArray(res)) {
+        res = { ok: true, data: res };
+      }
+      if (!res || typeof res.ok === 'undefined') {
+        console.error('Không thể tải danh sách sản phẩm. Response:', res);
+        alert('Không thể tải danh sách sản phẩm.');
+        return [];
+      }
+      const { ok, data } = res;
       if (ok) {
+        console.log('Fetched products:', data);
         const normalized = (Array.isArray(data) ? data : []).map(item => ({
           product_id: item.product_id,
           name: item.name,
@@ -71,12 +83,13 @@ export default function ProductPage() {
           status: item.status
         }));
 
-        // Sort to keep deterministic ordering after CRUD
+        // Sort để giữ thứ tự xác định sau các thao tác CRUD (Là sau khi CRUD xong thì thứ tự list nó vẫn giữ nguyên)
         normalized.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         setProducts(normalized);
-        return normalized; // <-- return list for callers
+        return normalized;
       } else {
+        console.error('Không thể tải danh sách sản phẩm. Response:', { ok, data });
         alert('Không thể tải danh sách sản phẩm.');
         return [];
       }
@@ -87,21 +100,31 @@ export default function ProductPage() {
     }
   };
 
-  // fetch categories for filter dropdown
+  // fetch categories cho dropdown lọc
   const fetchCategoriesForFilter = async () => {
     try {
-      const { ok, data } = await api.getJson('/category');
+      let res = await getCategories();
+      if (Array.isArray(res)) {
+        res = { ok: true, data: res };
+      }
+      if (!res || typeof res.ok === 'undefined') return;
+      const { ok, data } = res;
       if (!ok || !Array.isArray(data)) return;
+
       const active = data.filter((c) => c && String(c.status) === 'ACTIVE');
-      const opts = [{ value: 'all', label: 'Danh mục' }, ...active.map((c) => ({
-        value: c.name ?? String(c.category_id ?? c.id),
-        label: c.name ?? String(c.category_id ?? c.id),
-      }))];
+      const opts = [
+        { value: 'all', label: 'Danh mục' },
+        ...active.map((c) => ({
+          value: c.name ?? String(c.category_id ?? c.id),
+          label: c.name ?? String(c.category_id ?? c.id),
+        })),
+      ];
       setCategoryOptions(opts);
     } catch (err) {
       console.error('Failed to load category filter options:', err);
     }
   };
+
 
   useEffect(() => {
     fetchProducts();
@@ -122,8 +145,6 @@ export default function ProductPage() {
 
       const cleanNumber = (val) =>
         val ? Number(val.toString().replace(/[^\d.-]/g, '')) || 0 : 0;
-
-      const getField = (vi, en, def = '') => (rows[0][vi] ?? rows[0][en] ?? def);
 
       const processed = rows.map((item) => ({
         product_id: item.product_id || crypto.randomUUID(),
@@ -147,10 +168,9 @@ export default function ProductPage() {
 
       // Gửi dữ liệu lên server (tùy API)
       for (const p of validProducts) {
-        await api.postJson('/product', p);
+        await createProduct(p);
       }
 
-      // success: no alert per request
       await fetchProducts();
     } catch (err) {
       console.error('Lỗi xử lý import:', err);
@@ -168,29 +188,35 @@ export default function ProductPage() {
 
   const handleSave = async (prod) => {
     try {
+      let savedItem;
       if (modal.mode === 'add') {
-        const { ok } = await api.postJson('/product', prod);
-        if (ok) {
-          await fetchProducts();
+        // Tạo mới
+        const res = await createProduct(prod);
+        if (res && (res.ok || res.product_id || res.data)) {
+          // Lấy lại sản phẩm vừa tạo (nếu API trả về)
+          savedItem = res.data || res;
+          // Nếu không có product_id thì lấy lại từ API (nếu cần)
+          if (!savedItem.product_id && savedItem.id) savedItem.product_id = savedItem.id;
+          setProducts((prev) => [savedItem, ...prev]);
           closeModal();
         }
       } else if (modal.mode === 'edit' && modal.product) {
-        // ensure we target the correct id
+        // Cập nhật
         const id = modal.product.product_id || prod.product_id;
-        const { ok } = await api.putJson(`/product/${id}`, prod);
-        if (ok) {
-          // refresh list and get the updated product
-          const updatedList = await fetchProducts();
-          const updatedProduct =
-            updatedList.find((p) => p.product_id === id) || { ...modal.product, ...prod };
-
-          // Này đã xóa code alert thông báo thành công
-
-          // Trở về chế độ xem với dữ liệu mới
-          setModal({ open: true, mode: 'view', product: updatedProduct });
-        }
+        await updateProduct(id, prod);
+        // Lấy lại sản phẩm vừa cập nhật (nếu API trả về)
+        savedItem = { ...modal.product, ...prod, product_id: id };
+        setProducts((prev) => {
+          const idx = prev.findIndex((p) => (p.product_id || p.id) == id);
+          if (idx !== -1) {
+            const newArr = [...prev];
+            newArr[idx] = savedItem;
+            return newArr;
+          }
+          return prev;
+        });
+        setModal({ open: true, mode: 'view', product: savedItem });
       }
-      // Không tắt model ở chỗ này nha, code cũ có closeModal() ở đây
     } catch (err) {
       console.error('Save error:', err);
       alert('Lỗi khi lưu sản phẩm!');
@@ -200,18 +226,16 @@ export default function ProductPage() {
   const handleDelete = async (id) => {
     if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
     try {
-      const { ok } = await api.deleteJson(`/product/${id}`);
-      if (ok) {
-        // success: no alert
-        await fetchProducts();
-      }
+      await deleteProduct(id);
+      setProducts((prev) => prev.filter((p) => (p.product_id || p.id) !== id));
+      closeModal();
     } catch (err) {
       console.error('Delete error:', err);
       alert(' Lỗi khi xóa sản phẩm!');
     }
   };
 
-  // Lọc và phân trang
+  // Lọc 
   const filtered = products.filter((p) => {
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term || p.name.toLowerCase().includes(term);
@@ -226,7 +250,7 @@ export default function ProductPage() {
     (currentPage - 1) * productsPerPage,
     currentPage * productsPerPage
   );
-
+  
   const handlePageChange = (p) => setCurrentPage(p);
   const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
   const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));

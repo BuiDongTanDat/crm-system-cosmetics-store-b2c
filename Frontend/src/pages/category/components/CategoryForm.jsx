@@ -48,7 +48,6 @@ export default function CategoryForm({
     }, [data]);
 
     const isView = mode === "view";
-    const isEdit = mode === "edit" || mode === "add";
 
     const handleChange = (field) => (e) => {
         setForm(prev => ({ ...prev, [field]: e.target.value }));

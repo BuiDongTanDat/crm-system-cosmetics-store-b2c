@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit, Save, Trash2 } from "lucide-react";
 import DropdownOptions from "@/components/common/DropdownOptions";
-import { api } from "@/utils/api";
+import { request } from "@/utils/api";
+import { getCategories } from "@/services/categories";
 
 export function ProductForm({
   mode = "view",
@@ -83,46 +84,30 @@ export function ProductForm({
 
   // fetch categories for category dropdown
   useEffect(() => {
-    // Fetch ACTIVE categories and use the category name as the option value
-    // so existing products with category names (e.g. "Trang Điểm Môi") will match.
     let cancelled = false;
     (async () => {
       try {
-        const { ok, data } = await api.getJson("/category");
+        let res = await getCategories();
+        if (Array.isArray(res)) {
+          res = { ok: true, data: res };
+        }
+        if (!res || typeof res.ok === "undefined") return;
+        const { ok, data } = res;
         if (!ok || !Array.isArray(data)) return;
         if (cancelled) return;
 
         const active = data.filter((c) => c && String(c.status) === "ACTIVE");
-        const opts = active.map((c) => ({
-          // use name as value so it matches product.category strings
+        let opts = active.map((c) => ({
           value: c.name ?? String(c.category_id ?? c.id),
           label: c.name ?? String(c.category_id ?? c.id),
         }));
 
-        // If current product has a category name that isn't in the fetched list,
-        // add it so the dropdown can show the existing value.
-        if (data && typeof data !== "undefined" && (data.length >= 0)) {
-          const currentCat = data; // noop, keep linter quiet
-        }
-
-        // If the form already has a category (from data) and it's missing in opts, add it
-        const existingCatName = (typeof data === "undefined") ? undefined : undefined; // noop
-        // actual check: use the prop 'data' (product) available in outer scope
-        if (data && false) { /* keep structure - real logic below */ }
-
-        // Build final options and inject product category if needed
-        let finalOpts = [...opts];
-        if (typeof props !== "undefined") {
-          // no-op guard for static analysis; actual using outer-scope `data` and form below
-        }
-
-        // If the product passed to the form (prop 'data') has a category string and it's not present, add it
         const prodCategory = (typeof data === "object" && data !== null) ? data.category : undefined;
-        if (prodCategory && !finalOpts.some((o) => String(o.value) === String(prodCategory))) {
-          finalOpts = [{ value: prodCategory, label: prodCategory }, ...finalOpts];
+        if (prodCategory && !opts.some((o) => String(o.value) === String(prodCategory))) {
+          opts = [{ value: prodCategory, label: prodCategory }, ...opts];
         }
 
-        if (!cancelled) setCategoryOptions(finalOpts);
+        if (!cancelled) setCategoryOptions(opts);
       } catch (err) {
         console.error("Failed to load categories:", err);
       }
@@ -280,7 +265,7 @@ export function ProductForm({
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Hủy
               </Button>
-              <Button onClick={handleSubmit} variant="actionUpdate">
+              <Button type="button" onClick={handleSubmit} variant="actionUpdate">
                 <Save className="w-4 h-4" />
                 Lưu thay đổi
               </Button>
