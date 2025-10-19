@@ -54,7 +54,7 @@ services:
       - ./Backend:/app
       - /app/node_modules
     working_dir: /app
-    command: npm run start
+    command: npm run dev
     restart: always
     networks:
       - crm_net
@@ -73,6 +73,9 @@ services:
       - ./Frontend:/app
       - /app/node_modules
     working_dir: /app
+    environment:
+      - CHOKIDAR_USEPOLLING=true     # Bắt buộc để Vite hot reload trong Docker
+      - WATCHPACK_POLLING=true       # Hỗ trợ Webpack/Vite watch file hiệu quả hơn
     command: npm run dev -- --host 0.0.0.0 --port 5173
     depends_on:
       - backend

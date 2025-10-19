@@ -54,6 +54,7 @@ export default function AppDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
+        aria-describedby={undefined} 
         className={`${maxWidth} w-full max-h-[90vh] p-0 overflow-hidden 
         animate-in fade-in-80 zoom-in-95 duration-300`}
         onPointerDownOutside={(e) => e.preventDefault()}

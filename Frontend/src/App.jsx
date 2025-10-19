@@ -8,30 +8,33 @@ import PrivateRoute from './components/auth/PrivateRoute';
 import PublicRoute from './components/auth/PublicRoute';
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
-import ProductPage from "./pages/ProductPage";
-import CustomerListPage from "./pages/CustomerListPage";
-import CFMAnalysisPage from "./pages/CFMAnalysisPage";
-import CLVAnalysisPage from "./pages/CLVAnalysisPage";
-import ChurnAnalysisPage from "./pages/ChurnAnalysisPage";
-import LeadsPage from "./pages/LeadsPage";
-import OpportunitiesPage from "./pages/OpportunitiesPage";
-import ShoppingActivityPage from "./pages/ShoppingActivityPage";
-import MarketingPage from "./pages/MarketingPage";
+import ProductPage from "./pages/product/ProductPage";
+import CustomerListPage from "./pages/customer/CustomerListPage";
+import CFMAnalysisPage from "./pages/customer/CFMAnalysisPage";
+import CLVAnalysisPage from "./pages/customer/CLVAnalysisPage";
+import ChurnAnalysisPage from "./pages/customer/ChurnAnalysisPage";
+import LeadsPage from "./pages/crm/LeadsPage";
+import OpportunitiesPage from "./pages/crm/OpportunitiesPage";
+import ShoppingActivityPage from "./pages/order/ShoppingActivityPage";
+import MarketingPage from "./pages/marketing/MarketingPage";
 import SettingsPage from "./pages/SettingsPage";
-import EmployeePage from './pages/EmployeePage';
-import OrderPage from './pages/OrderPage';
-import ReportPage from './pages/ReportPage';
-import KanbanPage from './pages/KanbanPage';
-import RolePage from './pages/RolePage';
+import EmployeePage from './pages/employee/EmployeePage';
+import OrderPage from './pages/order/OrderPage';
+import ReportPage from './pages/report/ReportPage';
+import KanbanPage from './pages/crm/KanbanPage';
+import RolePage from './pages/role/RolePage';
+import AutomationPage from './pages/automation/AutomationPage';
+import LandingPage from './pages/landingPage/LandingPage';
+import FlowEditorPage from './pages/automation/FlowBuilderPage';
+import CategoryPage from './pages/category/CategoryPage';
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
-import AutomationPage from './pages/AutomationPage';
-import LandingPage from './landingPage/LandingPage';
-import FlowEditorPage from './pages/FlowEditorPage';
+
+
 function App() {
 
   // Thêm: kiểm soát tắt/bật redirect (set VITE_DISABLE_AUTH_REDIRECTS=true để tắt redirect)
@@ -101,6 +104,12 @@ function App() {
                   path="/profile"
                   element={privateElement(<ProfilePage />)}
                 />
+
+                {/* Sản phẩm */}
+                <Route
+                  path="/categories"
+                  element={privateElement(<CategoryPage />)}
+                />
                 <Route
                   path="/products"
                   element={privateElement(<ProductPage />)}
@@ -158,6 +167,14 @@ function App() {
                   path="/automation"
                   element={privateElement(<AutomationPage />)}
                 />
+                <Route
+                  path="/automation/flow/new"
+                  element={privateElement(<FlowEditorPage />)}
+                />
+                <Route
+                  path="/automation/flow/:id"
+                  element={privateElement(<FlowEditorPage />)}
+                />
 
                 {/* Reports routes */}
                 <Route
@@ -186,9 +203,9 @@ function App() {
                   path="/settings"
                   element={privateElement(<SettingsPage />)}
                 />
-                 <Route
+                <Route
                   path="/flows"
-                  element={privateElement(<FlowEditorPage/>)}
+                  element={privateElement(<FlowEditorPage />)}
                 />
                 <Route
                   path="*"

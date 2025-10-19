@@ -2,7 +2,7 @@ const { DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
-class Category extends Model {}
+class Category extends Model { }
 
 Category.init({
   category_id: {

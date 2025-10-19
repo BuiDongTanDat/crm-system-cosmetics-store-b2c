@@ -16,9 +16,9 @@ const HomePage = () => {
 
   return (
     <div className="">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      {/* <h1 className="text-2xl font-bold">Dashboard</h1>
       <p className="mb-6">Bắt đầu quản lý doanh nghiệp và trao đổi với các khách hàng của bạn</p>
-      {/* Container chứa tất cả cards */}
+      Container chứa tất cả cards */}
       <div
         className="relative mx-auto  "
         style={{ width: 1000, height: 700 }}

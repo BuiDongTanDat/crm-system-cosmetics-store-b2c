@@ -1,5 +1,6 @@
 const Product = require('../../Domain/Entities/Product');
 const IProductRepository = require('../../Domain/Interfaces/IProductRepository');
+const { Op } = require('sequelize');
 
 class ProductRepository extends IProductRepository {
   // Lấy sản phẩm theo ID
@@ -15,27 +16,26 @@ class ProductRepository extends IProductRepository {
 
   // Tạo hoặc cập nhật sản phẩm
   async save(product) {
-    if (!product.product_id) {
-      // Tạo mới
-      const created = await Product.create(product.toJSON());
-      return created;
-    } else {
-      // Cập nhật nếu đã tồn tại
-      const existing = await Product.findByPk(product.product_id);
-      if (existing) {
-        await existing.update(product.toJSON());
-        return existing;
-      } else {
-        // Nếu ID có nhưng không tồn tại DB → tạo mới
-        const created = await Product.create(product.toJSON());
-        return created;
+    //console.log('Product to save:', product);
+    if (product && product.product_id) {
+      const existingProduct = await Product.findByPk(product.product_id);
+      if (existingProduct) {
+        // prepare update data without primary key to avoid trying to change it
+        const updateData = { ...product };
+        delete updateData.product_id;
+
+        // perform update and return the updated instance (Sequelize returns the updated instance)
+        const updated = await existingProduct.update(updateData, { returning: true });
+        return updated;
       }
     }
+    return await Product.create(product);
   }
 
   // Xóa sản phẩm theo ID
   async delete(productId) {
-    await Product.destroy({ where: { product_id: productId } });
+    // trả về số bản ghi bị xóa (0 hoặc 1)
+    return await Product.destroy({ where: { product_id: productId } });
   }
 
   // Lấy sản phẩm theo tên (ví dụ tìm kiếm)
@@ -65,8 +65,8 @@ class ProductRepository extends IProductRepository {
   async findByPriceRange(min, max) {
     return await Product.findAll({
       where: {
-        price: {
-          [Product.sequelize.Op.between]: [min, max]
+        price_current: {
+          [Op.between]: [min, max]
         }
       }
     });
