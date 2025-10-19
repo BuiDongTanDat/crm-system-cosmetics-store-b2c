@@ -1,23 +1,71 @@
-class Campaign {
-  constructor({
-    campaign_id, name, channel, budget, start_date, end_date,
-    target_filter, data_source, status, owner_employee_id,
-    expected_kpi, created_at, updated_at
-  }) {
-    this.campaign_id = campaign_id;
-    this.name = name;
-    this.channel = channel;
-    this.budget = budget;
-    this.start_date = start_date;
-    this.end_date = end_date;
-    this.target_filter = target_filter || {};
-    this.data_source = data_source;
-    this.status = status || "draft";
-    this.owner_employee_id = owner_employee_id;
-    this.expected_kpi = expected_kpi || {};
-    this.created_at = created_at || new Date();
-    this.updated_at = updated_at || new Date();
-  }
-}
+// backend/src/Domain/Entities/Campaign.js
+const { DataTypes, Model } = require('sequelize');
+const DataManager = require('../../Infrastructure/database/postgres');
+const sequelize = DataManager.getSequelize();
+
+class Campaign extends Model {}
+
+Campaign.init({
+  campaign_id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4, 
+    primaryKey: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  channel: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  budget: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  start_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  end_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  target_filter: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
+  },
+  data_source: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: 'draft',
+  },
+  owner_employee_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: { model: 'users', key: 'user_id' },
+    onDelete: 'SET NULL',
+  },
+  expected_kpi: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+}, {
+  sequelize,
+  modelName: 'Campaign',
+  tableName: 'campaigns',
+  timestamps: false,
+});
 
 module.exports = Campaign;

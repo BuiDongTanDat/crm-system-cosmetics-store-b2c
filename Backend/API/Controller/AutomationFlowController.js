@@ -92,11 +92,8 @@ const AutomationFlowController = {
   try {
     const flow_id = req.params.flow_id; // lấy id từ URL
     const dto = SaveEditorRequestDTO.from(req.body);
-
     // 🔒 Gán flow_id nếu chưa có trong body
     dto.flow_id = dto.flow_id || flow_id;
-
-    // ⚙️ Cấu hình autosave logic
     // nếu client không gửi isNewRecord hoặc không có thay đổi thì coi như false
     if (dto.isNewRecord === undefined || dto.isNewRecord === null) {
       dto.isNewRecord = false;
