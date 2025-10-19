@@ -1,22 +1,40 @@
 const express = require('express');
 const router = express.Router();
 const LeadController = require('../Controller/LeadController');
-// const multer = require('multer');
-// const upload = multer({ dest: 'uploads/' });
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
-// router.post('/import', upload.single('file'), LeadController.importLeads);
+router.post('/import', upload.single('file'), LeadController.importLeads);
+// CRUD
 router.post('/', LeadController.create);
 router.get('/', LeadController.getAll);
 router.get('/:id', LeadController.getById);
-router.put('/:id', LeadController.update);
-router.delete('/:id', LeadController.delete);
-router.post('/:id/assign', LeadController.assignLead);
-router.post('/:id/status', LeadController.changeStatus);
+router.get('/detail/:id', LeadController.getLeadDetails);
+router.patch('/:id', LeadController.update);
+// router.delete('/:id', LeadController.delete);
 
-// AI endpoints
-router.get('/:id/analyze-score', LeadController.analyzeLeadScore);
-router.get('/:id/auto-classify', LeadController.autoClassifyLead);
-router.post('/auto-distribute', LeadController.autoDistributeLeads);
-router.post('/:id/convert', LeadController.convertLeadToCustomer);
+// Status & History
+router.patch('/:id/status', LeadController.changeStatus);
+router.get('/:id/status-history', LeadController.listStatusHistory);
+
+// Interactions
+router.post('/:id/interactions', LeadController.addInteraction);
+router.get('/:id/interactions', LeadController.listInteractions);
+router.get('/pipeline', LeadController.pipeline);
+// // Assign / Flow
+// router.post('/:id/assign', LeadController.assign);
+// router.post('/:id/unassign', LeadController.unassign);
+// router.post('/:id/flow', LeadController.updateFlow);
+
+// Conversion
+router.post('/:id/convert', LeadController.convert);
+router.post('/:id/auto-convert', LeadController.autoConvert);
+
+// Scoring
+// router.post('/:id/score/adjust', LeadController.adjustScore);
+
+// Prediction
+router.get('/:id/predict', LeadController.predict);
+router.get('/predict/batch', LeadController.predictBatch);
 
 module.exports = router;

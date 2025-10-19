@@ -29,11 +29,11 @@ class DataManager {
         dialectOptions:
           DB_SSL === 'true'
             ? {
-                ssl: {
-                  require: true,
-                  rejectUnauthorized: false,
-                },
-              }
+              ssl: {
+                require: true,
+                rejectUnauthorized: false,
+              },
+            }
             : {},
       });
 
@@ -61,6 +61,7 @@ class DataManager {
     require('../../Domain/Entities/Role');
     require('../../Domain/Entities/Product');
     require('../../Domain/Entities/Customer');
+    require('../../Domain/Entities/Campaign');
     require('../../Domain/Entities/Category');
     require('../../Domain/Entities/ProductReviews');
     require('../../Domain/Entities/ProductSpecifications');
