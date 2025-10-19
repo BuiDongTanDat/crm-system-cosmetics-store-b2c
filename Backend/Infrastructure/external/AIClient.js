@@ -78,7 +78,15 @@ class AIClient {
     const data = await this._request('POST', '/v1/leads/conversion_prob', { data: { lead: leadData, options: opts } });
     return { probability: Number(data?.probability ?? 0), reason: data?.reason || null, raw: data };
   }
+  async predictConversion(features) {
+    const { data } = await axios.post(`${BASE_URL}/predict`, features);
+    return data;
+  }
 
+  async predictBatch(batchFeatures) {
+    const { data } = await axios.post(`${BASE_URL}/predict/batch`, { leads: batchFeatures });
+    return data; // { results: [ {lead_id, probability, reason}, ... ] }
+  }
   async summarize(text, opts = {}) {
     return this._request('POST', '/v1/text/summarize', { data: { text, options: opts } });
   }

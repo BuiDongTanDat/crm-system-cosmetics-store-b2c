@@ -1,7 +1,7 @@
 const Customer = require('../../Domain/Entities/Customer');
-const ICustomerRepository = require('../../Domain/Interfaces/ICustomerRepository');
+// const ICustomerRepository = require('../../Domain/Interfaces/ICustomerRepository');
 
-class CustomerRepository extends ICustomerRepository {
+class CustomerRepository {
   // ---------------- CRUD ----------------
   async create(customer) {
     return await Customer.create(customer.toJSON());
@@ -77,6 +77,25 @@ class CustomerRepository extends ICustomerRepository {
     await customer.save();
     return customer;
   }
+  async findOrCreateSmart(payload, { transaction: t } = {}) {
+    const { email, phone } = payload || {};
+    let exist = null;
+    if (email) exist = await Customer.findOne({ where: { email }, transaction: t, lock: t ? t.LOCK.UPDATE : undefined });
+    if (!exist && phone) exist = await Customer.findOne({ where: { phone }, transaction: t, lock: t ? t.LOCK.UPDATE : undefined });
+
+    if (exist) {
+      const patch = {};
+      if (!exist.name && payload.name) patch.name = payload.name;
+      if (!exist.source && payload.source) patch.source = payload.source;
+      if (!exist.assigned_to && payload.assigned_to) patch.assigned_to = payload.assigned_to;
+      if (Array.isArray(payload.tags) && payload.tags.length && (!Array.isArray(exist.tags) || !exist.tags.length)) {
+        patch.tags = payload.tags;
+      }
+      if (Object.keys(patch).length) await exist.update(patch, { transaction: t });
+      return exist;
+    }
+    return Customer.create(payload, { transaction: t });
+  }
 }
 
-module.exports = CustomerRepository;
+module.exports = new CustomerRepository();

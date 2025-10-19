@@ -1,4 +1,5 @@
 const express = require('express');
+const setupSwagger = require('./swagger');
 const cors = require('cors');
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
@@ -8,6 +9,7 @@ const userRoutes = require('./API/routes/userRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
+const CampaignRoute = require('./API/routes/CampaignRoutes')
 const app = express();
 
 // Middlewares
@@ -19,9 +21,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+
+app.use(cors());
+app.use(express.json());
+setupSwagger(app);
 app.use('/auth', authRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
+app.use('/campaign', CampaignRoute);
 app.use('/Ai', AiRoutes);
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -48,6 +55,8 @@ app.get('/', (req, res) => {
       console.log(`Server is running on: http://localhost:${PORT}`);
       console.log('------------------------------------------');
     });
+    app.listen(PORT, () =>
+      console.log(`Server running on port ${PORT}`));
   } catch (err) {
     console.error('Failed to connect to database:', err);
     process.exit(1);
