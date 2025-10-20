@@ -55,7 +55,8 @@ export default function AppDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
         aria-describedby={undefined} 
-        className={`${maxWidth} w-full max-h-[90vh] p-0 overflow-hidden 
+        // CHANGED: set fixed height + flex column so child with h-full can scroll
+        className={`${maxWidth} w-full  p-0 overflow-hidden flex flex-col
         animate-in fade-in-80 zoom-in-95 duration-300`}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
@@ -73,16 +74,18 @@ export default function AppDialog({
           </DialogClose>
         </DialogHeader>
 
-        {/*Form tự kiểm soát bố cục và scroll */}
-        <FormComponent
-          mode={mode}
-          setMode={setMode}
-          data={data}
-          onSave={onSave}
-          onDelete={onDelete}
-          onClose={onClose}
-          {...additionalProps}
-        />
+        {/*bọc form để cung cấp chiều cao tham chiếu cho inner scroll */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <FormComponent
+            mode={mode}
+            setMode={setMode}
+            data={data}
+            onSave={onSave}
+            onDelete={onDelete}
+            onClose={onClose}
+            {...additionalProps}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

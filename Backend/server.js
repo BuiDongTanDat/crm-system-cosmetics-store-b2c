@@ -1,11 +1,11 @@
 const express = require('express');
-const setupSwagger = require('./swagger');
 const cors = require('cors');
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
 const LeadRoutes = require('./API/routes/LeadRoutes');
 const AiRoutes = require('./API/routes/aiRoutes');
 const userRoutes = require('./API/routes/userRoutes');
+const roleRoutes = require('./API/routes/roleRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
@@ -15,29 +15,28 @@ const app = express();
 // Middlewares
 app.use(cors({
   origin: 'http://localhost:5173', // domain FE
-  credentials: true
+  credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-
-app.use(cors());
-app.use(express.json());
-setupSwagger(app);
 app.use('/auth', authRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
 app.use('/campaign', CampaignRoute);
 app.use('/Ai', AiRoutes);
+app.use('/roles', roleRoutes);
+app.use('/users', userRoutes);
+app.use('/categories', categoryRoutes);
+app.use('/products', productRoutes);
+
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
-
   next();
 });
-app.use('/user', userRoutes);
-app.use('/category', categoryRoutes);
-app.use('/product', productRoutes);
+
 
 // Simple health check route
 app.get('/', (req, res) => {

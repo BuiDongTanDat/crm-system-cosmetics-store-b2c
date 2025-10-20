@@ -1,20 +1,28 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter, History } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import EmployeeForm from "@/pages/employee/components/EmployeeForm";
-import InteractionHistory from "@/pages/customer/components/InteractionHistory";
 import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
-import { mockEmployees, mockRoles } from "@/lib/data";
+import DropdownOptions from '@/components/common/DropdownOptions';
+import {
+    getUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    deleteUser
+} from "@/services/users";
+import { getRoles } from "@/services/roles";
 
 export default function EmployeePage() {
-    const [employees, setEmployees] = useState(mockEmployees);
-    const [roles, setRoles] = useState(mockRoles);
+    const [employees, setEmployees] = useState([]);
+    const [roles, setRoles] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: 'view', employee: null });
-    const [showHistory, setShowHistory] = useState({ show: false, employee: null });
     const [hoveredRow, setHoveredRow] = useState(null);
+    const [filterRole, setFilterRole] = useState(""); // Lọc theo vai trò
+    const [filterStatus, setFilterStatus] = useState(""); // Lọc theo trạng thái
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -29,10 +37,57 @@ export default function EmployeePage() {
         status: 'Trạng thái'
     };
 
+    // Fetch employees từ API
+    const fetchEmployees = async () => {
+        try {
+            const res = await getUsers();
+            let data = Array.isArray(res) ? res : res?.data;
+            if (!data) data = [];
+            // Chuyển đổi dữ liệu cho phù hợp với UI
+            setEmployees(data.map(u => ({
+                id: u.user_id,
+                name: u.full_name,
+                email: u.email,
+                phone: u.phone,
+                role: u.role_name,
+                status: u.status
+            })));
+        } catch (err) {
+            console.error("Lỗi tải danh sách nhân viên:", err);
+            alert("Không thể tải danh sách nhân viên.");
+        }
+    };
+
+    // Fetch roles từ API
+    const fetchRoles = async () => {
+        try {
+            const res = await getRoles(); //Call api lấy roles
+            let data = Array.isArray(res) ? res : res?.data;
+            if (!data) data = [];
+            // Chỉ lấy các role đang active và có role_name
+            setRoles(
+                data.map(role => ({
+                        value: role.role_name,
+                        label: role.role_name
+                    }))
+            );
+        } catch (err) {
+            console.error("Lỗi tải danh sách vai trò:", err);
+            alert("Không thể tải danh sách vai trò.");
+        }
+    };
+
+    useEffect(() => {
+        fetchEmployees();
+        fetchRoles();
+    }, []);
+
     const filteredEmployees = employees.filter(employee =>
-        employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.role.toLowerCase().includes(searchTerm.toLowerCase())
+        (employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.role?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (filterRole ? employee.role === filterRole : true) &&
+        (filterStatus ? employee.status === filterStatus.toLowerCase() : true)
     );
 
     // Pagination calculations
@@ -48,8 +103,21 @@ export default function EmployeePage() {
     const handlePageChange = (page) => setCurrentPage(page);
 
     // Handlers
-    const handleView = (employee) => {
-        setModal({ open: true, mode: 'view', employee });
+    const handleView = async (employee) => {
+        // Lấy chi tiết user từ API nếu cần
+        try {
+            const res = await getUserById(employee.id);
+            setModal({ open: true, mode: 'view', employee: {
+                id: res.user_id,
+                name: res.full_name,
+                email: res.email,
+                phone: res.phone,
+                role: res.role_name,
+                status: res.status
+            }});
+        } catch (err) {
+            alert("Không thể lấy chi tiết nhân viên!");
+        }
     };
 
     const handleEdit = (employee) => {
@@ -64,32 +132,97 @@ export default function EmployeePage() {
         setModal({ open: false, mode: 'view', employee: null });
     };
 
-    const handleSave = (employeeData) => {
-        if (employeeData.id) {
-            setEmployees(prev => prev.map(emp =>
-                emp.id === employeeData.id ? { ...emp, ...employeeData } : emp
-            ));
-
-            setModal(prev => ({
-                ...prev,
-                mode: 'view',
-                employee: { ...employeeData }
-            }));
-        } else {
-            const newEmployee = {
-                ...employeeData,
-                id: Math.max(...employees.map(e => e.id)) + 1
-            };
-            setEmployees(prev => [...prev, newEmployee]);
-            closeModal();
+    const handleSave = async (employeeData) => {
+        try {
+            let savedItem;
+            if (employeeData.id) {
+                // Update
+                const payload = {
+                    full_name: employeeData.name,
+                    email: employeeData.email,
+                    phone: employeeData.phone,
+                    role_name: employeeData.role,
+                    status: employeeData.status,
+                    password: employeeData.password
+                };
+                await updateUser(employeeData.id, payload);
+                savedItem = await getUserById(employeeData.id);
+                if (savedItem && savedItem.user_id) {
+                    setEmployees(prev => {
+                        const idx = prev.findIndex(e => e.id === employeeData.id);
+                        if (idx !== -1) {
+                            const newArr = [...prev];
+                            newArr[idx] = {
+                                id: savedItem.user_id,
+                                name: savedItem.full_name,
+                                email: savedItem.email,
+                                phone: savedItem.phone,
+                                role: savedItem.role_name,
+                                status: savedItem.status
+                            };
+                            return newArr;
+                        }
+                        return [...prev, {
+                            id: savedItem.user_id,
+                            name: savedItem.full_name,
+                            email: savedItem.email,
+                            phone: savedItem.phone,
+                            role: savedItem.role_name,
+                            status: savedItem.status
+                        }];
+                    });
+                    setModal({ open: true, mode: 'view', employee: {
+                        id: savedItem.user_id,
+                        name: savedItem.full_name,
+                        email: savedItem.email,
+                        phone: savedItem.phone,
+                        role: savedItem.role_name,
+                        status: savedItem.status
+                    }});
+                } else {
+                    await fetchEmployees();
+                    setModal({ open: true, mode: 'view', employee: employeeData });
+                }
+            } else {
+                // Create
+                const payload = {
+                    full_name: employeeData.name,
+                    email: employeeData.email,
+                    phone: employeeData.phone,
+                    role_name: employeeData.role,
+                    status: employeeData.status,
+                    password: employeeData.password
+                };
+                savedItem = await createUser(payload);
+                if (savedItem && savedItem.user_id) {
+                    setEmployees(prev => [{
+                        id: savedItem.user_id,
+                        name: savedItem.full_name,
+                        email: savedItem.email,
+                        phone: savedItem.phone,
+                        role: savedItem.role_name,
+                        status: savedItem.status
+                    }, ...prev]);
+                    closeModal();
+                } else {
+                    await fetchEmployees();
+                    closeModal();
+                }
+            }
+        } catch (err) {
+            alert(err?.error || err?.message || "Lỗi khi lưu nhân viên!");
         }
-        console.log("Employee saved:", employeeData);
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
-            setEmployees(prev => prev.filter(emp => emp.id !== id));
-            closeModal();
+            try {
+                await deleteUser(id);
+                setEmployees(prev => prev.filter(emp => emp.id !== id));
+                closeModal();
+            } catch (err) {
+                alert(err?.error || err?.message || "Lỗi khi xóa nhân viên!");
+            }
         }
     };
 
@@ -153,31 +286,22 @@ export default function EmployeePage() {
     };
 
     const getStatusBadge = (status) => {
-        const baseClass = "px-2 py-1  text-xs font-medium w-[100px] text-center inline-block";
-        return status === "Active"
-            ? `${baseClass} text-green-800`
-            : `${baseClass}  text-red-800`;
+        const baseClass = "px-2 py-1  text-xs font-medium w-[100px] text-center inline-block rounded-full";
+        return status === "active"
+            ? `${baseClass} text-green-800 bg-green-100 `
+            : `${baseClass}  text-red-800 bg-red-100`;
     };
 
-    const getRoleBadge = (role) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block";
-        const colorMap = {
-            Admin: "bg-purple-100 text-purple-800",
-            Sales: "bg-blue-100 text-blue-800",
-            Marketing: "bg-orange-100 text-orange-800",
-            Support: "bg-gray-100 text-gray-800"
-        };
-        return `${baseClass} ${colorMap[role] || colorMap.Support}`;
-    };
+    
 
     return (
-        <div className="h-screen flex flex-col">
+        <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="sticky top-[70px] z-20 flex  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md "
+                className="flex-col sticky top-[70px] z-20 flex gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
                 style={{ backdropFilter: 'blur' }}
             >
-                <div className="flex justify-between w-full">
+                <div className="flex justify-between">
                     {/* Header */}
                     <div className="flex items-center gap-3">
                         <h1 className="text-xl font-bold text-gray-900">
@@ -192,22 +316,18 @@ export default function EmployeePage() {
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
 
-                        {/* Filter */}
-                        <Button variant="actionNormal" className="gap-2">
-                            <Filter className="w-5 h-5" />
-                            Lọc
-                        </Button>
+                        
 
                         {/* Add Employee */}
                         <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
                             <Plus className="w-4 h-4" />
-                            Thêm NV
+                            Thêm Nhân viên
                         </Button>
 
                         {/* Import/Export Dropdown */}
@@ -221,6 +341,30 @@ export default function EmployeePage() {
                             variant="actionNormal"
                         />
                     </div>
+                </div>
+                <div className="flex gap-3 items-center justify-end w-full">
+                    {/* Filter by Role */}
+                        <DropdownOptions
+                            options={[
+                                { value: "", label: "Tất cả vai trò" },
+                                ...roles
+                            ]}
+                            value={filterRole}
+                            onChange={setFilterRole}
+                            width="w-40"
+                        />
+
+                        {/* Filter by Status */}
+                        <DropdownOptions
+                            options={[
+                                { value: "", label: "Tất cả trạng thái" },
+                                { value: "active", label: "ACTIVE" },
+                                { value: "inactive", label: "INACTIVE" }
+                            ]}
+                            value={filterStatus}
+                            onChange={setFilterStatus}
+                            width="w-40"
+                        />
                 </div>
             </div>
 
@@ -267,9 +411,9 @@ export default function EmployeePage() {
                                             <div className="text-sm text-gray-900">{employee.phone}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <span className={getRoleBadge(employee.role)}>{employee.role}</span>
+                                            <span >{employee.role}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
+                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32 uppercase">
                                             <span className={getStatusBadge(employee.status)}>
                                                 {employee.status}
                                             </span>
@@ -338,7 +482,7 @@ export default function EmployeePage() {
                     data={modal.employee}
                     onSave={handleSave}
                     onDelete={handleDelete}
-                    availableRoles={roles.filter(role => role.status === "Active")}
+                    availableRoles={roles}
                     maxWidth="sm:max-w-2xl"
                 />
             </div>
