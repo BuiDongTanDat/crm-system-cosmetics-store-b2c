@@ -11,13 +11,14 @@ export function EmployeeForm({
   onDelete,
   availableRoles = [],
   setMode,
+  onClose,
 }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     role: "Sales",
-    status: "Active",
+    status: "ACTIVE",
     password: "",
   });
 
@@ -28,8 +29,8 @@ export function EmployeeForm({
         email: data.email || "",
         phone: data.phone || "",
         role: data.role || "Sales",
-        status: data.status || "Active",
-        password: "", // Don't pre-fill password for security
+        status: (data.status || "active").toUpperCase(),
+        password: "",
       });
     }
   }, [data]);
@@ -41,11 +42,15 @@ export function EmployeeForm({
         email: data.email || "",
         phone: data.phone || "",
         role: data.role || "Sales",
-        status: data.status || "Active",
+        status: (data.status || "active").toUpperCase(),
         password: "",
       });
+      setMode?.("view");
+    } else {
+      // Nếu là thêm mới thì đóng modal luôn
+      setMode?.("close");
+      if (typeof onClose === "function") onClose();
     }
-    setMode?.("view");
   };
 
   const handleSubmit = () => {
@@ -59,6 +64,7 @@ export function EmployeeForm({
     onSave({
       ...form,
       id: data?.id,
+      status: form.status.toLowerCase(), // gửi về backend dạng lowercase
     });
 
     // Nếu là update, chuyển về view mode
@@ -116,7 +122,10 @@ export function EmployeeForm({
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Vai trò</label>
                 <DropdownOptions
-                  options={availableRoles}
+                  options={availableRoles.map((role, idx) => ({
+                    ...role,
+                    key: role.value || role.label || idx
+                  }))}
                   value={form.role}
                   onChange={(value) => setForm((f) => ({ ...f, role: value }))}
                   disabled={mode === "view"}
@@ -126,7 +135,11 @@ export function EmployeeForm({
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
                 <DropdownOptions
-                  options={StatusList.map(status => ({ value: status, label: status }))}
+                  options={StatusList.map((status, idx) => ({
+                    value: status.toUpperCase(),
+                    label: status.toUpperCase(),
+                    key: status.toUpperCase()
+                  }))}
                   value={form.status}
                   onChange={(value) => setForm((f) => ({ ...f, status: value }))}
                   disabled={mode === "view"}

@@ -4,10 +4,32 @@ import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import RoleForm from "@/pages/role/components/RoleForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import { mockRoles } from "@/lib/data";
+// import { mockRoles } from "@/lib/data"; // Xóa dòng này
+import {
+    getRoles,
+    getRoleByName,
+    createRole,
+    updateRole,
+    deleteRole
+} from "@/services/roles"; // Thêm dòng này
+import { formatDate, formatDateTime } from "@/utils/helper";
+
+// Danh sách phân quyền cho role
+const PERMISSIONS_LIST = [
+    { group: "auth", label: "Xác thực", permissions: ["auth.login", "auth.logout"] },
+    { group: "user", label: "Người dùng", permissions: ["user.read", "user.write", "user.delete"] },
+    { group: "customer", label: "Khách hàng", permissions: ["customer.read", "customer.write", "customer.delete"] },
+    { group: "role", label: "Vai trò", permissions: ["role.read", "role.write", "role.delete"] },
+    { group: "lead", label: "Lead", permissions: ["lead.read", "lead.write", "lead.delete", "lead.import", "lead.scoring.view", "lead.convert"] },
+    { group: "campaign", label: "Chiến dịch", permissions: ["campaign.read", "campaign.write", "campaign.delete", "campaign.automation.setup", "campaign.ai.suggestion", "campaign.roi.view"] },
+    { group: "order", label: "Đơn hàng", permissions: ["order.read", "order.write", "order.delete", "order.status.view"] },
+    { group: "product", label: "Sản phẩm", permissions: ["product.read", "product.write", "product.delete", "product.import"] },
+    { group: "analytics", label: "Phân tích", permissions: ["customer.behavior.view", "dashboard.realtime.view", "report.view", "revenue.forecast.view"] },
+    { group: "data", label: "Dữ liệu", permissions: ["data.export", "data.import"] }
+];
 
 export default function RolePage() {
-    const [roles, setRoles] = useState(mockRoles);
+    const [roles, setRoles] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: 'view', role: null });
     const [hoveredRow, setHoveredRow] = useState(null);
@@ -17,8 +39,8 @@ export default function RolePage() {
     const rolesPerPage = 6;
 
     const filteredRoles = roles.filter(role =>
-        role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        role.description.toLowerCase().includes(searchTerm.toLowerCase())
+        (role.role_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (role.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
 
     // Pagination calculations
@@ -33,8 +55,25 @@ export default function RolePage() {
     const handlePrev = () => setCurrentPage(prev => Math.max(prev - 1, 1));
     const handlePageChange = (page) => setCurrentPage(page);
 
+    // Fetch roles từ API
+    const fetchRoles = async () => {
+        try {
+            const res = await getRoles();
+            let data = Array.isArray(res) ? res : res?.data;
+            if (!data) data = [];
+            setRoles(data);
+        } catch (err) {
+            console.error("Lỗi tải danh sách vai trò:", err);
+            alert("Không thể tải danh sách vai trò.");
+        }
+    };
+
+    useEffect(() => {
+        fetchRoles();
+    }, []);
+
     // Handlers
-    const handleView = (role) => {
+    const handleView = async (role) => {
         setModal({ open: true, mode: 'view', role });
     };
 
@@ -43,50 +82,66 @@ export default function RolePage() {
     };
 
     const handleCreate = () => {
-        setModal({ open: true, mode: 'edit', role: null });
+        setModal({ open: true, mode: 'create', role: null });
     };
 
     const closeModal = () => {
         setModal({ open: false, mode: 'view', role: null });
     };
 
-    const handleSave = (roleData) => {
-        if (roleData.id) {
-            // Update existing
-            setRoles(prev => prev.map(role =>
-                role.id === roleData.id ? { ...role, ...roleData } : role
-            ));
-            
-            // Cập nhật dữ liệu trong modal để hiển thị thông tin mới nhất
-            setModal(prev => ({
-                ...prev,
-                mode: 'view', // Chuyển về view mode
-                role: { ...roleData }
-            }));
-        } else {
-            // Create new
-            const newRole = {
-                ...roleData,
-                id: Math.max(...roles.map(r => r.id)) + 1
-            };
-            setRoles(prev => [...prev, newRole]);
-            closeModal();
+    const handleSave = async (roleData) => {
+        try {
+            let savedItem;
+            if (modal.mode === 'edit' && modal.role?.role_name) {
+                //truyền role_name cũ vào API, payload có thể chứa role_name mới
+                // Role name làm khóa chính nên chắc ko có update name đâu
+                await updateRole(modal.role.role_name, roleData);
+                // Nếu API trả về dữ liệu mới, lấy lại chi tiết vai trò vừa cập nhật
+                savedItem = await getRoleByName(roleData.role_name);
+                if (savedItem && savedItem.role_name) {
+                    setRoles((prev) => {
+                        const idx = prev.findIndex(r => r.role_name === modal.role.role_name);
+                        if (idx !== -1) {
+                            const newArr = [...prev];
+                            newArr[idx] = savedItem;
+                            return newArr;
+                        }
+                        return [...prev, savedItem];
+                    });
+                    setModal({ open: true, mode: 'view', role: savedItem });
+                } else {
+                    await fetchRoles();
+                    setModal({ open: true, mode: 'view', role: roleData });
+                }
+            } else {
+                // Create: không truyền role_name cũ, chỉ truyền payload
+                savedItem = await createRole(roleData);
+                if (savedItem && savedItem.role_name) {
+                    setRoles((prev) => [savedItem, ...prev]);
+                    closeModal();
+                } else {
+                    await fetchRoles();
+                    closeModal();
+                }
+            }
+            console.log("Role saved:", roleData);
+        } catch (err) {
+            console.error("Lỗi lưu vai trò:", err);
+            alert("Lỗi khi lưu vai trò!");
         }
-        console.log("Role saved:", roleData);
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (role_name) => {
         if (window.confirm("Bạn có chắc chắn muốn xóa vai trò này?")) {
-            setRoles(prev => prev.filter(role => role.id !== id));
-            closeModal();
+            try {
+                await deleteRole(role_name);
+                setRoles((prev) => prev.filter(r => r.role_name !== role_name));
+                closeModal();
+            } catch (err) {
+                console.error("Lỗi xóa vai trò:", err);
+                alert("Lỗi khi xóa vai trò!");
+            }
         }
-    };
-
-    const getStatusBadge = (status) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center";
-        return status === "Active"
-            ? `${baseClass} bg-green-100 text-green-800`
-            : `${baseClass} bg-red-100 text-red-800`;
     };
 
     return (
@@ -111,17 +166,12 @@ export default function RolePage() {
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
 
-                        {/* Filter */}
-                        <Button variant="actionNormal" className="gap-2">
-                            <Filter className="w-5 h-5" />
-                            Lọc
-                        </Button>
 
                         {/* Add Role */}
                         <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
@@ -142,9 +192,9 @@ export default function RolePage() {
                                 <tr>
                                     {[
                                         "Tên vai trò",
-                                        "Mô tả",
                                         "Quyền hạn",
-                                        "Trạng thái",
+                                        "Ngày tạo",
+                                        "Cập nhật lần cuối",
                                         ""
                                     ].map((header) => (
                                         <th
@@ -159,37 +209,42 @@ export default function RolePage() {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {currentRoles.map((role) => (
                                     <tr
-                                        key={role.id}
+                                        key={role.role_name}
                                         className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onMouseEnter={() => setHoveredRow(role.id)}
+                                        onMouseEnter={() => setHoveredRow(role.role_name)}
                                         onMouseLeave={() => setHoveredRow(null)}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                                            <div className="text-sm font-medium text-gray-900">{role.role_name}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{role.description}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-4 whitespace-nowrap text-start">
                                             <div className="text-sm text-gray-900">
-                                                {role.permissions.map(permission =>
-                                                    permission === 'read' ? 'Đọc' :
-                                                        permission === 'write' ? 'Ghi' : 'Xóa'
-                                                ).join(", ")}
+                                                {role.permissions && role.permissions.length > 0
+                                                    ? (() => {
+                                                        const maxShow = 5;
+                                                        const perms = role.permissions.slice(0, maxShow);
+                                                        return perms.join(", ") + (role.permissions.length > maxShow ? ", ..." : "");
+                                                    })()
+                                                    : <span className="text-gray-400 italic">Không có quyền</span>
+                                                }
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                                            <span className={getStatusBadge(role.status)}>
-                                                {role.status === "Active" ? "Hoạt động" : "Không hoạt động"}
-                                            </span>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                                {formatDate(role.created_at)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                                {formatDateTime(role.updated_at)}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center w-36">
                                             <div
-                                                className={`flex justify-center gap-1 transition-all duration-200 ${
-                                                    hoveredRow === role.id
+                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === role.role_name
                                                         ? "opacity-100 translate-y-0 pointer-events-auto"
                                                         : "opacity-0 translate-y-1 pointer-events-none"
-                                                }`}
+                                                    }`}
                                             >
                                                 <Button
                                                     variant="actionRead"
@@ -210,7 +265,7 @@ export default function RolePage() {
                                                 <Button
                                                     variant="actionDelete"
                                                     size="icon"
-                                                    onClick={() => handleDelete(role.id)}
+                                                    onClick={() => handleDelete(role.role_name)}
                                                     className="h-8 w-8"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -238,8 +293,9 @@ export default function RolePage() {
                     open={modal.open}
                     onClose={closeModal}
                     title={{
-                        view: `Chi tiết vai trò - ${modal.role?.name || ''}`,
-                        edit: modal.role ? `Chỉnh sửa vai trò - ${modal.role.name}` : 'Thêm vai trò mới'
+                        view: `Chi tiết vai trò - ${modal.role?.role_name || ''}`,
+                        edit: modal.role ? `Chỉnh sửa vai trò - ${modal.role.role_name}` : 'Thêm vai trò mới',
+                        create: 'Thêm vai trò mới' //Này thêm chế độ create tại có phân biết với edit trong việc được nhập role name hay không
                     }}
                     mode={modal.mode}
                     FormComponent={RoleForm}
@@ -247,6 +303,8 @@ export default function RolePage() {
                     onSave={handleSave}
                     onDelete={handleDelete}
                     maxWidth="sm:max-w-2xl"
+                    permissionsList={PERMISSIONS_LIST}
+                    onCancel={closeModal}
                 />
             </div>
         </div>

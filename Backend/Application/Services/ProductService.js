@@ -10,9 +10,9 @@ const {
 } = require('../DTOs/ProductRequest');
 const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
 
+
 const productRepository = new ProductRepository();
 class ProductService {
-
 
   // Lấy tất cả sản phẩm (dạng danh sách)
   async getAll() {

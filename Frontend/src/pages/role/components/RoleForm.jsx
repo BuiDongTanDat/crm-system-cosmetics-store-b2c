@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
-import { StatusList } from "@/lib/data";
+import { Edit, Save, Trash2 } from "lucide-react";
 
 export function RoleForm({
     mode = "view",
@@ -15,31 +8,24 @@ export function RoleForm({
     onSave,
     onDelete,
     setMode,
+    permissionsList = [],
+    onCancel,
 }) {
     const [form, setForm] = useState({
-        name: "",
-        description: "",
+        role_name: "",
         permissions: [],
-        status: "Active",
     });
-
-    const [editMode, setEditMode] = useState(mode === "edit");
-    const availablePermissions = ["read", "write", "delete"];
 
     useEffect(() => {
         if (data) {
             setForm({
-                name: data.name || "",
-                description: data.description || "",
+                role_name: data.role_name || "",
                 permissions: data.permissions || [],
-                status: data.status || "Active",
             });
         } else {
             setForm({
-                name: "",
-                description: "",
+                role_name: "",
                 permissions: [],
-                status: "Active",
             });
         }
     }, [data, mode]);
@@ -57,19 +43,17 @@ export function RoleForm({
     };
 
     const handleSubmit = () => {
-        if (!form.name) {
+        if (!form.role_name) {
             alert("Vui lòng nhập tên vai trò");
             return;
         }
-        
+
+        // Khi tạo mới, không truyền role_name cũ
         onSave({
             ...form,
-            id: data?.id,
         });
-        
-        // Chỉ chuyển về view mode nếu là update (có data.id)
-        // Nếu là create thì page sẽ tự đóng modal
-        if (data?.id) {
+
+        if (data?.role_name) {
             setMode?.("view");
         }
     };
@@ -77,147 +61,76 @@ export function RoleForm({
     const handleCancel = () => {
         if (data) {
             setForm({
-                name: data.name || "",
-                description: data.description || "",
+                role_name: data.role_name || "",
                 permissions: data.permissions || [],
-                status: data.status || "Active",
             });
+            setMode?.("view");
+        } else {
+            onCancel?.();
         }
-        setMode?.("view");
     };
 
     return (
-        <div className="flex flex-col h-[60vh]">
-            {/* Scrollable Content */}
+        <div className="flex flex-col overflow-hidden h-[80vh]">
+            {/* Nội dung cuộn riêng trong form */}
             <div className="flex-1 overflow-y-auto p-6">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-6">
+                    {/* Tên  */}
+                    <div className="w-full gap-6">
                         <div>
                             <label className="block text-sm font-medium mb-1">Tên vai trò</label>
                             <input
-                                disabled={mode === "view"}
-                                value={form.name}
-                                onChange={handleChange("name")}
+                                disabled={mode === "view" || mode === "edit"}
+                                value={form.role_name}
+                                onChange={handleChange("role_name")}
                                 className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                                 placeholder="Nhập tên vai trò"
                             />
                         </div>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Mô tả</label>
-                            <textarea
-                                disabled={mode === "view"}
-                                value={form.description}
-                                onChange={handleChange("description")}
-                                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
-                                placeholder="Nhập mô tả vai trò"
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="flex items-start justify-between gap-6">
-                            {/* Phân quyền */}
-                            <div className="flex-1">
-                                <label className="block text-sm font-medium mb-2">Quyền hạn</label>
-                                <div className="flex gap-4 flex-wrap">
-                                    {availablePermissions.map((permission) => (
-                                        <label
-                                            key={permission}
-                                            className={`
-                                                flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all duration-200
-                                                ${mode === "view" ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}
-                                                ${
-                                                    form.permissions.includes(permission)
-                                                        ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                                                        : 'bg-white border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:scale-105 active:scale-80'
-                                                }
-                                            `}
-                                            onClick={() => handlePermissionToggle(permission)}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={form.permissions.includes(permission)}
-                                                onChange={() => handlePermissionToggle(permission)}
-                                                disabled={mode === "view"}
-                                                className="sr-only"
-                                            />
-                                            <div
-                                                className={`
-                                                    w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200
-                                                    ${
-                                                        form.permissions.includes(permission)
-                                                            ? 'border-white bg-white'
-                                                            : 'border-gray-400 bg-white'
-                                                    }
-                                                `}
-                                            >
-                                                {form.permissions.includes(permission) && (
-                                                    <svg
-                                                        className="w-2.5 h-2.5 text-blue-500"
-                                                        fill="currentColor"
-                                                        viewBox="0 0 20 20"
+                    {/* Quyền hạn */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Quyền hạn</label>
+                        <div className="flex flex-col gap-4 pr-2">
+                            {permissionsList && permissionsList.length > 0 ? (
+                                permissionsList.map((group) => (
+                                    <div key={group.group} className="mb-2">
+                                        <div className="font-semibold text-gray-400 mb-1 text-[13px]">{group.label}</div>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {group.permissions.map((permission) => {
+                                                const isActive = form.permissions.includes(permission);
+                                                return (
+                                                    <Button
+                                                        variant={isActive ? "actionCreate" : "actionNormal"}
+                                                        key={permission}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (mode !== "view") handlePermissionToggle(permission);
+                                                        }}
+                                                        disabled={mode === "view"}
+                                                        className="border border-gray-300 text-sm px-3 py-1 rounded-md"
                                                     >
-                                                        <path
-                                                            fillRule="evenodd"
-                                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                            clipRule="evenodd"
-                                                        />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                            <span
-                                                className={`capitalize text-sm font-medium ${
-                                                    form.permissions.includes(permission)
-                                                        ? 'text-white'
-                                                        : 'text-gray-700'
-                                                }`}
-                                            >
-                                                {permission === 'read'
-                                                    ? 'Đọc'
-                                                    : permission === 'write'
-                                                    ? 'Ghi'
-                                                    : 'Xóa'}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Trạng thái */}
-                            <div className="w-40 flex-shrink-0">
-                                <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                                        <div
-                                            className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                                                mode === "view"
-                                                    ? 'bg-gray-50 cursor-not-allowed'
-                                                    : 'cursor-pointer hover:border-blue-500'
-                                            }`}
-                                        >
-                                            <span className="text-sm">{form.status}</span>
-                                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                                                        {permission}
+                                                    </Button>
+                                                );
+                                            })}
                                         </div>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                                        {StatusList.map((status) => (
-                                            <DropdownMenuItem
-                                                key={status}
-                                                onSelect={() => setForm((f) => ({ ...f, status }))}
-                                            >
-                                                {status}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-gray-400 text-sm italic">
+                                    Không có dữ liệu phân quyền. Vui lòng kiểm tra cấu hình.
+                                </div>
+                            )}
                         </div>
                     </div>
+
                 </div>
             </div>
 
-            {/* Fixed Action Buttons */}
-            <div className="border-t bg-white p-6 flex-shrink-0">
+            {/* Action buttons cố định */}
+            <div className="border-t bg-white p-6 flex-shrink-0 sticky bottom-0">
                 <div className="flex justify-end gap-3">
                     {mode === "view" ? (
                         <>
@@ -225,7 +138,7 @@ export function RoleForm({
                                 <Edit className="w-4 h-4" />
                                 Chỉnh sửa
                             </Button>
-                            <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
+                            <Button variant="actionDelete" onClick={() => onDelete(data?.role_name)}>
                                 <Trash2 className="w-4 h-4" />
                                 Xóa
                             </Button>
@@ -245,6 +158,7 @@ export function RoleForm({
             </div>
         </div>
     );
+
 }
 
 export default RoleForm;

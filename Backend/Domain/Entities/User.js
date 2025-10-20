@@ -37,7 +37,7 @@ User.init(
     role_name: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'user',         // bạn có thể đổi thành 'admin'/'staff' tùy hệ thống
+      defaultValue: 'user',         // Cos thể đổi thành 'admin'/'staff' tùy hệ thống
     },
     password_hash: {
       type: DataTypes.STRING,

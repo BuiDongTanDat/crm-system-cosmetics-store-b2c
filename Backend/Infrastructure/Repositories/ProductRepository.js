@@ -1,8 +1,7 @@
 const Product = require('../../Domain/Entities/Product');
-const IProductRepository = require('../../Domain/Interfaces/IProductRepository');
 const { Op } = require('sequelize');
 
-class ProductRepository extends IProductRepository {
+class ProductRepository {
   // Lấy sản phẩm theo ID
   async findById(productId) {
     const product = await Product.findByPk(productId);
@@ -61,16 +60,6 @@ class ProductRepository extends IProductRepository {
     return product;
   }
 
-  // Lấy sản phẩm có giá trong khoảng min-max
-  async findByPriceRange(min, max) {
-    return await Product.findAll({
-      where: {
-        price_current: {
-          [Op.between]: [min, max]
-        }
-      }
-    });
-  }
 }
 
 module.exports = ProductRepository;
