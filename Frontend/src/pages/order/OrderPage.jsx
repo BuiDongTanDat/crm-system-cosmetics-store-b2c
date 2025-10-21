@@ -4,7 +4,9 @@ import { Search, Plus, Eye, Edit, Trash2, Filter, PackagePlus, Loader2, CheckCir
 import AppDialog from "@/components/dialogs/AppDialog";
 import OrderForm from "@/pages/order/components/OrderForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
+import ImportExportDropdown from '@/components/common/ImportExportDropdown';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 import CountUp from 'react-countup';
 import { mockOrders, OrderStatus, PaymentMethod } from "@/lib/data";
 import { formatCurrency, formatDate } from "@/utils/helper";
@@ -77,6 +79,7 @@ export default function OrderPage() {
                 mode: 'view',
                 order: { ...orderData }
             }));
+            toast.success('Cập nhật đơn hàng thành công!');
         } else {
             const newOrder = {
                 ...orderData,
@@ -84,14 +87,15 @@ export default function OrderPage() {
             };
             setOrders((prev) => [...prev, newOrder]);
             closeModal();
+            toast.success('Thêm đơn hàng thành công!');
         }
     };
 
     const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa đơn hàng này?")) {
-            setOrders((prev) => prev.filter((order) => order.id !== id));
-            closeModal();
-        }
+        // actual deletion executed after ConfirmDialog triggers onConfirm
+        setOrders((prev) => prev.filter((order) => order.id !== id));
+        closeModal();
+        toast.success('Xóa đơn hàng thành công!');
     };
 
     // Import/Export JSON
@@ -120,15 +124,15 @@ export default function OrderPage() {
             }));
 
             setOrders(prev => [...prev, ...processedOrders]);
-            alert(`Đã nhập thành công ${processedOrders.length} đơn hàng!`);
+            toast.success(`Đã nhập thành công ${processedOrders.length} đơn hàng!`);
         } catch (error) {
             console.error('Lỗi xử lý dữ liệu nhập:', error);
-            alert('Có lỗi xảy ra khi xử lý dữ liệu nhập');
+            toast.error('Có lỗi xảy ra khi xử lý dữ liệu nhập');
         }
     };
 
     const handleImportError = (errorMessage) => {
-        alert(`Lỗi nhập file: ${errorMessage}`);
+        toast.error(`Lỗi nhập file: ${errorMessage}`);
     };
 
     // Helpers
@@ -348,14 +352,21 @@ export default function OrderPage() {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="actionDelete"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(order.id)}
-                                                    className="h-8 w-8"
+                                                <ConfirmDialog
+                                                    title="Xác nhận xóa"
+                                                    description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.id}</span>?</>}
+                                                    confirmText="Xóa"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => handleDelete(order.id)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
+                                                    <Button
+                                                        variant="actionDelete"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </ConfirmDialog>
                                             </div>
                                         </td>
 

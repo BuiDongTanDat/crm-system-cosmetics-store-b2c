@@ -8,6 +8,8 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
 import { mockEmployees } from "@/lib/data";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 const priorityOptions = [
   { value: 'high', label: 'Cao' },
@@ -103,7 +105,7 @@ export function DealForm({
 
   const handleSubmit = () => {
     if (!form.title || !form.customer) {
-      alert("Vui lòng nhập tiêu đề và tên khách hàng");
+      toast.error("Vui lòng nhập tiêu đề và tên khách hàng");
       return;
     }
 
@@ -376,10 +378,18 @@ export function DealForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={<>Bạn có chắc chắn muốn xóa deal <span className="font-semibold">{data?.title}</span>?</>}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.id)}
+              >
+                <Button variant="actionDelete">
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

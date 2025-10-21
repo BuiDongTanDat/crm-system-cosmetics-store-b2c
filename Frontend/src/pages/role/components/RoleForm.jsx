@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit, Save, Trash2 } from "lucide-react";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 export function RoleForm({
     mode = "view",
@@ -44,7 +46,7 @@ export function RoleForm({
 
     const handleSubmit = () => {
         if (!form.role_name) {
-            alert("Vui lòng nhập tên vai trò");
+            toast.error("Vui lòng nhập tên vai trò");
             return;
         }
 
@@ -55,6 +57,7 @@ export function RoleForm({
 
         if (data?.role_name) {
             setMode?.("view");
+            toast.success("Lưu vai trò thành công.");
         }
     };
 
@@ -138,10 +141,25 @@ export function RoleForm({
                                 <Edit className="w-4 h-4" />
                                 Chỉnh sửa
                             </Button>
-                            <Button variant="actionDelete" onClick={() => onDelete(data?.role_name)}>
-                                <Trash2 className="w-4 h-4" />
-                                Xóa
-                            </Button>
+
+                            {/* Bọc nút Xóa bằng ConfirmDialog */}
+                            <ConfirmDialog
+                                title="Xác nhận xóa"
+                                description={
+                                    <>
+                                        Bạn có chắc chắn muốn xóa vai trò{" "}
+                                        <span className="font-semibold text-black">{data?.role_name}</span>?
+                                    </>
+                                }
+                                confirmText="Xóa"
+                                cancelText="Hủy"
+                                onConfirm={() => onDelete(data?.role_name)}
+                            >
+                                <Button variant="actionDelete">
+                                    <Trash2 className="w-4 h-4" />
+                                    Xóa
+                                </Button>
+                            </ConfirmDialog>
                         </>
                     ) : (
                         <>

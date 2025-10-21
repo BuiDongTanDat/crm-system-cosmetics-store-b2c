@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { Edit, Save, Trash2 } from "lucide-react";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
     { value: "ACTIVE", label: "ACTIVE" },
@@ -16,14 +18,14 @@ export default function CategoryForm({
     onClose,
     setMode: propSetMode
 }) {
+    // Quản lý mode nội bộ nếu không truyền setMode
+    const [mode, setMode] = useState(propMode || (data ? "view" : "add"));
     const [form, setForm] = useState({
         category_id: null, // added
         name: "",
         description: "",
         status: "ACTIVE"
     });
-    // Quản lý mode nội bộ nếu không truyền setMode
-    const [mode, setMode] = useState(propMode || (data ? "view" : "add"));
 
     useEffect(() => {
         setMode(propMode || (data ? "view" : "add"));
@@ -75,7 +77,7 @@ export default function CategoryForm({
     const handleSubmit = (e) => {
         if (e) e.preventDefault();
         if (!form.name.trim()) {
-            alert("Tên danh mục không được để trống!");
+            toast.error("Tên danh mục không được để trống!");
             return;
         }
         // Đảm bảo status luôn là "ACTIVE" hoặc "INACTIVE"
@@ -154,10 +156,24 @@ export default function CategoryForm({
                                 <Edit className="w-4 h-4" />
                                 Chỉnh sửa
                             </Button>
-                            <Button variant="actionDelete" onClick={() => onDelete?.(data?.id)}>
-                                <Trash2 className="w-4 h-4" />
-                                Xóa
-                            </Button>
+
+                            <ConfirmDialog
+                                title="Xác nhận xóa"
+                                description={
+                                    <>
+                                        Bạn có chắc chắn muốn xóa danh mục{" "}
+                                        <span className="font-semibold text-black">{data?.name}</span>?
+                                    </>
+                                }
+                                confirmText="Xóa"
+                                cancelText="Hủy"
+                                onConfirm={() => onDelete?.(data?.category_id || data?.id)}
+                            >
+                                <Button variant="actionDelete">
+                                    <Trash2 className="w-4 h-4" />
+                                    Xóa
+                                </Button>
+                            </ConfirmDialog>
                         </>
                     ) : (
                         <>

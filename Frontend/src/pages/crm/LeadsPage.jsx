@@ -7,6 +7,8 @@ import DealForm from '@/pages/crm/components/DealForm';
 import { kanbanCards as initialCards, kanbanColumns as initialColumns } from '@/lib/data';
 import { formatCurrency, getPriorityColor, getPriorityLabel, getInitials, formatDate } from '@/utils/helper';
 import DropdownOptions from '@/components/common/DropdownOptions';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 
 export default function LeadsPage() {
@@ -74,6 +76,7 @@ export default function LeadsPage() {
     if (dealData.id) {
       setCards(prev => prev.map(d => d.id === dealData.id ? { ...d, ...dealData, stage: dealData.status || dealData.stage } : d));
       setModal(prev => ({ ...prev, mode: 'view', deal: { ...dealData, stage: dealData.status || dealData.stage } }));
+      toast.success('Cập nhật deal thành công!');
     } else {
       const newDeal = {
         ...dealData,
@@ -85,14 +88,15 @@ export default function LeadsPage() {
       };
       setCards(prev => [...prev, newDeal]);
       closeModal();
+      toast.success('Thêm deal thành công!');
     }
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa deal này?")) {
-      setCards(prev => prev.filter(d => d.id !== id));
-      closeModal();
-    }
+    // actual deletion executed after confirm in ConfirmDialog where used
+    setCards(prev => prev.filter(d => d.id !== id));
+    closeModal();
+    toast.success("Xóa deal thành công!");
   };
 
 
@@ -270,7 +274,17 @@ export default function LeadsPage() {
                       <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
                         <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
                         <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
-                        <Button variant="actionDelete" size="icon" onClick={() => handleDelete(card.id)} className="h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
+                        <ConfirmDialog
+                          title="Xác nhận xóa"
+                          description={<>Bạn có chắc chắn muốn xóa deal <span className="font-semibold">{card.title}</span>?</>}
+                          confirmText="Xóa"
+                          cancelText="Hủy"
+                          onConfirm={() => handleDelete(card.id)}
+                        >
+                          <Button variant="actionDelete" size="icon" className="h-8 w-8">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </ConfirmDialog>
                       </div>
                     </td>
 

@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { triggerOptions, actionOptions } from '@/lib/data';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 export default function AutomationForm({
   mode = 'view',
@@ -237,10 +239,18 @@ export default function AutomationForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={<>Bạn có chắc chắn muốn xóa automation <span className="font-semibold">{data?.name}</span>?</>}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.id)}
+              >
+                <Button variant="actionDelete">
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

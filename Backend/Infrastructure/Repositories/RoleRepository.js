@@ -21,7 +21,7 @@ class RoleRepository {
     async updateRole(roleName, updates) {
         const role = await this.getRoleByName(roleName);
         if (!role) {
-            throw new Error('Role not found');
+            throw new Error('Không tìm thấy vai trò');
         }
         return await role.update(updates);
     }
@@ -30,7 +30,7 @@ class RoleRepository {
     async deleteRole(roleName) {
         const role = await this.getRoleByName(roleName);
         if (!role) {
-            throw new Error('Role not found');
+            throw new Error('Không tìm thấy vai trò');
         }
         return await role.destroy();
     }

@@ -14,6 +14,8 @@ import {
     deleteUser
 } from "@/services/users";
 import { getRoles } from "@/services/roles";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 export default function EmployeePage() {
     const [employees, setEmployees] = useState([]);
@@ -54,7 +56,7 @@ export default function EmployeePage() {
             })));
         } catch (err) {
             console.error("Lỗi tải danh sách nhân viên:", err);
-            alert("Không thể tải danh sách nhân viên.");
+            toast.error("Không thể tải danh sách nhân viên.");
         }
     };
 
@@ -73,7 +75,7 @@ export default function EmployeePage() {
             );
         } catch (err) {
             console.error("Lỗi tải danh sách vai trò:", err);
-            alert("Không thể tải danh sách vai trò.");
+            toast.error("Không thể tải danh sách vai trò.");
         }
     };
 
@@ -116,7 +118,7 @@ export default function EmployeePage() {
                 status: res.status
             }});
         } catch (err) {
-            alert("Không thể lấy chi tiết nhân viên!");
+            toast.error("Không thể lấy chi tiết nhân viên!");
         }
     };
 
@@ -179,6 +181,7 @@ export default function EmployeePage() {
                         role: savedItem.role_name,
                         status: savedItem.status
                     }});
+                    toast.success("Cập nhật nhân viên thành công!");
                 } else {
                     await fetchEmployees();
                     setModal({ open: true, mode: 'view', employee: employeeData });
@@ -203,6 +206,7 @@ export default function EmployeePage() {
                         role: savedItem.role_name,
                         status: savedItem.status
                     }, ...prev]);
+                    toast.success("Thêm nhân viên thành công.");
                     closeModal();
                 } else {
                     await fetchEmployees();
@@ -210,19 +214,20 @@ export default function EmployeePage() {
                 }
             }
         } catch (err) {
-            alert(err?.error || err?.message || "Lỗi khi lưu nhân viên!");
+            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Lỗi khi lưu nhân viên!";
+            toast.error(String(msg));
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
-            try {
-                await deleteUser(id);
-                setEmployees(prev => prev.filter(emp => emp.id !== id));
-                closeModal();
-            } catch (err) {
-                alert(err?.error || err?.message || "Lỗi khi xóa nhân viên!");
-            }
+        try {
+            await deleteUser(id);
+            setEmployees(prev => prev.filter(emp => emp.id !== id));
+            closeModal();
+            toast.success("Xóa nhân viên thành công!");
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Lỗi khi xóa nhân viên!";
+            toast.error(String(msg));
         }
     };
 
@@ -235,6 +240,7 @@ export default function EmployeePage() {
         a.download = 'employees.json';
         a.click();
         URL.revokeObjectURL(url);
+        toast.success("Xuất nhân viên thành công.");
     };
 
     const importEmployees = (file) => {
@@ -252,11 +258,12 @@ export default function EmployeePage() {
                         role: item.role || 'Sales',
                         status: item.status || 'Active'
                     })));
+                    toast.success("Nhập file thành công.");
                 } else {
-                    alert('File import không hợp lệ (cần mảng JSON)');
+                    toast.error('File import không hợp lệ (cần mảng JSON)');
                 }
             } catch (err) {
-                alert('Không thể đọc file JSON: ' + err.message);
+                toast.error('Không thể đọc file JSON: ' + err.message);
             }
         };
         reader.readAsText(file);
@@ -274,15 +281,15 @@ export default function EmployeePage() {
             }));
 
             setEmployees(prev => [...prev, ...processedEmployees]);
-            alert(`Đã nhập thành công ${processedEmployees.length} nhân viên!`);
+            toast.success(`Đã nhập thành công ${processedEmployees.length} nhân viên!`);
         } catch (error) {
             console.error('Lỗi xử lý dữ liệu nhập:', error);
-            alert('Có lỗi xảy ra khi xử lý dữ liệu nhập');
+            toast.error('Có lỗi xảy ra khi xử lý dữ liệu nhập');
         }
     };
 
     const handleImportError = (errorMessage) => {
-        alert(`Lỗi nhập file: ${errorMessage}`);
+        toast.error(`Lỗi nhập file: ${errorMessage}`);
     };
 
     const getStatusBadge = (status) => {
@@ -426,7 +433,6 @@ export default function EmployeePage() {
                                                     }`}
                                             >
 
-                                                
                                                 <Button
                                                     variant="actionRead"
                                                     size="icon"
@@ -443,14 +449,29 @@ export default function EmployeePage() {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="actionDelete"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(employee.id)}
-                                                    className="h-8 w-8"
+
+                                                {/* Dùng ConfirmDialog cho hành động xóa ở table */}
+                                                <ConfirmDialog
+                                                    title="Xác nhận xóa"
+                                                    description={
+                                                        <>
+                                                            Bạn có chắc chắn muốn xóa nhân viên{" "}
+                                                            <span className="font-semibold text-black">{employee.name}</span>?
+                                                        </>
+                                                    }
+                                                    confirmText="Xóa"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => handleDelete(employee.id)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
+                                                    <Button
+                                                        variant="actionDelete"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </ConfirmDialog>
+
                                             </div>
                                         </td>
                                     </tr>
