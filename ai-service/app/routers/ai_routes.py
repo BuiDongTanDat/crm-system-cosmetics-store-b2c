@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field  # ⬅️ bỏ conlist
 from typing import Any, Dict, List, Optional
 from app.services.llm_service import LLMService
 from app.services.analyzer import HeuristicAnalyzer
+from app.schema.marketing import SuggestFromCustomersRequest, SuggestCampaignResponse
 # from app.services.recommender import EmailGenerator
 
 router = APIRouter(prefix="/v1", tags=["ai"])
@@ -105,14 +106,43 @@ async def extract(inp: ExtractIn):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# @router.post("/generation/email", response_model=GenEmailOut)
-# async def generate_email(inp: GenEmailIn):
-#     try:
-#         subject, body = await email_gen.generate(inp.input, options=inp.options or {})
-#         return {"subject": subject, "body": body}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@router.post("/generation/email", response_model=GenEmailOut)
+async def generate_email(inp: GenEmailIn):
+    """
+    Gọi AI sinh nội dung email (subject + body) dựa trên thông tin context và options.
+    """
+    try:
+        result = await llm.generate_email_content(
+            context=inp.input,  
+            purpose=inp.options.get("purpose", "promotion") if inp.options else "promotion",
+            options=inp.options or {}
+        )
+        return {
+            "subject": result.get("subject", ""),
+            "body": result.get("body", "")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/marketing/suggest_campaign", response_model=SuggestCampaignResponse)
+async def suggest_marketing_campaign(payload: SuggestFromCustomersRequest):
+    """
+    🎯 Đề xuất chiến dịch marketing dựa trên dữ liệu khách hàng và sản phẩm.
+    """
+    try:
+        topic = payload.topic
+        customer_data = payload.customer_data
+        product_data = getattr(payload, "product_data", None)
 
+        if not customer_data or not isinstance(customer_data, list):
+            raise HTTPException(status_code=400, detail="customer_data is required and must be a non-empty list")
+
+        campaign = await llm.suggest_marketing_campaign(customer_data, product_data, topic=topic)
+        return {"ok": True, "campaign": campaign}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @router.post("/leads/conversion_prob", response_model=ProbResponse)
 async def estimate_conversion_prob(payload: LeadPayload):
     try:

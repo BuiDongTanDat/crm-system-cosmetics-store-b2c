@@ -1,0 +1,11 @@
+CustomerID,FullName,Phone,Email,Source,Status,LeadScore,ConversionRate,AssignedTo,CreatedAt
+1,Lý Ngọc Giang,371609088,ly.ngoc.giang@yahoo.com,InBound,Converted,30,0.157,Trần Quốc Huy,2024-01-01 08:20:24
+2,Phạm Đức Ngọc,935878761,pham.duc.ngoc@hotmail.com,InBound,Qualified,12,0.119,Bùi Yến Nhi,2024-01-26 03:43:21
+3,Võ Thanh Yến,338658349,vo.thanh.yen8833@hotmail.com,InBound,Qualified,30,0.1196,Lê Thu Trang,2025-03-14 01:17:28
+4,Hoàng Ngọc Trà,536397218,hoang.ngoc.tra@outlook.com,InBound,Qualified,12,0.1324,Nguyễn Lan Anh,2024-07-04 08:10:52
+5,Lê Gia Vy,934153272,le.gia.vy@yahoo.com,InBound,Qualified,12,0.1178,Võ Nhật Linh,2024-08-26 21:25:47
+6,Phan Thu Long,844705089,phan.thu.long@outlook.com,InBound,Contacted,6,0.1178,Đặng Gia Phúc,2025-05-22 02:13:12
+7,Phạm Gia Giang,338741544,pham.gia.giang8500@gmail.com,InBound,Converted,42,0.1196,Phạm Minh Khoa,2024-11-27 22:19:52
+8,Bùi Tuấn Lộc,582339164,bui.tuan.loc@icloud.com,InBound,Qualified,18,0.1196,Trần Quốc Huy,2025-05-17 13:03:07
+9,Phạm Anh Chi,554021202,pham.anh.chi@yahoo.com,InBound,Lost,0,0.119,Đặng Gia Phúc,2024-08-14 14:28:54
+10,Đỗ Ngọc Thảo,893452975,do.ngoc.thao@outlook.com,InBound,Contacted,6,0.1196,Đặng Gia Phúc,2025-03-24 08:35:03

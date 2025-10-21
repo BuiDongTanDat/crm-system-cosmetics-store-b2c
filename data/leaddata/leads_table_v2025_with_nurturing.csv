@@ -1,4 +1,4 @@
-LeadID,CustomerID,FullName,Phone,Email,LeadSource,Status,LeadScore,ConversionRate,AssignedTo,CreatedAt,Flow_ID
+LeadID,CustomerID,FullName,Phone,Email,source,Status,LeadScore,ConversionRate,AssignedTo,CreatedAt,Flow_ID
 L000001,1,Lý Ngọc Giang,371609088,ly.ngoc.giang@yahoo.com,InBound,Converted,30,0.157,Trần Quốc Huy,2024-01-01 08:20:24,F-2025-000001
 L000002,2,Phạm Đức Ngọc,935878761,pham.duc.ngoc@hotmail.com,InBound,Qualified,12,0.119,Bùi Yến Nhi,2024-01-26 03:43:21,F-2025-000002
 L000003,3,Võ Thanh Yến,338658349,vo.thanh.yen8833@hotmail.com,InBound,Qualified,30,0.1196,Lê Thu Trang,2025-03-14 01:17:28,F-2025-000003

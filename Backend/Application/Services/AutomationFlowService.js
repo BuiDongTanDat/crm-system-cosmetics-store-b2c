@@ -23,7 +23,6 @@ class AutomationFlowService {
         ...rest
       } = dto || {};
 
-      // validate tối thiểu
       if (!rest?.name || !String(rest.name).trim()) {
         throw new AppError('name is required', { status: 400, code: 'VALIDATION_ERROR' });
       }

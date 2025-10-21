@@ -55,7 +55,7 @@ module.exports = {
     try {
       const found = await ProductService.getById(req.params.id);
       if (!found) return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
-      
+
       const result = await ProductService.delete(req.params.id);
       res.json(result);
     } catch (err) {

@@ -1,7 +1,7 @@
 const axios = require('axios');
 const http = require('http');
 const https = require('https');
-const { AppError } = require('../../Application/helpers/errors'); 
+const { AppError } = require('../../Application/helpers/errors');
 
 const DEFAULTS = {
   BASE_URLS: [
@@ -10,7 +10,8 @@ const DEFAULTS = {
     'http://crm_ai_servic:8000',
     'http://localhost:8000',
   ].filter(Boolean),
-  TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 10000),
+  // TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 10000),
+  TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 100000),
   RETRIES: Number(process.env.AI_RETRIES || 3),
 };
 
@@ -48,9 +49,9 @@ class AIClient {
         });
       } catch (err) {
         lastErr = err;
-        const isNetwork = !!err.code && ['ECONNABORTED','ECONNRESET','ENOTFOUND','EAI_AGAIN','ETIMEDOUT'].includes(err.code);
+        const isNetwork = !!err.code && ['ECONNABORTED', 'ECONNRESET', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT'].includes(err.code);
         const status = err?.response?.status;
-        const isRetryable = isNetwork || [408,429,500,502,503,504].includes(status);
+        const isRetryable = isNetwork || [408, 429, 500, 502, 503, 504].includes(status);
         if (!isRetryable || attempt === this.retries) break;
         const delay = Math.min(2000, 200 * Math.pow(2, attempt));
         await new Promise(r => setTimeout(r, delay));
@@ -68,7 +69,16 @@ class AIClient {
   async health() {
     return this._request('GET', '/health');
   }
-
+  async generate_email_content(input, options = {}) {
+    return this._request('POST', '/v1/generation/email', {
+      data: { input, options }
+    });
+  }
+  async suggest_marketing_campaign(topic, customer_data, Product_data) {
+    return this._request('POST', '/v1/marketing/suggest_campaign', {
+      data: { topic, customer_data, Product_data }
+    });
+  }
   async scoreLead(leadData, opts = {}) {
     const data = await this._request('POST', '/v1/leads/score', { data: { lead: leadData, options: opts } });
     return { score: Number(data?.score ?? 0), reason: data?.reason || null, raw: data };

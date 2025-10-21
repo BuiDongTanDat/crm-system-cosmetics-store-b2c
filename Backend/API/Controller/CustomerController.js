@@ -14,11 +14,11 @@
 // POST	/customers/auto-segment	Phân nhóm khách hàng tự động /ai/auto-segment
 
 // /customers/import — Import danh sách khách hàng chính thức
-const ICustomerService = require('../../Application/Interfaces/ICustomerService');
+const CustomerService = require('../../Application/Services/CustomerService');
 class CustomerController {
   static async getAll(req, res) {
     try {
-      const result = await ICustomerService.getAll();
+      const result = await CustomerService.getAll();
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -27,7 +27,7 @@ class CustomerController {
 
   static async getById(req, res) {
     try {
-      const result = await ICustomerService.getById(req.params.id);
+      const result = await CustomerService.getById(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(404).json({ error: err.message });
@@ -36,7 +36,7 @@ class CustomerController {
 
   static async create(req, res) {
     try {
-      const result = await ICustomerService.create(req.body);
+      const result = await CustomerService.create(req.body);
       res.status(201).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -45,7 +45,7 @@ class CustomerController {
 
   static async update(req, res) {
     try {
-      const result = await ICustomerService.update(req.params.id, req.body);
+      const result = await CustomerService.update(req.params.id, req.body);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -63,7 +63,7 @@ class CustomerController {
 
   static async getInteractions(req, res) {
     try {
-      const result = await ICustomerService.getInteractions(req.params.id);
+      const result = await CustomerService.getInteractions(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -72,7 +72,7 @@ class CustomerController {
 
   static async getOrders(req, res) {
     try {
-      const result = await ICustomerService.getOrders(req.params.id);
+      const result = await CustomerService.getOrders(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -81,7 +81,7 @@ class CustomerController {
 
   static async getRecommendations(req, res) {
     try {
-      const result = await ICustomerService.getRecommendations(req.params.id);
+      const result = await CustomerService.getRecommendations(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -90,7 +90,7 @@ class CustomerController {
 
   static async analyzeCLV(req, res) {
     try {
-      const result = await ICustomerService.analyzeCLV(req.params.id);
+      const result = await CustomerService.analyzeCLV(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -99,7 +99,7 @@ class CustomerController {
 
   static async analyzeChurn(req, res) {
     try {
-      const result = await ICustomerService.analyzeChurn(req.params.id);
+      const result = await CustomerService.analyzeChurn(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -108,7 +108,7 @@ class CustomerController {
 
   static async analyzeBehavior(req, res) {
     try {
-      const result = await ICustomerService.analyzeBehavior(req.params.id);
+      const result = await CustomerService.analyzeBehavior(req.params.id);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -117,7 +117,7 @@ class CustomerController {
 
   static async autoSegmentAll(req, res) {
     try {
-      const result = await ICustomerService.autoSegmentAll();
+      const result = await CustomerService.autoSegmentAll();
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -126,7 +126,7 @@ class CustomerController {
   static async importCustomers(req, res) {
   try {
     if (!req.file) throw new Error("No file uploaded");
-    const result = await ICustomerService.importCustomers(req.file.path);
+    const result = await CustomerService.importCustomers(req.file.path);
     res.status(200).json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
