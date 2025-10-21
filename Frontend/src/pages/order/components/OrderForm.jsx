@@ -7,6 +7,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 import { PaymentMethod, OrderStatus, sampleProducts } from "@/lib/data";
 
 export function OrderForm({
@@ -71,7 +73,7 @@ export function OrderForm({
 
   const handleSubmit = () => {
     if (!form.customerName || orderDetails.length === 0) {
-      alert("Vui lòng nhập tên khách hàng và ít nhất một sản phẩm");
+      toast.error("Vui lòng nhập tên khách hàng và ít nhất một sản phẩm");
       return;
     }
 
@@ -340,10 +342,18 @@ export function OrderForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={<>Bạn có chắc chắn muốn xóa đơn <span className="font-semibold">#{data?.id}</span>?</>}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.id)}
+              >
+                <Button variant="actionDelete">
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

@@ -6,6 +6,8 @@ import CustomerForm from "@/pages/customer/components/CustomerForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import { mockCustomers, CustomerTypes, CustomerSources } from "@/lib/data";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 export default function CustomerListPage() {
     const [customers, setCustomers] = useState(mockCustomers);
@@ -81,6 +83,7 @@ export default function CustomerListPage() {
                 mode: 'view', // Chuyển về view mode
                 customer: { ...customerData }
             }));
+            toast.success('Cập nhật khách hàng thành công!');
         } else {
             // Tạo mới khách hàng
             const newCustomer = {
@@ -91,36 +94,12 @@ export default function CustomerListPage() {
 
             // Đóng modal sau khi thêm mới
             closeModal();
+            toast.success('Thêm khách hàng thành công!');
         }
 
         console.log("Customer saved:", customerData);
     };
 
-
-    const handleDelete = (id) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) {
-            setCustomers(prev => prev.filter(customer => customer.id !== id));
-            closeModal();
-        }
-    };
-
-    // Mapping các attribute cho CSV export/import
-    const customerFieldMapping = {
-        name: 'Tên khách hàng',
-        type: 'Loại khách hàng',
-        birthDate: 'Ngày sinh',
-        gender: 'Giới tính',
-        industry: 'Ngành nghề',
-        email: 'Email',
-        phone: 'Số điện thoại',
-        address: 'Địa chỉ',
-        socialMedia: 'Mạng xã hội',
-        source: 'Nguồn khách hàng',
-        notes: 'Ghi chú',
-        status: 'Trạng thái'
-    };
-
-    // Import handler for CSV
     const handleImportSuccess = (importedData) => {
         try {
             const processedCustomers = importedData.map((item, index) => ({
@@ -141,15 +120,38 @@ export default function CustomerListPage() {
             }));
 
             setCustomers(prev => [...prev, ...processedCustomers]);
-            alert(`Đã nhập thành công ${processedCustomers.length} khách hàng!`);
+            toast.success(`Đã nhập thành công ${processedCustomers.length} khách hàng!`);
         } catch (error) {
             console.error('Lỗi xử lý dữ liệu nhập:', error);
-            alert('Có lỗi xảy ra khi xử lý dữ liệu nhập');
+            toast.error('Có lỗi xảy ra khi xử lý dữ liệu nhập');
         }
     };
 
     const handleImportError = (errorMessage) => {
-        alert(`Lỗi nhập file: ${errorMessage}`);
+        toast.error(`Lỗi nhập file: ${errorMessage}`);
+    };
+
+    const handleDelete = (id) => {
+        // thực thi xóa (đã được xác nhận bởi ConfirmDialog nơi gọi)
+        setCustomers(prev => prev.filter(customer => customer.id !== id));
+        closeModal();
+        toast.success('Xóa khách hàng thành công!');
+    };
+
+    // Mapping các attribute cho CSV export/import
+    const customerFieldMapping = {
+        name: 'Tên khách hàng',
+        type: 'Loại khách hàng',
+        birthDate: 'Ngày sinh',
+        gender: 'Giới tính',
+        industry: 'Ngành nghề',
+        email: 'Email',
+        phone: 'Số điện thoại',
+        address: 'Địa chỉ',
+        socialMedia: 'Mạng xã hội',
+        source: 'Nguồn khách hàng',
+        notes: 'Ghi chú',
+        status: 'Trạng thái'
     };
 
     const getStatusBadge = (status) => {
@@ -317,14 +319,26 @@ export default function CustomerListPage() {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="actionDelete"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(customer.id)}
-                                                    className="h-8 w-8"
+                                                <ConfirmDialog
+                                                    title="Xác nhận xóa"
+                                                    description={
+                                                        <>
+                                                            Bạn có chắc chắn muốn xóa khách hàng{" "}
+                                                            <span className="font-semibold text-black">{customer.name}</span>?
+                                                        </>
+                                                    }
+                                                    confirmText="Xóa"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => handleDelete(customer.id)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
+                                                    <Button
+                                                        variant="actionDelete"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </ConfirmDialog>
                                             </div>
                                         </td>
                                     </tr>

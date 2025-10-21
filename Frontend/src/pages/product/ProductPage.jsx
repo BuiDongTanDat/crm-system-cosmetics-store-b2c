@@ -10,6 +10,8 @@ import { request } from '@/utils/api';
 import DropdownOptions from '@/components/common/DropdownOptions';
 import { getCategories } from '@/services/categories';
 import { deleteProduct, getProduct, getProducts, createProduct, updateProduct } from '@/services/products';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -58,7 +60,7 @@ export default function ProductPage() {
       }
       if (!res || typeof res.ok === 'undefined') {
         console.error('Không thể tải danh sách sản phẩm. Response:', res);
-        alert('Không thể tải danh sách sản phẩm.');
+        toast.error('Không thể tải danh sách sản phẩm.');
         return [];
       }
       const { ok, data } = res;
@@ -90,12 +92,12 @@ export default function ProductPage() {
         return normalized;
       } else {
         console.error('Không thể tải danh sách sản phẩm. Response:', { ok, data });
-        alert('Không thể tải danh sách sản phẩm.');
+        toast.error('Không thể tải danh sách sản phẩm.');
         return [];
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      alert('Lỗi kết nối server.');
+      toast.error('Lỗi kết nối server.');
       return [];
     }
   };
@@ -172,13 +174,16 @@ export default function ProductPage() {
       }
 
       await fetchProducts();
+      toast.success(`Đã nhập ${validProducts.length} sản phẩm thành công`);
     } catch (err) {
       console.error('Lỗi xử lý import:', err);
-      alert(`Lỗi khi nhập CSV: ${err.message}`);
+      toast.error(`Lỗi khi nhập CSV: ${err.message}`);
     }
   };
 
-  const handleImportError = (msg) => alert(`Lỗi nhập file: ${msg}`);
+  const handleImportError = (msg) => {
+    toast.error(`Lỗi nhập file: ${msg}`);
+  };
 
   // CRUD handlers
   const openAdd = () => setModal({ open: true, mode: 'add', product: null });
@@ -199,6 +204,7 @@ export default function ProductPage() {
           if (!savedItem.product_id && savedItem.id) savedItem.product_id = savedItem.id;
           setProducts((prev) => [savedItem, ...prev]);
           closeModal();
+          toast.success('Thêm sản phẩm thành công!');
         }
       } else if (modal.mode === 'edit' && modal.product) {
         // Cập nhật
@@ -216,22 +222,23 @@ export default function ProductPage() {
           return prev;
         });
         setModal({ open: true, mode: 'view', product: savedItem });
+        toast.success('Cập nhật sản phẩm thành công!');
       }
     } catch (err) {
       console.error('Save error:', err);
-      alert('Lỗi khi lưu sản phẩm!');
+      toast.error('Lỗi khi lưu sản phẩm!');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
     try {
       await deleteProduct(id);
       setProducts((prev) => prev.filter((p) => (p.product_id || p.id) !== id));
       closeModal();
+      toast.success('Xóa sản phẩm thành công!');
     } catch (err) {
       console.error('Delete error:', err);
-      alert(' Lỗi khi xóa sản phẩm!');
+      toast.error('Lỗi khi xóa sản phẩm!');
     }
   };
 
@@ -447,9 +454,19 @@ export default function ProductPage() {
                           <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="actionDelete" size="icon" onClick={() => handleDelete(p.product_id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <ConfirmDialog
+                            title="Xác nhận xóa"
+                            description={<>
+                              Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{p?.name}</span>?
+                            </>}
+                            confirmText="Xóa"
+                            cancelText="Hủy"
+                            onConfirm={() => handleDelete(p.product_id)}
+                          >
+                            <Button variant="actionDelete" size="icon">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </ConfirmDialog>
                         </div>
                       </td>
                     </tr>
@@ -490,6 +507,7 @@ export default function ProductPage() {
                   setModal((prev) => ({ ...prev, mode: m }));
                 }
               }}
+              onDelete={(id) => handleDelete(id)}
             />
           )}
           data={modal.product}

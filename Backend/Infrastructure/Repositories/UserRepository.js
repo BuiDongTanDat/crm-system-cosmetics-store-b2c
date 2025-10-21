@@ -23,18 +23,6 @@ class UserRepository {
         try {
             return await User.create(userData);
         } catch (err) {
-            if (err instanceof Sequelize.UniqueConstraintError) {
-                const field = err.errors[0].path;
-                if (field === 'email') {
-                    throw new Error('Email đã tồn tại');
-                }
-                if (field === 'phone') {
-                    throw new Error('Số điện thoại đã tồn tại');
-                }
-                if (field === 'full_name') {
-                    throw new Error('Tên đã tồn tại');
-                }
-            }
             throw err;
         }
     }
@@ -43,23 +31,11 @@ class UserRepository {
     async update(userId, updates) {
         const user = await this.findById(userId);
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('Người dùng không tồn tại');
         }
         try {
             return await user.update(updates);
         } catch (err) {
-            if (err instanceof Sequelize.UniqueConstraintError) {
-                const field = err.errors[0].path;
-                if (field === 'email') {
-                    throw new Error('Email đã tồn tại');
-                }
-                if (field === 'phone') {
-                    throw new Error('Số điện thoại đã tồn tại');
-                }
-                if (field === 'full_name') {
-                    throw new Error('Tên đã tồn tại');
-                }
-            }
             throw err;
         }
     }
@@ -68,7 +44,7 @@ class UserRepository {
     async delete(userId) {
         const user = await this.findById(userId);
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('Người dùng không tồn tại');
         }
         return await user.destroy();
     }

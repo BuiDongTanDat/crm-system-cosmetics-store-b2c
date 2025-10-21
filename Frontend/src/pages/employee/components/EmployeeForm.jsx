@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import DropdownOptions from '@/components/common/DropdownOptions';
 import { Edit, Save, Trash2 } from "lucide-react";
 import { StatusList } from "@/lib/data";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 export function EmployeeForm({
   mode = "view",
@@ -55,7 +57,7 @@ export function EmployeeForm({
 
   const handleSubmit = () => {
     if (!form.name || !form.email) {
-      alert("Vui lòng nhập họ tên và email");
+      toast.error("Vui lòng nhập họ tên và email");
       return;
     }
 
@@ -174,10 +176,25 @@ export function EmployeeForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+
+              {/* Bọc nút Xóa bằng ConfirmDialog */}
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={
+                  <>
+                    Bạn có chắc chắn muốn xóa nhân viên{" "}
+                    <span className="font-semibold text-black">{data?.name}</span>?
+                  </>
+                }
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.id)}
+              >
+                <Button variant="actionDelete">
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

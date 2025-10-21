@@ -56,11 +56,11 @@ function App() {
         }}
       />
 
-
+      {/* Toaster đặt ở đây (bên ngoài wrapper có z-index thấp) để không bị overlay đè */}
+      <Toaster richColors  className="z-[99999] pointer-events-none " style={{ zIndex: 999999 }} />
 
       {/* Content with relative positioning */}
       <div className="relative z-10">
-        <Toaster richColors />
         <AuthProvider>
           <SidebarProvider>
             <BrowserRouter>

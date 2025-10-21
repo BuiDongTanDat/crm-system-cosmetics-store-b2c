@@ -42,6 +42,7 @@ class ProductService {
   async update(product_id, data) {
     const dto = new UpdateProductRequestDTO({ ...data, product_id });
     // pass single DTO object to repository.save
+    
     const updated = await productRepository.save(dto);
     return new ProductResponseDTO(updated);
   }
@@ -63,4 +64,4 @@ class ProductService {
   }
 }
 
-module.exports = ProductService;
+module.exports = new ProductService();

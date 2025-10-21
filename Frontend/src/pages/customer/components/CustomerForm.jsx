@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,7 +127,7 @@ export function CustomerForm({
 
   const handleSubmit = () => {
     if (!form.name || !form.email) {
-      alert("Vui lòng nhập tên khách hàng và email");
+      toast.error("Vui lòng nhập tên khách hàng và email");
       return;
     }
 
@@ -426,10 +428,24 @@ export function CustomerForm({
                   <Edit className="w-4 h-4" />
                   Chỉnh sửa
                 </Button>
-                <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                  <Trash2 className="w-4 h-4" />
-                  Xóa
-                </Button>
+
+                <ConfirmDialog
+                  title="Xác nhận xóa"
+                  description={
+                    <>
+                      Bạn có chắc chắn muốn xóa khách hàng{" "}
+                      <span className="font-semibold text-black">{data?.name}</span>?
+                    </>
+                  }
+                  confirmText="Xóa"
+                  cancelText="Hủy"
+                  onConfirm={() => onDelete?.(data?.id)}
+                >
+                  <Button variant="actionDelete">
+                    <Trash2 className="w-4 h-4" />
+                    Xóa
+                  </Button>
+                </ConfirmDialog>
               </>
             ) : (
               <>

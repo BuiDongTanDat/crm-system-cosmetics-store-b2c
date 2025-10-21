@@ -17,6 +17,7 @@ import {
   getPriorityLabel,
   getInitials
 } from '@/utils/helper';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 
 export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -112,16 +113,21 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
             >
               <Edit className="w-4 h-4" />
             </Button>
-            <Button
-              variant="actionDelete"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(card.id);
-              }}
+            <ConfirmDialog
+              title="Xác nhận xóa"
+              description={<>Bạn có chắc chắn muốn xóa deal <span className="font-semibold">{card.title}</span>?</>}
+              confirmText="Xóa"
+              cancelText="Hủy"
+              onConfirm={() => onDelete(card.id)}
             >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+              <Button
+                variant="actionDelete"
+                size="icon"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </ConfirmDialog>
           </div>
         </div>
       </div>

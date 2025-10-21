@@ -4,6 +4,8 @@ import { Edit, Save, Trash2 } from "lucide-react";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { request } from "@/utils/api";
 import { getCategories } from "@/services/categories";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 export function ProductForm({
   mode = "view",
@@ -122,11 +124,11 @@ export function ProductForm({
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const handleSubmit = () => {
-    if (!form.name?.trim()) return alert("Vui lòng nhập tên sản phẩm");
-    if (!form.brand?.trim()) return alert("Vui lòng nhập thương hiệu");
-    if (!form.category?.trim()) return alert("Vui lòng nhập danh mục");
+    if (!form.name?.trim()) return toast.error("Vui lòng nhập tên sản phẩm");
+    if (!form.brand?.trim()) return toast.error("Vui lòng nhập thương hiệu");
+    if (!String(form.category)?.trim()) return toast.error("Vui lòng nhập danh mục");
     if (!form.price_current || parseFloat(form.price_current) <= 0)
-      return alert("Giá hiện tại phải lớn hơn 0");
+      return toast.error("Giá hiện tại phải lớn hơn 0");
 
     const payload = {
       ...form,
@@ -252,13 +254,27 @@ export function ProductForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button
-                variant="actionDelete"
-                onClick={() => onDelete?.(data?.product_id)}
+
+              {/* Bọc nút Xóa bằng ConfirmDialog */}
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={
+                  <>
+                    Bạn có chắc chắn muốn xóa sản phẩm{" "}
+                    <span className="font-semibold text-black">{data?.name}</span>?
+                  </>
+                }
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.product_id)}
               >
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+                <Button
+                  variant="actionDelete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

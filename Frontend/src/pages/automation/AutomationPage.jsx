@@ -5,6 +5,8 @@ import DropdownOptions from '@/components/common/DropdownOptions';
 import AppDialog from '@/components/dialogs/AppDialog';
 import AutomationForm from '@/pages/automation/components/AutomationForm';
 import AutomationCard from '@/pages/automation/components/AutomationCard';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
 import { mockAutomations, triggerOptions, actionOptions } from '@/lib/data';
 import { useNavigate } from 'react-router-dom'; // Nếu dùng react-router
@@ -64,6 +66,7 @@ export default function AutomationPage() {
       };
       setAutomations(prev => [newAutomation, ...prev]);
       closeModal();
+      toast.success('Thêm automation thành công!');
     } else if (modal.mode === 'edit') {
       // Update existing
       setAutomations(prev => prev.map(a => a.id === automationData.id ? { ...a, ...automationData } : a));
@@ -72,14 +75,15 @@ export default function AutomationPage() {
         mode: 'view',
         automation: { ...automationData }
       }));
+      toast.success('Cập nhật automation thành công!');
     }
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc muốn xóa automation này?')) {
-      setAutomations(prev => prev.filter(a => a.id !== id));
-      closeModal();
-    }
+    // deletion executed after ConfirmDialog confirm
+    setAutomations(prev => prev.filter(a => a.id !== id));
+    closeModal();
+    toast.success('Xóa automation thành công!');
   };
 
   const handleStatusChange = (id, newStatus) => {
@@ -285,8 +289,15 @@ export default function AutomationPage() {
                         <div className={`flex justify-center gap-1 transition-opacity duration-200 ${hoveredRow === a.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                           <Button variant="actionRead" size="icon" onClick={() => openView(a)}><Eye className="w-4 h-4" /></Button>
                           <Button variant="actionUpdate" size="icon" onClick={() => openEdit(a)}><Edit className="w-4 h-4" /></Button>
-                          <Button variant="actionDelete" size="icon" onClick={() => handleDelete(a.id)}><Trash2 className="w-4 h-4" /></Button>
-
+                          <ConfirmDialog
+                            title="Xác nhận xóa"
+                            description={<>Bạn có chắc chắn muốn xóa automation <span className="font-semibold">{a.name}</span>?</>}
+                            confirmText="Xóa"
+                            cancelText="Hủy"
+                            onConfirm={() => handleDelete(a.id)}
+                          >
+                            <Button variant="actionDelete" size="icon"><Trash2 className="w-4 h-4" /></Button>
+                          </ConfirmDialog>
                         </div>
                       </td>
                     </tr>

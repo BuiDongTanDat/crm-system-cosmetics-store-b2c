@@ -13,6 +13,8 @@ import {
     deleteRole
 } from "@/services/roles"; // Thêm dòng này
 import { formatDate, formatDateTime } from "@/utils/helper";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 // Danh sách phân quyền cho role
 const PERMISSIONS_LIST = [
@@ -64,7 +66,8 @@ export default function RolePage() {
             setRoles(data);
         } catch (err) {
             console.error("Lỗi tải danh sách vai trò:", err);
-            alert("Không thể tải danh sách vai trò.");
+            const msg = err?.response?.data?.error || err?.message || "Không thể tải danh sách vai trò.";
+            toast.error(msg);
         }
     };
 
@@ -96,7 +99,6 @@ export default function RolePage() {
                 //truyền role_name cũ vào API, payload có thể chứa role_name mới
                 // Role name làm khóa chính nên chắc ko có update name đâu
                 await updateRole(modal.role.role_name, roleData);
-                // Nếu API trả về dữ liệu mới, lấy lại chi tiết vai trò vừa cập nhật
                 savedItem = await getRoleByName(roleData.role_name);
                 if (savedItem && savedItem.role_name) {
                     setRoles((prev) => {
@@ -109,6 +111,7 @@ export default function RolePage() {
                         return [...prev, savedItem];
                     });
                     setModal({ open: true, mode: 'view', role: savedItem });
+                    toast.success("Cập nhật vai trò thành công!");
                 } else {
                     await fetchRoles();
                     setModal({ open: true, mode: 'view', role: roleData });
@@ -119,6 +122,7 @@ export default function RolePage() {
                 if (savedItem && savedItem.role_name) {
                     setRoles((prev) => [savedItem, ...prev]);
                     closeModal();
+                    toast.success("Thêm vai trò thành công.");
                 } else {
                     await fetchRoles();
                     closeModal();
@@ -127,20 +131,25 @@ export default function RolePage() {
             console.log("Role saved:", roleData);
         } catch (err) {
             console.error("Lỗi lưu vai trò:", err);
-            alert("Lỗi khi lưu vai trò!");
+            const msg =
+                err?.response?.data?.error || // lỗi custom từ backend
+                err?.response?.data?.message || // phòng khi backend dùng "message"
+                err?.message || // fallback axios message
+                "Đã xảy ra lỗi không xác định.";
+            toast.error(msg);
         }
     };
 
     const handleDelete = async (role_name) => {
-        if (window.confirm("Bạn có chắc chắn muốn xóa vai trò này?")) {
-            try {
-                await deleteRole(role_name);
-                setRoles((prev) => prev.filter(r => r.role_name !== role_name));
-                closeModal();
-            } catch (err) {
-                console.error("Lỗi xóa vai trò:", err);
-                alert("Lỗi khi xóa vai trò!");
-            }
+        try {
+            await deleteRole(role_name);
+            setRoles((prev) => prev.filter(r => r.role_name !== role_name));
+            closeModal();
+            toast.success("Xóa vai trò thành công!");
+        } catch (err) {
+            console.error("Lỗi xóa vai trò:", err);
+            const msg = err?.response?.data?.error || err?.message || "Lỗi khi xóa vai trò!";
+            toast.error(msg);
         }
     };
 
@@ -242,8 +251,8 @@ export default function RolePage() {
                                         <td className="px-6 py-4 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === role.role_name
-                                                        ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                        : "opacity-0 translate-y-1 pointer-events-none"
+                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                    : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
                                                 <Button
@@ -262,14 +271,29 @@ export default function RolePage() {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="actionDelete"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(role.role_name)}
-                                                    className="h-8 w-8"
+
+                                                {/* Dùng ConfirmDialog cho hành động xóa */}
+                                                <ConfirmDialog
+                                                    title="Xác nhận xóa"
+                                                    description={
+                                                        <>
+                                                            Bạn có chắc chắn muốn xóa vai trò{" "}
+                                                            <span className="font-semibold text-black">{role.role_name}</span>?
+                                                        </>
+                                                    }
+                                                    confirmText="Xóa"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => handleDelete(role.role_name)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
+                                                    <Button
+                                                        variant="actionDelete"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </ConfirmDialog>
+
                                             </div>
                                         </td>
                                     </tr>

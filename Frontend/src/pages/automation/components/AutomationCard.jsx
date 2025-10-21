@@ -3,7 +3,7 @@ import { Play, Pause, Edit, Trash2, Eye, Tags, Users, Clock } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { triggerOptions, actionOptions } from '@/lib/data';
 import { formatDate } from '@/utils/helper';
-
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 
 export default function AutomationCard({
   automation,
@@ -94,9 +94,17 @@ export default function AutomationCard({
             <Button variant="actionUpdate" size="icon" onClick={() => onEdit(automation)}>
               <Edit className="w-4 h-4" />
             </Button>
-            <Button variant="actionDelete" size="icon" onClick={() => onDelete(automation.id)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <ConfirmDialog
+              title="Xác nhận xóa"
+              description={<>Bạn có chắc chắn muốn xóa automation <span className="font-semibold">{automation.name}</span>?</>}
+              confirmText="Xóa"
+              cancelText="Hủy"
+              onConfirm={() => onDelete(automation.id)}
+            >
+              <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </ConfirmDialog>
           </div>
         )}
         {/* Nút kích hoạt/tạm dừng luôn hiển thị */}

@@ -7,6 +7,7 @@ import DealForm from '@/pages/crm/components/DealForm';
 import CountUp from 'react-countup';
 import { kanbanColumns as initialColumns, kanbanCards as initialCards } from '@/lib/data';
 import { formatCurrency } from '@/utils/helper';
+import { toast } from 'sonner';
 
 export default function KanbanPage() {
   const [cards, setCards] = useState(initialCards);
@@ -190,6 +191,7 @@ export default function KanbanPage() {
     if (dealData.id) {
       setCards(prev => prev.map(card => card.id === dealData.id ? { ...card, ...dealData, stage: dealData.status || dealData.stage } : card));
       setModal(prev => ({ ...prev, mode: 'view', deal: { ...dealData, stage: dealData.status || dealData.stage } }));
+      toast.success('Cập nhật deal thành công!');
     } else {
       const newDeal = {
         ...dealData,
@@ -201,15 +203,16 @@ export default function KanbanPage() {
       };
       setCards(prev => [...prev, newDeal]);
       closeModal();
+      toast.success('Thêm deal thành công!');
     }
     console.log("Deal saved:", dealData);
   };
 
   const handleCardDelete = (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa deal này?")) {
-      setCards(prev => prev.filter(card => card.id !== id));
-      closeModal();
-    }
+    // deletion is confirmed by ConfirmDialog inside KanbanCard / Deal dialog
+    setCards(prev => prev.filter(card => card.id !== id));
+    closeModal();
+    toast.success("Xóa deal thành công!");
   };
   const handleDrop = (cardId, newStage) => {
     const card = cards.find(c => c.id === cardId);

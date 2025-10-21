@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Eye, Edit, Trash2, Star } from 'lucide-react'
 import { formatCurrency } from '@/utils/helper'
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog'
 
 const ProductCard = ({ product, onView, onEdit, onDelete }) => {
   const [hovered, setHovered] = useState(false);
@@ -58,7 +59,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
           <div className={`flex justify-between items-end transition-opacity duration-150 ease-in-out ${hovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             {/* Rating bên trái */}
             <span className="flex text-yellow-500 text-sm font-medium gap-1">
-              <Star className="w-4 h-4"/>  {product.rating || 0}
+              <Star className="w-4 h-4" />  {product.rating || 0}
             </span>
 
             {/* Giá bên phải */}
@@ -85,9 +86,21 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
               <Button variant="actionUpdate" size="icon" onClick={() => onEdit(product)}>
                 <Edit className="w-4 h-4" />
               </Button>
-              <Button variant="actionDelete" size="icon" onClick={() => onDelete(product.product_id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={<>
+                  Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{product?.name}</span>?
+                </>}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(product?.product_id || product?.id)}
+              >
+                <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </ConfirmDialog>
+
             </div>
           )}
         </div>

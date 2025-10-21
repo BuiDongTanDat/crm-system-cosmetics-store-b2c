@@ -4,9 +4,10 @@ import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import CategoryForm from "@/pages/category/components/CategoryForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { getCategories, getCategory, createCategory, updateCategory, deleteCategory } from "@/services/categories";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 
 export default function CategoryPage() {
     const [categories, setCategories] = useState([]);
@@ -44,7 +45,7 @@ export default function CategoryPage() {
         currentPage * categoriesPerPage
     );
 
-    
+
 
     // Fetch all categories
     useEffect(() => {
@@ -94,30 +95,35 @@ export default function CategoryPage() {
                         return [...prev, savedItem];
                     });
                     setModal({ open: true, mode: "view", category: savedItem });
+                    toast.success("Cập nhật danh mục thành công!");
                 } else {
                     setCategories((prev) => [savedItem, ...prev]);
                     closeModal();
+                    toast.success( "Thêm danh mục thành công.");
                 }
             } else {
                 await fetchCategories();
                 closeModal();
             }
         } catch (err) {
-            alert("Không thể lưu danh mục!");
+            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Không thể lưu danh mục!";
+            toast.error(String(msg));
             console.error("Lỗi lưu danh mục:", err);
         }
     };
     const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
         try {
             await deleteCategory(id);
             await fetchCategories();
             closeModal();
+            toast.error("Xóa danh mục thành công!");
         } catch (err) {
-            alert("Không thể xóa danh mục!");
+            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Không thể xóa danh mục!";
+            toast.error(String(msg));
             console.error("Lỗi xóa danh mục:", err);
         }
     };
+
 
 
     const getStatusBadge = (status) => {
@@ -217,14 +223,28 @@ export default function CategoryPage() {
                                             >
                                                 <Edit className="w-4 h-4" />
                                             </Button>
-                                            <Button
-                                                variant="actionDelete"
-                                                size="icon"
-                                                onClick={() => handleDelete(category.category_id)}
-                                                className="h-8 w-8"
+                                            <ConfirmDialog
+                                                title="Xác nhận xóa"
+                                                description={
+                                                    <>
+                                                        Bạn có chắc chắn muốn xóa danh mục{" "}
+                                                        <span className="font-semibold text-black">{category.name}</span>?
+                                                    </>
+                                                }
+                                                confirmText="Xóa"
+                                                cancelText="Hủy"
+                                                onConfirm={() => handleDelete(category.category_id)}
                                             >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
+                                                <Button
+                                                    variant="actionDelete"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+
+                                            </ConfirmDialog>
+
                                         </div>
                                     </td>
                                 </tr>
@@ -259,6 +279,7 @@ export default function CategoryPage() {
                 onDelete={handleDelete}
                 maxWidth="sm:max-w-xl"
             />
+
         </div>
     );
 }
