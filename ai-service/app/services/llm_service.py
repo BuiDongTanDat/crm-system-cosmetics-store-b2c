@@ -4,9 +4,11 @@ from typing import Any, Dict, List, Optional
 from app import config
 
 try:
-    import google.generativeai as genai  # pip install google-generativeai
+    import google.generativeai as genai
     _GEMINI_AVAILABLE = True
-except Exception:
+except Exception as e:
+    print("[LLM] ⚠️ Google GenerativeAI SDK not found:", e)
+    genai = None
     _GEMINI_AVAILABLE = False
 
 
@@ -14,117 +16,188 @@ class LLMService:
     def __init__(self):
         self.enabled = bool(config.GEMINI_API_KEY and _GEMINI_AVAILABLE)
         if self.enabled:
+            print("[LLM] ✅ Gemini enabled with model:", config.GEMINI_MODEL_GENERIC)
             genai.configure(api_key=config.GEMINI_API_KEY)
+        else:
+            print("[LLM] ⚠️ Gemini disabled (missing API key or SDK).")
 
-    # ----------------- Summary -----------------
-    async def summarize(self, text: str, options: Dict[str, Any]) -> str:
-        if not self.enabled:
-            return (text[: config.MAX_SUMMARY_LEN] + "...") if len(text) > config.MAX_SUMMARY_LEN else text
-
-        prompt = f"Tóm tắt ngắn gọn (3-5 câu) bằng tiếng Việt nội dung sau:\n\n{text}"
-        return await self._generate(prompt, model=config.GEMINI_MODEL_SUMMARY)
-
-    # ----------------- Classification -----------------
-    async def classify(self, text: str, labels: List[str], options: Dict[str, Any]) -> Dict[str, Any]:
-        if not self.enabled:
-            return {"label": labels[0], "scores": {labels[0]: 1.0, **{l: 0.0 for l in labels[1:]}}}
-
-        prompt = (
-            f"Phân loại văn bản sau vào 1 trong các nhãn: {labels}.\n"
-            f"Trả về JSON {{label, scores}} với scores là giá trị từ 0 đến 1.\n\n"
-            f"Văn bản:\n{text}"
-        )
-        raw = await self._generate(prompt, model=config.GEMINI_MODEL_CLASSIFY)
-
-        try:
-            return json.loads(raw)
-        except Exception:
-            picked = labels[0]
-            for lb in labels:
-                if lb.lower() in raw.lower():
-                    picked = lb
-                    break
-            return {"label": picked, "scores": {picked: 1.0}}
-
-    # ----------------- Entity Extraction -----------------
-    async def extract(self, text: str, schema: Dict[str, Any], options: Dict[str, Any]) -> Dict[str, Any]:
-        if not self.enabled:
-            return {}
-
-        prompt = (
-            "Trích xuất thông tin theo schema JSON từ văn bản sau. "
-            "Trả về JSON hợp lệ.\n"
-            f"Schema keys: {list(schema.keys()) if schema else 'tự suy luận'}\n"
-            f"Văn bản:\n{text}"
-        )
-        raw = await self._generate(prompt, model=config.GEMINI_MODEL_GENERIC)
-        try:
-            return json.loads(raw)
-        except Exception:
-            return {"raw": raw}
-
-    # ----------------- Lead Score Refinement -----------------
-    async def refine_score(self, lead: Dict[str, Any], base_score: int, base_reason: Optional[str]) -> Optional[Dict[str, Any]]:
-        if not self.enabled:
-            return None
-
-        prompt = (
-            "Bạn là chuyên gia sales. Dựa trên dữ liệu lead và điểm cơ sở, "
-            "hãy trả về JSON {score (0-100), reason}.\n"
-            f"Lead: {json.dumps(lead, ensure_ascii=False)}\n"
-            f"Base score: {base_score}, Base reason: {base_reason}\n"
-            "Nếu không thể cải thiện, trả về cùng score và reason."
-        )
-        raw = await self._generate(prompt, model=config.GEMINI_MODEL_GENERIC)
-        try:
-            return json.loads(raw)
-        except Exception:
-            return None
-    async def estimate_conversion_prob(self, lead: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    # ----------------- Generate Email -----------------
+    async def generate_email_content(
+        self,
+        context: Dict[str, Any],
+        purpose: str = "promotion",
+        options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, str]:
         """
-        Trả về { 'probability': float trong [0,1], 'reason': str }
+        Sinh nội dung email gồm {subject, body} dựa trên ngữ cảnh action.
+        context có thể gồm: name, product, campaign, tone, language, offer,...
         """
-        # Fallback khi không có API key/SDK
         if not self.enabled:
-            # heuristic rất đơn giản để không chết luồng
-            base = 0.2
-            if (lead.get("email")): base += 0.1
-            if (lead.get("phone")): base += 0.1
-            if (lead.get("status", "").lower() == "engaged"): base += 0.2
-            return {"probability": max(0.0, min(base, 1.0)), "reason": "heuristic fallback"}
+            return {
+                "subject": f"[{context.get('campaign','Thông báo')}] {context.get('product','Sản phẩm mới')} của bạn",
+                "body": (
+                    f"Xin chào {context.get('name','bạn')},\n\n"
+                    f"Chúng tôi xin giới thiệu {context.get('product','sản phẩm mới')}."
+                    f" Hãy ghé cửa hàng để nhận ưu đãi {context.get('offer','đặc biệt')}!\n\n"
+                    "Thân mến,\nĐội ngũ chăm sóc khách hàng."
+                )
+            }
 
+        # prompt chính thức
         prompt = (
-            "Bạn là chuyên gia phân tích tăng trưởng (growth analyst) và dữ liệu khách hàng (CRM data).\n"
-            "Nhiệm vụ của bạn là ước lượng xác suất một lead sẽ chuyển đổi thành khách hàng trả tiền.\n\n"
-            "Yêu cầu:\n"
-            "- Trả về **JSON hợp lệ** có dạng:\n"
-            "  {\"probability\": <float từ 0 đến 1>, \"reason\": <chuỗi ngắn gọn mô tả lý do>}.\n"
-            "- Không trả văn bản tự do ngoài JSON.\n"
-            "- Hãy dựa trên các yếu tố như: nguồn lead (source), ngành nghề (industry), mức độ tương tác (engagement), "
-            "trạng thái hiện tại (status), thông tin liên hệ (email, phone), ngân sách (budget), và lịch sử tương tác (history).\n\n"
-            f"Dữ liệu lead:\n{json.dumps(lead, ensure_ascii=False, indent=2)}\n\n"
-            "Hãy suy luận hợp lý, đánh giá tổng thể, và chỉ xuất JSON kết quả cuối cùng."
-)
+            "Bạn là chuyên gia marketing trong lĩnh vực mỹ phẩm. "
+            "Hãy soạn **email** bằng tiếng Việt phù hợp với mục đích dưới đây.\n\n"
+            f"- Mục đích: {purpose}\n"
+            "- Yêu cầu:\n"
+            "  • Viết ngắn gọn, tự nhiên, phù hợp khách hàng B2C.\n"
+            "  • Trả về **JSON hợp lệ** dạng:\n"
+            '    {"subject": "<tiêu đề>", "body": "<nội dung email>"}.\n'
+            "  • Không viết ngoài JSON.\n\n"
+            f"Ngữ cảnh action:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+        )
+
+        raw = await self._generate(prompt, model=config.GEMINI_MODEL_GENERIC)
+
+        try:
+            return json.loads(raw)
+        except Exception:
+            subj = f"Khuyến mãi: {context.get('product','Sản phẩm mới')} đang giảm giá!"
+            return {"subject": subj, "body": raw.strip()[:1000]}
+    async def suggest_marketing_campaign(
+        self,
+        customer_data: List[Dict[str, Any]],
+        product_data: Optional[List[Dict[str, Any]]] = None,
+        topic: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Đề xuất 1 chiến dịch marketing chi tiết (JSON hợp lệ).
+        Trả về dict có các trường: name, channel, budget, start_date, end_date,
+        expected_kpi {leads, cpl}, note, summary_report.
+        """
+        # Fallback khi Gemini chưa sẵn sàng
+        if not self.enabled:
+            return {
+                "name": "Chiến dịch tháng 10 - Facebook Ads",
+                "channel": "facebook",
+                "budget": 15_000_000,
+                "start_date": "2025-10-01",
+                "end_date": "2025-10-31",
+                "expected_kpi": {"leads": 2000, "cpl": 15000},
+                "note": "Tập trung remarketing nhóm khách hàng nữ yêu thích serum dưỡng trắng.",
+                "summary_report": "Chiến dịch nhằm tăng 25% đơn hàng Serum Vitamin C qua Facebook Ads + ưu đãi -20%.",
+            }
+
+        options = options or {}
+        budget_min = options.get("budget_min")
+        budget_max = options.get("budget_max")
+        date_from  = options.get("date_from")   # "YYYY-MM-DD"
+        date_to    = options.get("date_to")     # "YYYY-MM-DD"
+        preferred_channels = options.get("preferred_channels")  # e.g. ["facebook","tiktok","email"]
+
+        constraints = []
+        if budget_min is not None:
+            constraints.append(f"- Ngân sách tối thiểu: {int(budget_min)} VND.")
+        if budget_max is not None:
+            constraints.append(f"- Ngân sách tối đa: {int(budget_max)} VND.")
+        if date_from and date_to:
+            constraints.append(f"- Thời gian triển khai trong khoảng: {date_from} → {date_to}.")
+        if preferred_channels:
+            constraints.append(f"- Ưu tiên kênh: {', '.join(preferred_channels)}.")
+
+        # Xây prompt chặt chẽ
+        prompt_parts = []
+        prompt_parts.append(
+            "Bạn là chuyên gia marketing cho thương hiệu mỹ phẩm B2C.\n"
+            "Hãy đề xuất **một** chiến dịch marketing chi tiết dựa trên dữ liệu dưới đây. Dự đoán kênh sẽ được quan tâm nhất và dựa trên các xu hướng hiện tại trên thị trường"
+        )
+        if topic:
+            prompt_parts.append(f"🎯 Chủ đề chiến dịch: {topic}")
+
+        prompt_parts.append("📊 Dữ liệu khách hàng:")
+        prompt_parts.append(json.dumps(customer_data, ensure_ascii=False, indent=2))
+
+        if product_data:
+            prompt_parts.append("🛍️ Dữ liệu sản phẩm:")
+            prompt_parts.append(json.dumps(product_data, ensure_ascii=False, indent=2))
+
+        if constraints:
+            prompt_parts.append("Ràng buộc:")
+            prompt_parts.extend(constraints)
+
+        prompt_parts.append(
+            "YÊU CẦU XUẤT RA:\n"
+            "- Trả về **DUY NHẤT MỘT** đối tượng JSON **hợp lệ** theo cấu trúc **chính xác** sau.\n"
+            "- Không thêm bất kỳ văn bản nào ngoài JSON (không preface, không giải thích, không Markdown).\n"
+            "- Dùng dấu ngoặc kép đôi cho tất cả khóa/chuỗi; ngày theo định dạng ISO (YYYY-MM-DD);\n"
+            "  các trường số tiền (budget, cpl) là số nguyên VND (không dấu phẩy, không ký tự)."
+        )
+
+        schema_example = {
+            "name": "<tên chiến dịch>",
+            "channel": "<kênh quảng cáo: facebook | tiktok | instagram | email | zalo | google_ads>",
+            "budget": 15000000,
+            "start_date": "2025-10-01",
+            "end_date": "2025-10-31",
+            "expected_kpi": {"leads": 2000, "cpl": 15000},
+            "note": "<ghi chú ngắn gọn, 1-2 câu>",
+            "summary_report": "<tóm tắt 2-4 câu về mục tiêu & cách triển khai và liệt kê các sản phẩm nên được chạy trong chiến dịch>",
+            "recommended_products": [
+                    {
+                        "name": "<tên sản phẩm>",
+                        "category": "<loại sản phẩm>",
+                        "reason": "<lý do được chọn>"
+                    }
+        ]
+        }
+        prompt_parts.append("Cấu trúc JSON bắt buộc (chỉ là ví dụ cấu trúc, không cần lặp lại văn bản này):")
+        prompt_parts.append(json.dumps(schema_example, ensure_ascii=False, indent=2))
+
+        prompt_parts.append("⚠️ Chỉ trả về JSON hợp lệ. Không thêm bất cứ thứ gì khác ngoài JSON.")
+
+        prompt = "\n\n".join(prompt_parts)
+
         raw = await self._generate(prompt, model=config.GEMINI_MODEL_GENERIC)
 
         # Parse JSON an toàn
         try:
-            data = json.loads(raw)
-            prob = float(data.get("probability", 0.0))
-            prob = max(0.0, min(prob, 1.0))
-            return {"probability": prob, "reason": data.get("reason")}
+            return json.loads(raw)
         except Exception:
-            # nếu model trả text tự do, cố gắng trích số 0..1
+            # Thử tách JSON nếu model lỡ kèm text (phòng hờ)
             import re
-            m = re.search(r"([01](?:\.\d+)?)", raw)
-            prob = float(m.group(1)) if m else 0.0
-            prob = max(0.0, min(prob, 1.0))
-            return {"probability": prob, "reason": raw[:200].strip() or "model-free-text"}
+            m = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+            # Fallback cuối
+            return {
+                "name": "Chiến dịch tự động",
+                "channel": (preferred_channels[0] if isinstance(preferred_channels, list) and preferred_channels else "facebook"),
+                "budget": int(budget_min) if isinstance(budget_min, (int, float)) else 10_000_000,
+                "start_date": date_from or "2025-10-01",
+                "end_date": date_to or "2025-10-31",
+                "expected_kpi": {"leads": 1000, "cpl": 10000},
+                "note": "AI trả về text không hợp lệ, dùng fallback theo ràng buộc.",
+                "summary_report": (raw or "")[:300]
+            }
+
     # ----------------- Core Gemini Call -----------------
     async def _generate(self, prompt: str, model: str) -> str:
+        """
+        Gọi tới API Gemini để sinh nội dung.
+        """
+        if not self.enabled:
+            return ""
+
         def _call():
             gen_model = genai.GenerativeModel(model)
             response = gen_model.generate_content(prompt)
-            return response.text.strip() if response.text else ""
+            if hasattr(response, "text") and response.text:
+                return response.text.strip()
+            elif hasattr(response, "candidates") and response.candidates:
+                return response.candidates[0].content.parts[0].text
+            else:
+                return ""
         return await asyncio.get_event_loop().run_in_executor(None, _call)
-    
