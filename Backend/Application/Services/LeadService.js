@@ -5,6 +5,7 @@ const leadRepository = require('../../Infrastructure/Repositories/LeadRepository
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository.js');
 const campaignRepository = require('../../Infrastructure/Repositories/CampaignRepository.js');
 const stateMachine = require('../../Domain//Entities/leadStateMachine.js');
+const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 const aiClient = require('../../Infrastructure/external/AIClient.js');
 const { ImportLeadFromCSVDTO } = require('../DTOs/LeadDTO.js');
 const { AppError, asAppError, ok, fail } = require('../helpers/errors.js');
@@ -88,7 +89,17 @@ class LeadService {
 
         return lead;
       });
-
+      try {
+        await Rabbit.publish('lead_created', {
+          lead_id: result.lead_id,
+          campaign_id: result.campaign_id,
+          source: result.source,
+          tags: result.tags,
+        });
+        console.log(`[EVENT] lead_created published for lead ${result.lead_id}`);
+      } catch (pubErr) {
+        console.error('[RabbitMQ] Failed to publish lead_created:', pubErr);
+      }
       return ok(result);
     } catch (err) {
       return fail(asAppError(err, { status: err?.status || 500, code: 'CREATE_LEAD_FAILED' }));

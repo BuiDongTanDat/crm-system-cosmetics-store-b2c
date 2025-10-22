@@ -1,5 +1,9 @@
+/* eslint-disable no-console */
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
 const LeadRoutes = require('./API/routes/LeadRoutes');
@@ -8,19 +12,35 @@ const userRoutes = require('./API/routes/userRoutes');
 const roleRoutes = require('./API/routes/roleRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
+
 const DataManager = require('./Infrastructure/database/postgres');
-const CampaignRoute = require('./API/routes/CampaignRoutes')
+const CampaignRoute = require('./API/routes/CampaignRoutes');
+const AutomationService = require('./Application/Services/AutomationService');
+
+// cron utils & domain events
+require('./Infrastructure/scheduler/automationCron');
+require('./Domain/Events/LeadEvents');
+require('./Domain/Events/OrderEvents');
+require('./Domain/Events/EngagementEvents');
+
+const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
+const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
+
 const app = express();
 
-// Middlewares
+/* =========================
+   Middlewares
+========================= */
 app.use(cors({
-  origin: 'http://localhost:5173', // domain FE
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+/* =========================
+   Routes
+========================= */
 app.use('/auth', authRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
@@ -31,33 +51,156 @@ app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 
+// Diagnostics
+app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
+app.get('/', (_req, res) => res.send('CRM API is running successfully!'));
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
+app.get('/readyz', (_req, res) => res.status(200).json({ ready: true }));
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  next();
-});
-
-
-// Simple health check route
-app.get('/', (req, res) => {
-  res.send('CRM API is running successfully!');
-});
-
-// Start server
-(async () => {
+// Manual run automation now: POST /automation/run-now?dryRun=true
+app.post('/automation/run-now', async (req, res, next) => {
   try {
-    await DataManager.connectAndSync({ alter: true });
+    const dryRun = (req.query.dryRun || process.env.AUTOMATION_DRYRUN) === 'true';
+    const limitPerFlow = Number(process.env.AUTOMATION_LIMIT || 5000);
+    const out = await AutomationService.runDailyAutomation({ dryRun, limitPerFlow });
+    res.json(out);
+  } catch (e) {
+    next(e);
+  }
+});
 
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
+// Error handler (cuối chuỗi middleware)
+app.use((err, _req, res, _next) => {
+  console.error('Unhandled error:', err);
+  if (!res.headersSent) res.status(500).json({ error: 'Internal Server Error' });
+});
+
+/* =========================
+   Bootstrap
+========================= */
+const PORT = Number(process.env.PORT || 5000);
+let server = null;
+let automationInterval = null;
+
+async function startRabbitWithRetry(retries = 12, delayMs = 5000) {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      console.log(`[BOOT] Starting RabbitMQ consumer (attempt ${i}/${retries})...`);
+      // Nếu RabbitConsumer.start() không return Promise, vẫn gọi được
+      const maybePromise = RabbitConsumer.start();
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        await maybePromise;
+      }
+      console.log('[BOOT] RabbitMQ consumer started.');
+      return;
+    } catch (e) {
+      console.error(`[BOOT] RabbitMQ connect failed (${i}/${retries}):`, e.code || e.message);
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+}
+
+async function startAutomationIfEnabled() {
+  const mode = (process.env.AUTOMATION_MODE || 'tick').toLowerCase(); // tick | cron | off
+  if (mode === 'off') {
+    console.log('[BOOT] Automation disabled (AUTOMATION_MODE=off).');
+    return;
+  }
+
+  if (mode === 'tick') {
+    const intervalMs = Number(process.env.AUTOMATION_INTERVAL_MS || 60 * 60 * 1000); // default 1h
+    const limitPerFlow = Number(process.env.AUTOMATION_LIMIT || 5000);
+    const dryRun = process.env.AUTOMATION_DRYRUN === 'true';
+
+    // first tick on startup (unless disabled)
+    if (process.env.AUTOMATION_STARTUP_RUN !== 'false') {
+      AutomationService.runDailyAutomation({ dryRun, limitPerFlow })
+        .catch(e => console.error('[BOOT] First automation tick failed:', e));
+    }
+
+    automationInterval = setInterval(() => {
+      AutomationService.runDailyAutomation({ dryRun, limitPerFlow })
+        .catch(e => console.error('[Automation] Tick error:', e));
+    }, intervalMs);
+
+    console.log(`[BOOT] Automation tick scheduled every ${intervalMs}ms`);
+  } else if (mode === 'cron') {
+    // Nếu bạn có register per-flow cron, gọi ở đây
+    // const { registerFlowCrons } = require('./Infrastructure/scheduler/registerFlowCrons');
+    // await registerFlowCrons();
+    console.log('[BOOT] Automation mode=cron (implement registerFlowCrons if needed).');
+  } else {
+    console.warn(`[BOOT] Unknown AUTOMATION_MODE=${mode}. Use 'tick' | 'cron' | 'off'.`);
+  }
+}
+
+async function main() {
+  try {
+    // 1) DB connect & sync
+    await DataManager.connectAndSync({ alter: true });
+    console.log('[BOOT] Database connected & synced.');
+
+    // 2) Rabbit consumer with retry (đảm bảo rabbit sẵn sàng)
+    await startRabbitWithRetry();
+
+    // 3) Start automation scheduler (tick/cron)
+    await startAutomationIfEnabled();
+
+    // 4) Start HTTP server (single listen)
+    server = app.listen(PORT, () => {
       console.log('------------------------------------------');
       console.log(`Server is running on: http://localhost:${PORT}`);
+      console.log(`Mode: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Automation mode: ${process.env.AUTOMATION_MODE || 'tick'}`);
       console.log('------------------------------------------');
     });
-    app.listen(PORT, () =>
-      console.log(`Server running on port ${PORT}`));
   } catch (err) {
-    console.error('Failed to connect to database:', err);
+    console.error('[BOOT] Failed to start application:', err);
     process.exit(1);
   }
-})();
+}
+
+/* =========================
+   Graceful shutdown
+========================= */
+async function shutdown(signal) {
+  try {
+    console.log(`\n[SHUTDOWN] Received ${signal}. Closing resources...`);
+
+    if (automationInterval) {
+      clearInterval(automationInterval);
+      automationInterval = null;
+    }
+
+    if (server) {
+      await new Promise(resolve => server.close(resolve));
+      console.log('[SHUTDOWN] HTTP server closed.');
+    }
+
+    if (RabbitConsumer.stop) {
+      try {
+        await RabbitConsumer.stop();
+        console.log('[SHUTDOWN] Rabbit consumer stopped.');
+      } catch (e) {
+        console.error('[SHUTDOWN] Rabbit consumer stop error:', e);
+      }
+    }
+
+    if (DataManager.close) {
+      try {
+        await DataManager.close();
+        console.log('[SHUTDOWN] Database connection closed.');
+      } catch (e) {
+        console.error('[SHUTDOWN] Database close error:', e);
+      }
+    }
+  } finally {
+    process.exit(0);
+  }
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+main();

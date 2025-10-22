@@ -4,24 +4,52 @@ const leadRepo = require('../../Infrastructure/Repositories/LeadRepository');
 const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository');
 const emailSvc = require('../../Infrastructure/external/EmailService');
 const scheduler = require('../../Infrastructure/scheduler/automationCron');
+const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 
 class AutomationService {
-    // ---------------------------
-    // UTILITIES
-    // ---------------------------
-    matchConditions(lead, cond = {}, trigger = {}) {
-        if (!cond) return true;
 
-        // Điều kiện đơn giản theo campaign / status
-        if (cond.campaign_id_in && !cond.campaign_id_in.includes(lead.campaign_id)) return false;
-        if (cond.status_in && !cond.status_in.includes(lead.status)) return false;
+    // matchConditions(lead, cond = {}, trigger = {}) {
+    //     if (!cond) return true;
 
-        // Kiểm tra theo trigger payload (nếu có)
-        if (cond.source && trigger?.payload?.source !== cond.source) return false;
-        if (cond.country && trigger?.payload?.country !== cond.country) return false;
+    //     if (cond.campaign_id_in && !cond.campaign_id_in.includes(lead.campaign_id)) return false;
+    //     if (cond.status_in && !cond.status_in.includes(lead.status)) return false;
+    //     if (cond.source && trigger?.payload?.source !== cond.source) return false;
+    //     // if (cond.country && trigger?.payload?.country !== cond.country) return false;
 
-        return true;
-    }
+    //     const allTags = [
+    //         ...(lead.tags || []),
+    //         ...(lead.customer?.tags || []),
+    //         ...(lead.product?.tags || []),
+    //     ];
+
+    //     if (cond.tags_in && !cond.tags_in.some(tag => allTags.includes(tag))) return false;
+    //     if (cond.tags_not_in && cond.tags_not_in.some(tag => allTags.includes(tag))) return false;
+
+    //     if (cond.birthday_between) {
+    //         const [start, end] = cond.birthday_between.map(d => new Date(d));
+    //         const birthDate = new Date(lead.birthday);
+    //         if (birthDate < start || birthDate > end) return false;
+    //     }
+
+    //     if (cond.last_interaction_before) {
+    //         const cutoff = new Date(cond.last_interaction_before);
+    //         const last = new Date(lead.last_interaction_at || 0);
+    //         if (!(last < cutoff)) return false;
+    //     }
+
+    //     if (cond.created_after) {
+    //         const ca = new Date(cond.created_after);
+    //         const created = new Date(lead.created_at || 0);
+    //         if (!(created > ca)) return false;
+    //     }
+
+    //     if (typeof cond.loyalty_score_gte === 'number') {
+    //         const score = Number(lead.loyalty_score || 0);
+    //         if (!(score >= cond.loyalty_score_gte)) return false;
+    //     }
+
+    //     return true;
+    // }
 
     render(str, ctx) {
         if (!str || typeof str !== 'string') return str;
@@ -33,18 +61,35 @@ class AutomationService {
         }
     }
 
-    // ---------------------------
-    // EXECUTE ACTION
-    // ---------------------------
+    renderConditions(obj, ctx) {
+        if (!obj || typeof obj !== 'object') return obj;
+        const out = Array.isArray(obj) ? [] : {};
+        for (const [k, v] of Object.entries(obj)) {
+            if (v == null) { out[k] = v; continue; }
+            if (typeof v === 'string') out[k] = this.render(v, ctx);
+            else if (Array.isArray(v)) out[k] = v.map(it => typeof it === 'string' ? this.render(it, ctx) : this.renderConditions(it, ctx));
+            else if (typeof v === 'object') out[k] = this.renderConditions(v, ctx);
+            else out[k] = v;
+        }
+        return out;
+    }
+
+    async runFlow(flow, ctx) {
+        const sortedActions = (flow.actions || []).sort((a, b) => a.index - b.index);
+        for (const action of sortedActions) {
+            console.log(`[Automation] Running action #${action.index}: ${action.type}`);
+            await this.execAction(action, ctx);
+        }
+    }
+
     async execAction(action, ctx) {
         const type = action.action_type || action.type;
-
         console.log(`[Automation] Executing action: ${type}`);
 
         try {
             switch (type) {
                 case 'send_email': {
-                    const to = this.render(action.to || ctx.lead.email, ctx);
+                    const to = this.render(action.to || ctx.lead?.email, ctx);
                     const subject = this.render(action.content?.subject || '', ctx);
                     const body = this.render(action.content?.body || '', ctx);
                     await emailSvc.send({ to, subject, body, channel: action.channel || 'email' });
@@ -61,11 +106,11 @@ class AutomationService {
                     const condExpr = action.condition ? this.render(action.condition, ctx) : 'true';
                     let shouldUpdate = false;
                     try {
-                        // ⚠️ Dùng eval tạm thời, sau nên thay bằng safe-eval
-                        shouldUpdate = eval(condExpr);
+                        shouldUpdate = eval(condExpr); // Có thể thay bằng parser an toàn như filtrex
                     } catch (e) {
                         console.warn('[Automation] Invalid condition expression:', e.message);
                     }
+
                     if (shouldUpdate) {
                         await leadRepo.updateById(
                             ctx.lead.lead_id,
@@ -91,77 +136,191 @@ class AutomationService {
         }
     }
 
-    // ---------------------------
-    //  TRIGGER FLOW
-    // ---------------------------
     async trigger(eventName, triggerPayload) {
         console.log(`[Automation] Trigger received: ${eventName}`);
 
-        const lead = await leadRepo.findById(triggerPayload.lead_id);
-        if (!lead) {
-            console.warn('[Automation] No lead found for trigger:', triggerPayload.lead_id);
+        let lead = null;
+        if (triggerPayload.lead_id) {
+            lead = await leadRepo.findById(triggerPayload.lead_id);
+            if (!lead) {
+                console.warn('[Automation] No lead found for trigger:', triggerPayload.lead_id);
+                return;
+            }
+        }
+
+        const ctx = {
+            lead: lead?.toJSON?.() ?? lead,
+            trigger: triggerPayload,
+            brand: { name: 'MyShop' },
+            now: new Date(),
+        };
+
+        switch (eventName) {
+            case 'lead_created':
+                await this.runEventFlows(eventName, ctx);
+                break;
+            case 'lead_updated':
+            case 'order_paid':
+            case 'order_refunded':
+            case 'zalo_message':
+            case 'segment.scheduled':
+                await this.runEventFlows(eventName, ctx);
+                break;
+
+            case 'tag_added':
+            case 'tag_removed':
+                await this.handleTagEvent(eventName, triggerPayload);
+                break;
+
+            default:
+                console.warn(`[Automation] Unknown trigger event: ${eventName}`);
+        }
+    }
+
+    async runEventFlows(eventName, ctx) {
+        const flows = await flowsRepo.findByEvent(eventName);
+        if (!flows?.length) {
+            console.log(`[Automation] No flows found for event: ${eventName}`);
             return;
         }
 
-        // Trả về danh sách: { flow, trigger, actions[] } đã hydrate theo event
-        const items = await flowsRepo.findByEvent(eventName);
+        for (const flow of flows) {
+            const flowName = flow.name || '(no-name)';
+            const trigger = flow.trigger;
+            // if (ctx.lead && !this.matchConditions(ctx.lead, trigger?.conditions, ctx.trigger)) {
+            //     console.log(`[Automation] Flow skipped by conditions: ${flowName}`);
+            //     continue;
+            // }
+            console.log(`[Automation] Running flow: ${flowName} (trigger: ${trigger?.event_type})`);
+            await this.runFlow(flow, ctx);
+        }
+    }
+
+    async handleTagEvent(eventName, triggerPayload) {
+        const { target_type, target_id } = triggerPayload;
+        let entity = null;
+        if (target_type === 'lead') entity = await leadRepo.findById(target_id);
+        if (!entity) {
+            console.warn(`[Automation] No ${target_type} found for tag event`);
+            return;
+        }
 
         const ctx = {
-            lead: lead.toJSON?.() ?? lead,
+            [target_type]: entity.toJSON?.() ?? entity,
             trigger: triggerPayload,
             brand: { name: 'MyShop' },
+            now: new Date(),
         };
 
-        for (const it of items) {
-            const flowName = it.name || it.flow?.name || '(no-name)';
-            const trigger = it.trigger;              // trigger riêng
-            const actions = it.actions || [];        //action đã lọc theo flow & trigger
-
-            // ⚠️ match điều kiện theo trigger.conditions (KHÔNG phải flow)
-            if (!this.matchConditions(lead, trigger?.conditions, triggerPayload)) {
-                console.log(`[Automation] Flow skipped by conditions: ${flowName}`);
-                continue;
-            }
-
-            console.log(`[Automation] Running flow: ${flowName} (trigger: ${trigger?.event_type})`);
-            for (const action of actions) {
-                await this.execAction(action, ctx);
-            }
+        const flows = await flowsRepo.findByEvent(eventName);
+        for (const flow of flows) {
+            const cond = flow.trigger?.conditions || {};
+            const allTags = entity.tags || [];
+            if (cond.tags_in && !cond.tags_in.some(t => allTags.includes(t))) continue;
+            if (cond.tags_not_in && cond.tags_not_in.some(t => allTags.includes(t))) continue;
+            console.log(`[Automation] Running tag flow: ${flow.name}`);
+            await this.runFlow(flow, ctx);
         }
     }
 
-    // ---------------------------
-    //  DAILY AUTOMATION
-    // ---------------------------
-    async runDailyAutomation() {
-        console.log('[Automation] Running daily automation tasks...');
+    // ---------------------------------------------------
+    // Scheduled automation triggers
+    // ---------------------------------------------------
+    async resolveScheduledLeadsByType(type, cond, ctx) {
+        switch (type) {
+            case 'birthday': {
+                const month = ctx.now.getMonth() + 1;
+                return leadRepo.findByConditions({ birthday_month: month, ...cond });
+            }
+            case 'inactive_lead': {
+                const days = Number(cond.days_inactive || 30);
+                const cutoff = new Date(ctx.now);
+                cutoff.setDate(cutoff.getDate() - days);
+                return leadRepo.findByConditions({ last_interaction_before: cutoff.toISOString(), ...cond });
+            }
+            case 'new_customer': {
+                const days = Number(cond.days_since_created || 7);
+                const since = new Date(ctx.now);
+                since.setDate(since.getDate() - days);
+                return leadRepo.findByConditions({ created_after: since.toISOString(), ...cond });
+            }
+            case 'loyal_customer': {
+                return leadRepo.findByConditions({ loyalty_score_gte: cond.min_score || 80, ...cond });
+            }
+            default:
+                return leadRepo.findByConditions(cond || {});
+        }
+    }
+
+    async collectLeadsForFlow(flow, baseCtx) {
+        const trigger = flow.trigger || {};
+        const type = trigger.type || 'default';
+        const renderedCond = this.renderConditions(trigger.conditions || {}, baseCtx);
+        return this.resolveScheduledLeadsByType(type, renderedCond, baseCtx);
+    }
+
+    async runDailyAutomation(options = {}) {
+        const now = new Date();
+        const { dryRun = false, limitPerFlow = 5000, runLegacyJobs = false } = options;
+
+        console.log('[Automation] Running scheduled automation...');
 
         try {
-            // 1️⃣ Dự báo xác suất chuyển đổi
-            const predictionResult = await LeadService.predictBatch(500);
-            console.log('[Automation] Lead prediction done:', predictionResult);
+            const scheduledFlows = await (flowsRepo.findScheduled?.() || flowsRepo.findByEvent('segment.scheduled'));
 
-            // 2️⃣ Tự động convert lead đủ điều kiện
-            if (typeof LeadService.autoConvertEligibleLeads === 'function') {
-                const convertResult = await LeadService.autoConvertEligibleLeads();
-                console.log('[Automation] Auto convert leads done:', convertResult);
+            for (const flow of (scheduledFlows || [])) {
+                const flowName = flow.name || '(no-name)';
+                const baseCtx = { brand: { name: 'MyShop' }, now };
+
+                console.log(`[Automation] Scanning flow: ${flowName}`);
+                let leads = [];
+
+                try {
+                    leads = await this.collectLeadsForFlow(flow, baseCtx);
+                } catch (e) {
+                    console.error(`[Automation] collectLeadsForFlow failed for ${flowName}:`, e);
+                    continue;
+                }
+
+                if (!Array.isArray(leads) || leads.length === 0) {
+                    console.log(`[Automation] No leads matched for flow: ${flowName}`);
+                    continue;
+                }
+
+                if (limitPerFlow && leads.length > limitPerFlow) {
+                    console.warn(`[Automation] Matched ${leads.length} leads but capped to ${limitPerFlow} for flow: ${flowName}`);
+                    leads = leads.slice(0, limitPerFlow);
+                }
+
+                for (const lead of leads) {
+                    const payload = {
+                        segment: flow.trigger?.segment_key || flow.slug || flowName,
+                        lead_id: lead.lead_id,
+                        flow_id: flow._id || flow.id,
+                        flow_name: flowName,
+                        ...(flow.trigger?.extra_payload || {}),
+                    };
+
+                    if (dryRun) console.log('[Automation][DRYRUN] Would publish:', payload);
+                    else await Rabbit.publish('segment.scheduled', payload);
+                }
             }
 
-            // 3️⃣ Các automation bổ sung khác
-            // await notificationService.sendDailyReminders();
+            if (runLegacyJobs) {
+                if (LeadService.predictBatch) await LeadService.predictBatch(500);
+                if (LeadService.autoConvertEligibleLeads) await LeadService.autoConvertEligibleLeads();
+            }
+
         } catch (err) {
-            console.error('[Automation] Error in daily automation:', err);
+            console.error('[Automation] Error in scheduled automation:', err);
         }
 
-        console.log('[Automation] All tasks completed.');
-        return { ok: true, message: 'Daily automation finished.' };
+        console.log('[Automation] Scheduled automation tick completed.');
+        return { ok: true, message: 'Scheduled automation finished.' };
     }
 
-    // ---------------------------
-    //  MANUAL TRIGGER (UI / Admin)
-    // ---------------------------
     async triggerNow() {
-        return await this.runDailyAutomation();
+        return this.runDailyAutomation();
     }
 }
 

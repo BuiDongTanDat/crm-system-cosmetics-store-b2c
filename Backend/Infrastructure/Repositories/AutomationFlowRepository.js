@@ -43,7 +43,7 @@ class AutomationFlowRepository {
     return inst;
   }
 
-  // ✅ Trả về mảng item: { flow_id, name, description, is_active, trigger, actions[] }
+  //Trả về mảng item: { flow_id, name, description, is_active, trigger, actions[] }
   async findByEvent(eventType) {
     // 1) Lấy các trigger theo event đang active từ repo Trigger
     const triggers = await AutomationTriggerRepository.list({

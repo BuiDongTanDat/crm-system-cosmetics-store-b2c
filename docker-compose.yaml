@@ -7,7 +7,7 @@ services:
     container_name: crm_postgres
     restart: always
     env_file:
-      - ./Backend/.env          # backend + db dùng chung env (POSTGRES_* ...)
+      - ./Backend/.env # backend + db dùng chung env (POSTGRES_* ...)
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -15,7 +15,7 @@ services:
     networks:
       - crm_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -50,6 +50,8 @@ services:
         condition: service_healthy
       ai-service:
         condition: service_started
+      rabbit:
+        condition: service_healthy
     volumes:
       - ./Backend:/app
       - /app/node_modules
@@ -58,7 +60,24 @@ services:
     restart: always
     networks:
       - crm_net
-
+  # === RabbitMQ Broker ===
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - crm_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
   # ===== FRONTEND (Vite Dev) =====
   frontend:
     build:
@@ -66,16 +85,16 @@ services:
       dockerfile: Dockerfile
     container_name: crm_frontend
     env_file:
-      - ./Frontend/.env 
+      - ./Frontend/.env
     ports:
-      - "5173:5173"              
+      - "5173:5173"
     volumes:
       - ./Frontend:/app
       - /app/node_modules
     working_dir: /app
     environment:
-      - CHOKIDAR_USEPOLLING=true     # Bắt buộc để Vite hot reload trong Docker
-      - WATCHPACK_POLLING=true       # Hỗ trợ Webpack/Vite watch file hiệu quả hơn
+      - CHOKIDAR_USEPOLLING=true # Bắt buộc để Vite hot reload trong Docker
+      - WATCHPACK_POLLING=true # Hỗ trợ Webpack/Vite watch file hiệu quả hơn
     command: npm run dev -- --host 0.0.0.0 --port 5173
     depends_on:
       - backend
