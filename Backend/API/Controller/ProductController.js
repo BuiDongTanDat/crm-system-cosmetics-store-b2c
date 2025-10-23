@@ -1,6 +1,6 @@
 const path = require('path');
 const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
-const ProductService = require('../../Application/Services/ProductService');
+const productService = require('../../Application/Services/ProductService');
 
 module.exports = {
   // --- CRUD ---
