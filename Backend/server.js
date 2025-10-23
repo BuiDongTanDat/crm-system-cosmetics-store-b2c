@@ -36,7 +36,6 @@ require('./Domain/Events/EngagementEvents');
 const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
 const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
 
-const app = express();
 
 /* =========================
    Middlewares
