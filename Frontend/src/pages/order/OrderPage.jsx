@@ -8,49 +8,135 @@ import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import CountUp from 'react-countup';
-import { mockOrders, OrderStatus, PaymentMethod } from "@/lib/data";
-import { formatCurrency, formatDate } from "@/utils/helper";
+import { PaymentMethod } from "@/lib/data";
+import { formatCurrency, formatDate, formatDateTime } from "@/utils/helper";
+import { getOrders, createOrder, updateOrder, deleteOrder } from "@/services/orders";
+import { getCustomers } from "@/services/customers";
+import { getProducts } from "@/services/products";
+import DropdownOptions from '@/components/common/DropdownOptions'; // same component used in ProductPage
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export default function OrderPage() {
-    const [orders, setOrders] = useState(mockOrders);
+    const [orders, setOrders] = useState([]);
+    const [customers, setCustomers] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [selectedCustomer, setSelectedCustomer] = useState("");
+    const [customerSearch, setCustomerSearch] = useState("");
+
+    // Nhãn tiếng Việt cho payment methods
+    const PAYMENT_LABELS = {
+        credit_card: "Thẻ tín dụng",
+        paypal: "PayPal",
+        bank_transfer: "Chuyển khoản",
+        cash_on_delivery: "Thanh toán khi nhận hàng",
+    };
+    // Nhãn tiếng Việt cho statuses (Hiện trên front thôi, còn lưu về biến tiếng anh)
+    const STATUS_LABELS = {
+        paid: "Đã thanh toán",
+        pending: "Chờ xử lý",
+        cancelled: "Đã hủy",
+        refunded: "Đã hoàn tiền",
+        failed: "Thanh toán thất bại",
+        processing: "Đang xử lý",
+        shipped: "Đã giao hàng",
+        completed: "Hoàn tất",
+    };
+
+    // Danh sách trạng thái đơn hàng bind từ status_labels
+    const ORDER_STATUSES_LIST = Object.keys(STATUS_LABELS);
+
+    // Load Customer + Orders + Products and enrich orders with customer full_name & product info
+    useEffect(() => {
+        let mounted = true;
+        Promise.all([getCustomers(), getOrders(), getProducts()])
+            .then(([custRes, ordersRes, productsRes]) => {
+                if (!mounted) return;
+                const custList = custRes?.data || custRes || [];
+                setCustomers(custList);
+
+                const map = Object.fromEntries(
+                    (custList || []).map(c => [c.customer_id, c.full_name || ""])
+                );
+
+                const prods = productsRes?.data || productsRes || [];
+                setProducts(prods);
+                const productMap = Object.fromEntries(
+                    (prods || []).map(p => [p.product_id || p.id, p])
+                );
+
+                const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
+                const enriched = (ordersList || []).map(o => ({
+                    ...o,
+                    customer_name: map[o.customer_id] || o.customer_name || o.customer_id,
+                    items: (o.items || []).map(it => {
+                        const prod = productMap[it.product_id];
+                        // normalize discount to decimal (0..1). Accept backend returning decimal or percent.
+                        let rawDisc = it.discount ?? it.discount_percent ?? prod?.discount_percent ?? prod?.discount ?? 0;
+                        let disc = Number(rawDisc) || 0;
+                        if (disc > 1) disc = disc / 100;
+                        return {
+                            ...it,
+                            product_name: it.product_name || prod?.name || "",
+                            price: it.price || it.price_unit || prod?.price_current || 0,
+                            discount: disc
+                        };
+                    })
+                }));
+                setOrders(enriched);
+            })
+            .catch((err) => {
+                console.error("Lỗi khi lấy dữ liệu orders/customers:", err);
+                if (!mounted) {
+                    return;
+                }
+                setCustomers([]);
+                setOrders([]);
+            });
+        return () => { mounted = false; };
+    }, []);
+
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: "view", order: null });
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedStatus, setSelectedStatus] = useState(null);
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const ordersPerPage = 6;
 
-    // Field mapping for CSV export/import
+    // Field mapping for CSV export/import using API field names
     const orderFieldMapping = {
-        customerId: 'Mã khách hàng',
-        customerName: 'Tên khách hàng',
-        orderDate: 'Ngày đặt hàng',
-        totalAmount: 'Tổng giá trị',
-        paymentMethod: 'Phương thức thanh toán',
+        order_id: 'Mã đơn',
+        customer_id: 'Mã khách hàng',
+        order_date: 'Ngày đặt hàng',
+        total_amount: 'Tổng giá trị',
+        payment_method: 'Phương thức thanh toán',
         status: 'Trạng thái'
     };
 
-    // Tính toán số lượng đơn theo trạng thái (dùng chuỗi tiếng Việt)
-    const stats = {
-        [OrderStatus.new]: orders.filter((o) => o.status === OrderStatus.new).length,
-        [OrderStatus.processing]: orders.filter((o) => o.status === OrderStatus.processing).length,
-        [OrderStatus.completed]: orders.filter((o) => o.status === OrderStatus.completed).length,
-        [OrderStatus.cancelled]: orders.filter((o) => o.status === OrderStatus.cancelled).length,
-    };
 
-    // Lọc (theo từ khóa + trạng thái)
+    // Filter orders 
     const filteredOrders = orders.filter((order) => {
+        const customerField = (order.customer_name || order.customer_id || "").toString();
         const matchesSearch =
-            order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.paymentMethod.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.status.toLowerCase().includes(searchTerm.toLowerCase());
+            customerField.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (order.payment_method || "").toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (order.status || "").toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (order.order_id || "").toString().toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = selectedStatus ? order.status === selectedStatus : true;
-        return matchesSearch && matchesStatus;
+        const matchesCustomer = selectedCustomer ? (order.customer_id === selectedCustomer) : true;
+        return matchesSearch && matchesStatus && matchesCustomer;
     });
 
-    useEffect(() => setCurrentPage(1), [searchTerm, selectedStatus]);
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const ordersPerPage = 8;
+
+    useEffect(() => setCurrentPage(1), [searchTerm, selectedStatus, selectedCustomer]);
 
     const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ordersPerPage));
     const indexOfLast = currentPage * ordersPerPage;
@@ -68,34 +154,96 @@ export default function OrderPage() {
     const handleCreate = () => setModal({ open: true, mode: "edit", order: null });
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
 
-    const handleSave = (orderData) => {
-        if (orderData.id) {
-            setOrders((prev) =>
-                prev.map((order) => (order.id === orderData.id ? { ...order, ...orderData } : order))
-            );
+    const handleSave = async (payload) => {
+        const customerMap = Object.fromEntries((customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""]));
+        const productMap = Object.fromEntries((products || []).map(p => [p.product_id || p.id, p]));
 
-            setModal(prev => ({
-                ...prev,
-                mode: 'view',
-                order: { ...orderData }
-            }));
-            toast.success('Cập nhật đơn hàng thành công!');
-        } else {
-            const newOrder = {
-                ...orderData,
-                id: Math.max(...orders.map((o) => o.id)) + 1,
-            };
-            setOrders((prev) => [...prev, newOrder]);
-            closeModal();
-            toast.success('Thêm đơn hàng thành công!');
+        try {
+            if (payload.order_id) {
+                // update
+                const res = await updateOrder(payload.order_id, payload);
+                const saved = res?.data || res || payload;
+
+                const enriched = {
+                    ...saved,
+                    customer_name: customerMap[saved.customer_id] || saved.customer_name || saved.customerId || saved.customer_id,
+                    items: (saved.items || []).map(it => {
+                        const prod = productMap[it.product_id];
+                        const qty = Number(it.quantity ?? it.qty ?? 0);
+                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
+                        // normalize discount from response
+                        let rawDisc = it.discount ?? it.discount_percent ?? 0;
+                        let disc = Number(rawDisc) || 0;
+                        if (disc > 1) disc = disc / 100;
+                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
+                        return {
+                            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
+                            product_id: it.product_id || null,
+                            product_name: it.product_name || prod?.name || "",
+                            quantity: qty,
+                            price: unit,
+                            original_price,
+                            discount: disc,
+                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
+                        };
+                    })
+                };
+
+                setOrders(prev => prev.map(o => o.order_id === enriched.order_id ? enriched : o));
+                setModal(prev => ({ ...prev, mode: 'view', order: enriched }));
+                toast.success('Cập nhật đơn hàng thành công!');
+            } else {
+                // create
+                const res = await createOrder(payload);
+                const created = res?.data || res || payload;
+                const newId = created.order_id || created.id || ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `local-${Date.now()}`);
+
+                const enriched = {
+                    ...created,
+                    order_id: newId,
+                    customer_name: customerMap[created.customer_id] || created.customer_name || created.customerId || created.customer_id,
+                    items: (created.items || payload.items || []).map(it => {
+                        const prod = productMap[it.product_id];
+                        const qty = Number(it.quantity ?? it.qty ?? 0);
+                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
+                        let rawDisc = it.discount ?? it.discount_percent ?? 0;
+                        let disc = Number(rawDisc) || 0;
+                        if (disc > 1) disc = disc / 100;
+                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
+                        return {
+                            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
+                            product_id: it.product_id || null,
+                            product_name: it.product_name || prod?.name || "",
+                            quantity: qty,
+                            price: unit,
+                            original_price,
+                            discount: disc,
+                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
+                        };
+                    })
+                };
+
+                // prepend new order so it appears at top of the list
+                setOrders(prev => [enriched, ...prev]);
+                closeModal();
+                toast.success('Thêm đơn hàng thành công!');
+            }
+        } catch (err) {
+            console.error("Lỗi khi lưu đơn hàng:", err);
+            toast.error('Có lỗi khi lưu đơn hàng');
         }
     };
 
-    const handleDelete = (id) => {
-        // actual deletion executed after ConfirmDialog triggers onConfirm
-        setOrders((prev) => prev.filter((order) => order.id !== id));
-        closeModal();
-        toast.success('Xóa đơn hàng thành công!');
+    const handleDelete = async (id) => {
+        try {
+            await deleteOrder(id);
+            setOrders(prev => prev.filter(o => o.order_id !== id));
+            closeModal();
+            toast.success('Xóa đơn hàng thành công!');
+        } catch (err) {
+            console.error("Lỗi khi xóa đơn hàng:", err);
+            toast.error('Có lỗi khi xóa đơn hàng');
+        }
     };
 
     // Import/Export JSON
@@ -135,27 +283,26 @@ export default function OrderPage() {
         toast.error(`Lỗi nhập file: ${errorMessage}`);
     };
 
-    // Helpers
+    // Hàm tạo màu nhãn
     const getStatusBadge = (status) => {
         const baseClass =
             "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block";
         const statusMap = {
-            [OrderStatus.new]: `${baseClass} bg-blue-100 text-blue-800`,
-            [OrderStatus.processing]: `${baseClass} bg-yellow-100 text-yellow-800`,
-            [OrderStatus.completed]: `${baseClass} bg-green-100 text-green-800`,
-            [OrderStatus.cancelled]: `${baseClass} bg-red-100 text-red-800`,
+            paid: `${baseClass} bg-green-100 text-green-800`,
+            pending: `${baseClass} bg-blue-100 text-blue-800`,
+            processing: `${baseClass} bg-yellow-100 text-yellow-800`,
+            completed: `${baseClass} bg-green-100 text-green-800`,
+            cancelled: `${baseClass} bg-red-100 text-red-800`,
+            refunded: `${baseClass} bg-indigo-100 text-indigo-800`,
+            failed: `${baseClass} bg-rose-100 text-rose-800`,
+            shipped: `${baseClass} bg-sky-100 text-sky-800`,
         };
-        return statusMap[status] || baseClass;
+        return statusMap[status] || `${baseClass} bg-gray-100 text-gray-800`;
     };
 
-
-    // Click chọn trạng thái
-    const handleStatusClick = (status) => {
-        setSelectedStatus((prev) => (prev === status ? null : status));
-    };
 
     return (
-        <div className="h-screen flex flex-col">
+        <div className=" flex flex-col">
             {/* Sticky header*/}
             <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
                 <div className="flex justify-between w-full mb-2">
@@ -178,7 +325,7 @@ export default function OrderPage() {
                         <div className="flex items-center gap-2 self-end md:self-auto">
                             <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
                                 <Plus className="w-4 h-4" />
-                                Thêm ĐH
+                                Thêm Đơn hàng
                             </Button>
 
                             {/* Import/Export Dropdown */}
@@ -193,97 +340,77 @@ export default function OrderPage() {
                             />
                         </div>
                     </div>
+
+
                 </div>
 
+                {/* Filters row */}
+                <div className="flex items-center justify-between gap-3 mt-2 w-full">
+                    <div /> {/* left placeholder to mirror product page layout */}
+                    <div className="flex items-center gap-3">
+                        {/* Status dropdown */}
+                        <DropdownOptions
+                            options={[
+                                { value: '', label: 'Tất cả trạng thái' },
+                                ...ORDER_STATUSES_LIST.map(s => ({ value: s, label: STATUS_LABELS[s] || String(s).toUpperCase() }))
+                            ]}
+                            value={selectedStatus || ''}
+                            onChange={(val) => setSelectedStatus(val || null)}
+                            width="w-48"
+                            placeholder="Trạng thái"
+                        />
 
-                {/* Status Cards with react-countup */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
-                    {Object.entries(stats).map(([status, count]) => {
-                        const iconMap = {
-                            [OrderStatus.new]: PackagePlus,
-                            [OrderStatus.processing]: Loader,
-                            [OrderStatus.completed]: CheckCircle2,
-                            [OrderStatus.cancelled]: XCircle,
-                        };
-
-
-                        const colorMap = {
-                            [OrderStatus.new]: {
-                                base: "bg-white text-blue-600 border-gray-200",
-                                hover: "hover:bg-blue-600 hover:text-white hover:border-blue-600",
-                                active: "bg-blue-600 text-white border-blue-600",
-                                icon: "text-blue-600",
-                            },
-                            [OrderStatus.processing]: {
-                                base: "bg-white text-yellow-600 border-gray-200",
-                                hover: "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
-                                active: "bg-yellow-500 text-white border-yellow-500",
-                                icon: "text-yellow-600",
-                            },
-                            [OrderStatus.completed]: {
-                                base: "bg-white text-green-600 border-gray-200",
-                                hover: "hover:bg-green-600 hover:text-white hover:border-green-600",
-                                active: "bg-green-600 text-white border-green-600",
-                                icon: "text-green-600",
-                            },
-                            [OrderStatus.cancelled]: {
-                                base: "bg-white text-red-600 border-gray-200",
-                                hover: "hover:bg-red-600 hover:text-white hover:border-red-600",
-                                active: "bg-red-600 text-white border-red-600",
-                                icon: "text-red-600",
-                            },
-                        };
-
-                        const isActive = selectedStatus === status;
-                        const Icon = iconMap[status];
-                        const baseClass = colorMap[status].base;
-                        const hoverClass = colorMap[status].hover;
-                        const activeClass = colorMap[status].active;
-                        const colorClass = isActive ? activeClass : baseClass;
-
-                        return (
-                            <div
-                                key={status}
-                                onClick={() => handleStatusClick(status)}
-                                className={`group p-4 rounded-md border  transition cursor-pointer flex items-center gap-4 ${colorClass} ${hoverClass} hover:shadow-sm duration-100 active:scale-95`}
-                            >
-                                {/* Icon bên trái */}
-                                <Icon
-                                    className={`w-10 h-10 ${isActive
-                                            ? "text-white"
-                                            : `${colorMap[status].icon} group-hover:text-white`
-                                        } transition-colors duration-100`}
-                                />
-
-                                {/* Tiêu đề + số lượng bên phải */}
-                                <div className="flex flex-col">
-                                    <h3 className="font-semibold text-base capitalize leading-tight">
-                                        {status}
-                                    </h3>
-                                    <CountUp
-                                        end={count}
-                                        duration={0.6}
-                                        className="text-2xl font-bold leading-snug"
-                                    />
+                        {/* Customer dropdown with search (custom) */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <div className="w-56 flex items-center justify-between px-3 py-2 border rounded-md bg-white cursor-pointer">
+                                    <div className="text-sm truncate">
+                                        {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                                    </div>
+                                    <ChevronDown className="w-4 h-4 text-gray-400" />
                                 </div>
-                            </div>
-                        );
-                    })}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] p-2 max-h-64 overflow-y-auto">
+                                <div className="relative flex items-center mb-2">
+                                    <Search className="w-4 h-4 text-gray-400 absolute left-2" />
+                                    <Input value={customerSearch}
+                                    onChange={(e) => setCustomerSearch(e.target.value)}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    onKeyUp={(e) => e.stopPropagation()}
+                                    placeholder="Tìm kiếm khách hàng..."
+                                    
+                                />
+                                </div>
+                                
+                                <DropdownMenuItem key="all" onSelect={() => { setSelectedCustomer(''); setCustomerSearch(''); }}>
+                                    Tất cả khách hàng
+                                </DropdownMenuItem>
+                                {customers
+                                    .filter(c => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes(customerSearch.toLowerCase()))
+                                    .map(c => {
+                                        const id = c.customer_id || c.id;
+                                        const label = c.full_name || c.fullName || c.name || id;
+                                        return (
+                                            <DropdownMenuItem key={id} onSelect={() => { setSelectedCustomer(id); setCustomerSearch(''); }}>
+                                                {label}
+                                            </DropdownMenuItem>
+                                        );
+                                    })}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
-
-
             </div>
 
-            {/* Scrollable content: table, pagination, dialog */}
-            <div className="flex-1 overflow-auto p-6">
+            {/* Scrollable content: */}
+            <div className="flex-1 p-0 mt-4">
                 {/* Table */}
                 <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[800px]">
+                    <div className="w-full">
+                        <table className="w-full table-fixed">
                             <thead className="bg-gray-50">
                                 <tr >
                                     {[
-                                        "Mã đơn",
                                         "Người đặt hàng",
                                         "Ngày đặt hàng",
                                         "Tổng giá trị",
@@ -293,7 +420,7 @@ export default function OrderPage() {
                                     ].map((header) => (
                                         <th
                                             key={header}
-                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" /* reduced vertical padding */
                                         >
                                             {header}
                                         </th>
@@ -303,35 +430,32 @@ export default function OrderPage() {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {currentOrders.map((order) => (
                                     <tr
-                                        key={order.id}
+                                        key={order.order_id}
                                         className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onMouseEnter={() => setHoveredRow(order.id)}
+                                        onMouseEnter={() => setHoveredRow(order.order_id)}
                                         onMouseLeave={() => setHoveredRow(null)}
-
                                     >
-                                        <td className="px-6 py-4 text-center text-sm font-medium text-gray-900">
-                                            {order.id}
+                                        <td className="px-4 py-2 text-sm text-gray-900"> {/* reduced padding */}
+                                            {/* API returns customer_id; if customer_name exists prefer that */}
+                                            {order.customer_name || order.customer_id}
                                         </td>
-                                        <td className="px-6 py-4  text-sm text-gray-900">
-                                            {order.customerName}
+                                        <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
+                                            {formatDateTime(order.order_date)}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                            {formatDate(order.orderDate)}
+                                        <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
+                                            {formatCurrency(order.total_amount || order.total || 0)}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                            {formatCurrency(order.totalAmount)}
+                                        <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
+                                            {PAYMENT_LABELS[order.payment_method] || order.payment_method}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-sm text-gray-900">
-                                            {order.paymentMethod}
-                                        </td>
-                                        <td className="px-6 py-4 text-center w-32">
+                                        <td className="px-4 py-2 text-center w-32"> {/* reduced padding */}
                                             <span className={getStatusBadge(order.status)}>
-                                                {order.status}
+                                                {STATUS_LABELS[order.status] || String(order.status || "").toUpperCase()}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center w-36">
+                                        <td className="px-4 py-2 text-center w-36"> {/* reduced padding */}
                                             <div
-                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.id
+                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.order_id
                                                     ? "opacity-100 translate-y-0 pointer-events-auto"
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
@@ -354,10 +478,10 @@ export default function OrderPage() {
                                                 </Button>
                                                 <ConfirmDialog
                                                     title="Xác nhận xóa"
-                                                    description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.id}</span>?</>}
+                                                    description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.order_id}</span>?</>}
                                                     confirmText="Xóa"
                                                     cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(order.id)}
+                                                    onConfirm={() => handleDelete(order.order_id)}
                                                 >
                                                     <Button
                                                         variant="actionDelete"
@@ -369,8 +493,6 @@ export default function OrderPage() {
                                                 </ConfirmDialog>
                                             </div>
                                         </td>
-
-
                                     </tr>
                                 ))}
                             </tbody>
@@ -392,14 +514,17 @@ export default function OrderPage() {
                     open={modal.open}
                     onClose={closeModal}
                     title={{
-                        view: `Chi tiết đơn hàng #${modal.order?.id || ''}`,
-                        edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.id}` : 'Thêm đơn hàng mới'
+                        view: `Chi tiết đơn hàng #${modal.order?.order_id || ''}`,
+                        edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.order_id}` : 'Thêm đơn hàng mới'
                     }}
                     mode={modal.mode}
                     FormComponent={OrderForm}
                     data={modal.order}
                     onSave={handleSave}
                     onDelete={handleDelete}
+                    // pass label maps for UI-only display to the form
+                    paymentLabels={PAYMENT_LABELS}
+                    statusLabels={STATUS_LABELS}
                     maxWidth="sm:max-w-5xl"
                 />
             </div>

@@ -138,10 +138,10 @@ function App() {
                   path="/leads"
                   element={privateElement(<LeadsPage />)}
                 />
-                <Route
+                {/* <Route
                   path="/opporturnities"
                   element={privateElement(<OpportunitiesPage />)}
-                />
+                /> */}
 
                 <Route
                   path="/kanban"

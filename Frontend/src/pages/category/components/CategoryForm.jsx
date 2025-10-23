@@ -157,7 +157,7 @@ export default function CategoryForm({
                                 Chỉnh sửa
                             </Button>
 
-                            <ConfirmDialog
+                            {/* <ConfirmDialog
                                 title="Xác nhận xóa"
                                 description={
                                     <>
@@ -173,7 +173,7 @@ export default function CategoryForm({
                                     <Trash2 className="w-4 h-4" />
                                     Xóa
                                 </Button>
-                            </ConfirmDialog>
+                            </ConfirmDialog> */}
                         </>
                     ) : (
                         <>

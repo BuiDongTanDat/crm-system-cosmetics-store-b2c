@@ -30,16 +30,31 @@ class ProductService {
   // Tạo mới sản phẩm
   async create(data) {
     const dto = new CreateProductRequestDTO(data);
-    // validate required fields early to avoid DB notNull violations
-    if (!dto.name || dto.price_current == null) {
+    // validate required fields first
+    if (!dto.name || dto.price_current == null ) {
       throw new Error('Các trường bắt buộc: name, price_current');
     }
+
+    const found = await productRepository.findByName(dto.name);
+    if (found) {
+      const list = Array.isArray(found) ? found : [found];
+      const nameNormalized = String(dto.name || "").trim().toLowerCase();
+      const exists = list.some(p => {
+        const candidate = String(p.name ?? p.product_name ?? "").trim().toLowerCase();
+        return candidate === nameNormalized;
+      });
+      if (exists) {
+        throw new Error('Sản phẩm với tên này đã tồn tại');
+      }
+    }
+
     const created = await productRepository.save(dto);
     return new ProductResponseDTO(created);
   }
 
   // Cập nhật sản phẩm
   async update(product_id, data) {
+
     const dto = new UpdateProductRequestDTO({ ...data, product_id });
     // pass single DTO object to repository.save
     

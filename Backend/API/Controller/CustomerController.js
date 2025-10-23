@@ -18,7 +18,7 @@ const CustomerService = require('../../Application/Services/CustomerService');
 class CustomerController {
   static async getAll(req, res) {
     try {
-      const result = await CustomerService.getAll();
+      const result = await CustomerService.listCustomers();
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
