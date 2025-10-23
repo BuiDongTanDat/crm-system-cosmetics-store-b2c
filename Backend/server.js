@@ -19,12 +19,7 @@ const OrderRoutes = require('./API/routes/OrderRoutes');
 const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes'); 
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 
-const app = express();
-
-const { setupSwagger } = require('./swagger');
-
 // Middlewares
-const CampaignRoute = require('./API/routes/CampaignRoutes');
 const AutomationService = require('./Application/Services/AutomationService');
 
 // cron utils & domain events
@@ -38,8 +33,8 @@ const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
 
 const app = express();
 
-/* =========================
-   Middlewares
+
+//Middlewares
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
@@ -47,13 +42,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* =========================
-   Routes
-========================= */
+//Routes
+
 app.use('/auth', authRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
-app.use('/campaign', CampaignRoute);
 app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
 app.use('/users', userRoutes);
