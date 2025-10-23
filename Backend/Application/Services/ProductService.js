@@ -77,6 +77,12 @@ class ProductService {
     const result = await productRepository.importFromCSV(dto);
     return new ProductImportResponseDTO(result);
   }
+
+  // Xuất sản phẩm ra CSV
+  async exportToCSV() {
+    return  await productRepository.exportToCSV();
+   
+  }
 }
 
 module.exports = new ProductService();

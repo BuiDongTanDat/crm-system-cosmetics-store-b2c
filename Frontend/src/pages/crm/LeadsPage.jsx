@@ -9,12 +9,15 @@ import { formatCurrency, getPriorityColor, getPriorityLabel, getInitials, format
 import DropdownOptions from '@/components/common/DropdownOptions';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
-
-
+import AppPagination from '@/components/pagination/AppPagination';
+ 
 export default function LeadsPage() {
   // KanbanPage-like states
   const [cards, setCards] = useState(initialCards || []);
   const [columns, setColumns] = useState(initialColumns || []);
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const dealsPerPage = 8;
   const [columnCounts, setColumnCounts] = useState({});
   const [prevStats, setPrevStats] = useState({ totalDeals: 0, totalValue: 0, conversionRate: 0, activeDeals: 0 });
   const [shouldAnimateStats, setShouldAnimateStats] = useState(true);
@@ -25,7 +28,10 @@ export default function LeadsPage() {
     { value: '', label: 'Tất cả trạng thái' },
     ...columns.map(col => ({ value: col.id, label: col.title }))
   ];
-
+ 
+  // reset page when filter changes
+  useEffect(() => setCurrentPage(1), [filterStage, cards.length]);
+ 
   // Stats calculation (KanbanPage logic)
   const stats = {
     totalDeals: cards.length,
@@ -141,9 +147,19 @@ export default function LeadsPage() {
   const filteredCards = filterStage
     ? cards.filter(card => (card.stage || card.status) === filterStage)
     : cards;
-
+ 
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredCards.length / dealsPerPage));
+  const currentCards = filteredCards.slice(
+    (currentPage - 1) * dealsPerPage,
+    currentPage * dealsPerPage
+  );
+  const handlePageChange = (p) => setCurrentPage(p);
+  const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
+  const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));
+ 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col">
       {/* Sticky header */}
       <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center gap-3 mb-2 justify-between">
@@ -223,7 +239,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Scrollable content: deals list and dialog */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1  pt-4">
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
@@ -240,7 +256,7 @@ export default function LeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredCards.map(card => (
+                {currentCards.map(card => (
                   <tr
                     key={card.id}
                     className="group hover:bg-gray-50 transition-colors"
@@ -248,7 +264,7 @@ export default function LeadsPage() {
                     onMouseLeave={() => setHoveredRow(null)}
                   >
 
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 truncate">
+                    <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(card.priority)}`}>
                           {getPriorityLabel(card.priority)}
@@ -258,19 +274,19 @@ export default function LeadsPage() {
 
 
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 truncate">{card.customer}</td>
-                    <td className="px-6 py-4 text-sm text-emerald-600 font-semibold">{formatCurrency(card.value || 0)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-2 text-sm text-gray-700 truncate">{card.customer}</td>
+                    <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">{formatCurrency(card.value || 0)}</td>
+                    <td className="px-6 py-2">
 
                       <span className="truncate max-w-20 text-xs">{card.assignee}</span>
 
                     </td>
 
-                    <td className="px-6 py-4 text-xs text-gray-500">{formatDate(card.lastActivity) || '-'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-2 text-xs text-gray-500">{formatDate(card.lastActivity) || '-'}</td>
+                    <td className="px-6 py-2">
                       {getStatusBadge(card.stage)}
                     </td>
-                    <td className="px-6 py-4 text-center w-36">
+                    <td className="px-6 py-2 text-center w-36">
                       <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
                         <Button variant="actionRead" size="icon" onClick={() => handleView(card)} className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
                         <Button variant="actionUpdate" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8"><Edit className="w-4 h-4" /></Button>
@@ -295,12 +311,23 @@ export default function LeadsPage() {
                     <td colSpan={7} className="text-center text-gray-400 py-8">Không có deal nào.</td>
                   </tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
+               </tbody>
+             </table>
+           </div>
+         </div>
+ 
+         {/* Pagination */}
+         <div className="mt-4">
+           <AppPagination
+             totalPages={totalPages}
+             currentPage={currentPage}
+             handleNext={handleNext}
+             handlePrev={handlePrev}
+             handlePageChange={handlePageChange}
+           />
+         </div>
+       </div>
+ 
       {/* Dialog */}
       <AppDialog
         open={modal.open}

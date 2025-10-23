@@ -18,7 +18,7 @@ export default function CustomerListPage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const customersPerPage = 6;
+    const customersPerPage = 8;
 
     const filteredCustomers = customers.filter(customer =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,9 +234,9 @@ export default function CustomerListPage() {
             </div>
 
             {/* Scrollable content: table, pagination, dialog */}
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 pt-4 ">
                 {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[1000px]">
                             <thead className="bg-gray-50">
@@ -267,28 +267,28 @@ export default function CustomerListPage() {
                                         onMouseEnter={() => setHoveredRow(customer.id)}
                                         onMouseLeave={() => setHoveredRow(null)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{customer.name}</div>
                                             <span className={getTypeBadge(customer.type)}>{customer.type}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">{customer.email}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center">
                                             <div className="text-sm text-gray-900">{customer.phone}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center">
                                             <div className="text-sm text-gray-900">{customer.industry}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center">
                                             <div className="text-sm text-gray-900">{customer.source}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center w-32">
                                             <span className={getStatusBadge(customer.status)}>
                                                 {customer.status === "Active" ? "Hoạt động" : "Không hoạt động"}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center w-36">
+                                        <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === customer.id
                                                     ? "opacity-100 translate-y-0 pointer-events-auto"

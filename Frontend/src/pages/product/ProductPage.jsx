@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, Filter, List, Square } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Edit, Trash2, Eye, Filter, List, Square, Upload, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/pages/product/components/ProductCard';
 import AppDialog from '@/components/dialogs/AppDialog';
 import ProductForm from '@/pages/product/components/ProductForm';
 import AppPagination from '@/components/pagination/AppPagination';
-import ImportExportDropdown from '@/components/common/ImportExportDropdown';
-import { request } from '@/utils/api';
 import DropdownOptions from '@/components/common/DropdownOptions';
+import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import { getCategories } from '@/services/categories';
-import { deleteProduct, getProduct, getProducts, createProduct, updateProduct } from '@/services/products';
+import { deleteProduct, getProduct, getProducts, createProduct, updateProduct, importProductsCSV, exportProductsCSV } from '@/services/products';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
+import SuccessDialog from '@/components/dialogs/SuccessDialog';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -23,26 +23,10 @@ export default function ProductPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [successDialog, setSuccessDialog] = useState({ open: false, title: '', message: null });
   const productsPerPage = 8;
+  const fileInputRef = useRef(null);
 
-  // Mapping CSV <-> API fields
-  const productFieldMapping = {
-    name: 'Tên sản phẩm',
-    brand: 'Thương hiệu',
-    category: 'Danh mục',
-    short_description: 'Mô tả ngắn',
-    description: 'Mô tả chi tiết',
-    image: 'Ảnh',
-    price_current: 'Giá hiện tại',
-    price_original: 'Giá gốc',
-    discount_percent: 'Giảm giá (%)',
-    rating: 'Đánh giá',
-    reviews_count: 'Số lượt đánh giá',
-    monthly_sales: 'Doanh số hàng tháng',
-    sell_progress: 'Tiến độ bán hàng',
-    inventory_qty: 'Tồn kho',
-    status: 'Trạng thái',
-  };
 
   const STATUS_FILTER_OPTIONS = [
     { value: 'all', label: 'Trạng thái' },
@@ -51,50 +35,20 @@ export default function ProductPage() {
     { value: 'DISCONTINUED', label: 'Đã ngừng' },
   ];
 
-  //Lấy danh sách sản phẩm
+  //Lấy danh sách sản phẩm (simplified: use API response directly, no mapping)
   const fetchProducts = async () => {
     try {
-      let res = await getProducts();
-      if (Array.isArray(res)) {
-        res = { ok: true, data: res };
-      }
-      if (!res || typeof res.ok === 'undefined') {
-        console.error('Không thể tải danh sách sản phẩm. Response:', res);
-        toast.error('Không thể tải danh sách sản phẩm.');
-        return [];
-      }
-      const { ok, data } = res;
-      if (ok) {
-        console.log('Fetched products:', data);
-        const normalized = (Array.isArray(data) ? data : []).map(item => ({
-          product_id: item.product_id,
-          name: item.name,
-          brand: item.brand,
-          category: item.category,
-          short_description: item.short_description,
-          description: item.description,
-          image: item.image,
-          price_current: Number(item.price_current ?? 0),
-          price_original: Number(item.price_original ?? 0),
-          discount_percent: Number(item.discount_percent ?? 0),
-          rating: Number(item.rating ?? 0),
-          reviews_count: Number(item.reviews_count ?? 0),
-          monthly_sales: item.monthly_sales ?? "",
-          sell_progress: item.sell_progress ?? "",
-          inventory_qty: Number(item.inventory_qty ?? 0),
-          status: item.status
-        }));
+      const res = await getProducts();
+      // Accept either plain array or { ok, data } shape
+      let data = [];
+      if (Array.isArray(res)) data = res;
+      else if (res && res.ok) data = res.data || [];
+      else if (res && res.data) data = res.data;
+      if (!Array.isArray(data)) data = [];
 
-        // Sort để giữ thứ tự xác định sau các thao tác CRUD (Là sau khi CRUD xong thì thứ tự list nó vẫn giữ nguyên)
-        normalized.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-        setProducts(normalized);
-        return normalized;
-      } else {
-        console.error('Không thể tải danh sách sản phẩm. Response:', { ok, data });
-        toast.error('Không thể tải danh sách sản phẩm.');
-        return [];
-      }
+      // keep the raw items as returned by API (no mapping)
+      setProducts(data);
+      return data;
     } catch (err) {
       console.error('Fetch error:', err);
       toast.error('Lỗi kết nối server.');
@@ -133,57 +87,6 @@ export default function ProductPage() {
     fetchCategoriesForFilter();
   }, []);
 
-  // Xử lý Import CSV
-  const handleImportSuccess = async (importedData) => {
-    try {
-      const rows = Array.isArray(importedData)
-        ? importedData
-        : importedData?.data
-          ? importedData.data
-          : [importedData];
-
-      if (!Array.isArray(rows) || rows.length === 0)
-        throw new Error('Dữ liệu nhập không hợp lệ hoặc rỗng.');
-
-      const cleanNumber = (val) =>
-        val ? Number(val.toString().replace(/[^\d.-]/g, '')) || 0 : 0;
-
-      const processed = rows.map((item) => ({
-        product_id: item.product_id || crypto.randomUUID(),
-        name: item['Tên sản phẩm'] ?? item.name ?? '',
-        brand: item['Thương hiệu'] ?? item.brand ?? '',
-        category: item['Danh mục'] ?? item.category ?? '',
-        short_description: item['Mô tả ngắn'] ?? item.short_description ?? '',
-        description: item['Mô tả chi tiết'] ?? item.description ?? '',
-        image: item['Ảnh'] ?? item.image ?? '',
-        price_current: cleanNumber(item['Giá hiện tại'] ?? item.price_current),
-        price_original: cleanNumber(item['Giá gốc'] ?? item.price_original),
-        discount_percent: cleanNumber(item['Giảm giá (%)'] ?? item.discount_percent),
-        rating: parseFloat(item['Đánh giá'] ?? item.rating) || 0,
-        reviews_count: parseInt(item['Số lượt đánh giá'] ?? item.reviews_count) || 0,
-        inventory_qty: parseInt(item['Tồn kho'] ?? item.inventory_qty) || 0,
-        status: item['Trạng thái'] ?? item.status ?? 'AVAILABLE'
-      }));
-
-      const validProducts = processed.filter((p) => p.name);
-      if (!validProducts.length) throw new Error('Không có dữ liệu hợp lệ trong file.');
-
-      // Gửi dữ liệu lên server (tùy API)
-      for (const p of validProducts) {
-        await createProduct(p);
-      }
-
-      await fetchProducts();
-      toast.success(`Đã nhập ${validProducts.length} sản phẩm thành công`);
-    } catch (err) {
-      console.error('Lỗi xử lý import:', err);
-      toast.error(`Lỗi khi nhập CSV: ${err.message}`);
-    }
-  };
-
-  const handleImportError = (msg) => {
-    toast.error(`Lỗi nhập file: ${msg}`);
-  };
 
   // CRUD handlers
   const openAdd = () => setModal({ open: true, mode: 'add', product: null });
@@ -226,14 +129,25 @@ export default function ProductPage() {
       }
     } catch (err) {
       console.error('Save error:', err);
-      toast.error('Lỗi khi lưu sản phẩm!');
+      // show detailed backend error if available
+      const msg = err?.message || 'Lỗi khi lưu sản phẩm!';
+      toast.error(String(msg));
     }
   };
 
   const handleDelete = async (id) => {
     try {
       await deleteProduct(id);
-      setProducts((prev) => prev.filter((p) => (p.product_id || p.id) !== id));
+      setProducts((prev) => {
+        const updatedProducts = prev.filter((p) => (p.product_id || p.id) !== id);
+        // Sau khi xóa, kiểm tra nếu trang hiện tại không còn sản phẩm nào thì chuyển về trang trước đó
+        const startIdx = (currentPage - 1) * productsPerPage;
+        const endIdx = startIdx + productsPerPage;
+        if (updatedProducts.slice(startIdx, endIdx).length === 0 && currentPage > 1) {
+          setCurrentPage((p) => p - 1); // trở về trang trước
+        }
+        return updatedProducts;
+      });
       closeModal();
       toast.success('Xóa sản phẩm thành công!');
     } catch (err) {
@@ -257,7 +171,6 @@ export default function ProductPage() {
     (currentPage - 1) * productsPerPage,
     currentPage * productsPerPage
   );
-  
   const handlePageChange = (p) => setCurrentPage(p);
   const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
   const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));
@@ -267,6 +180,68 @@ export default function ProductPage() {
     status === 'AVAILABLE'
       ? 'px-2 py-1 text-xs font-medium text-success   rounded-full w-[100px] text-center inline-block bg-green-100'
       : 'px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100';
+
+  // handle selecting action from DropdownOptions (import/export)
+  const CSV_ACTIONS = [
+    { value: 'import', label: 'Nhập CSV' },
+    { value: 'export', label: 'Xuất CSV' },
+  ];
+
+  const handleCSVAction = async (action) => {
+    if (action === 'import') {
+      fileInputRef.current?.click();
+    } else if (action === 'export') {
+      try {
+        const csvBlob = await exportProductsCSV();
+        if (!csvBlob) {
+          toast.error('Không có dữ liệu để xuất CSV.');
+          return;
+        }
+        // Create a URL for the Blob and trigger download
+        const url = window.URL.createObjectURL(csvBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'products.csv'; // Default filename
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        toast.success('Xuất CSV thành công! File đang được tải xuống.');
+      } catch (err) {
+        console.error('Export error:', err);
+        toast.error('Lỗi khi xuất CSV.');
+      }
+    }
+  };
+
+  // file input change -> call importProductsCSV directly (service expects field name "file")
+  const handleImportFile = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) {
+      toast.error('Vui lòng chọn file CSV.');
+      return;
+    }
+    try {
+      const res = await importProductsCSV(file);
+      const message = res?.message || 'Import hoàn tất';
+      const result = res?.result || res?.data || null;
+
+      if (result && (result.imported > 0 || result.updated > 0)) {
+        await fetchProducts();
+      }
+
+      setSuccessDialog({ open: true, title: message, message: { message, result } });
+      //toast.success(message);
+    } catch (err) {
+      console.error('Import error:', err);
+      const em = err?.message || String(err);
+      toast.error(`Lỗi khi nhập CSV: ${em}`);
+      setSuccessDialog({ open: true, title: 'Lỗi khi nhập CSV', message: { message: em, result: null } });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className=" flex flex-col">
@@ -303,14 +278,51 @@ export default function ProductPage() {
               <Plus className="w-4 h-4" /> Thêm SP
             </Button>
 
+            {/* DropdownOptions for Import/Export */}
             <ImportExportDropdown
-              data={products}
-              filename="products"
-              fieldMapping={productFieldMapping}
-              onImportSuccess={handleImportSuccess}
-              onImportError={handleImportError}
+              menuItems={[
+                {
+                  label: 'Nhập CSV',
+                  icon: Upload,
+                  action: () => fileInputRef.current?.click(),
+                },
+                {
+                  label: 'Xuất CSV',
+                  icon: Download,
+                  action: async () => {
+                    try {
+                      const csvBlob = await exportProductsCSV();
+                      if (!csvBlob) {
+                        toast.error('Không có dữ liệu để xuất CSV.');
+                        return;
+                      }
+                      const url = window.URL.createObjectURL(csvBlob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'products.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                      //toast.success('Xuất CSV thành công! File đang được tải xuống.');
+                    } catch (err) {
+                      console.error('Export error:', err);
+                      toast.error('Lỗi khi xuất CSV.');
+                    }
+                  },
+                },
+              ]}
               trigger="icon"
-              variant="actionNormal"
+              className="px-2 py-1"
+            />
+            {/* hidden file input for import; name is not required here because importProductsCSV constructs FormData with 'file' */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleImportFile}
+              name="file"
             />
           </div>
         </div>
@@ -356,10 +368,10 @@ export default function ProductPage() {
 
 
       {/* Scrollable content: product cards / list, pagination, dialog */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto pt-4">
         {/* View Mode */}
         {viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3 px-2">
             {currentProducts.map((p) => (
               <ProductCard
                 key={p.product_id}
@@ -371,7 +383,7 @@ export default function ProductPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-2">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1000px]">
                 <thead className="bg-gray-50">
@@ -404,7 +416,7 @@ export default function ProductPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                       className="hover:bg-gray-50 transition"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-left">
+                      <td className="px-6 py-2 whitespace-nowrap text-left">
                         <div className="flex items-center">
                           <img
                             src={p.image || '/images/products/product_temp.png'}
@@ -514,6 +526,14 @@ export default function ProductPage() {
           onSave={handleSave}
           onDelete={handleDelete}
           maxWidth="sm:max-w-2xl"
+        />
+
+        {/* Success dialog to show import result / errors */}
+        <SuccessDialog
+          open={successDialog.open}
+          title={successDialog.title || 'Kết quả import'}
+          message={successDialog.message}
+          onClose={() => setSuccessDialog({ open: false, title: '', message: null })}
         />
       </div>
     </div>

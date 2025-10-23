@@ -599,7 +599,7 @@ export function OrderForm({
                   <div className="col-span-3">
                     <label className="block text-sm font-medium mb-1">Sản phẩm</label>
                     {mode === "view" ? (
-                      <div className="text-xs w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm truncate h-10 flex items-center">
+                      <div className=" w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm truncate h-10 flex items-center">
                         {detail.product_name || '-'}
                       </div>
                     ) : (
