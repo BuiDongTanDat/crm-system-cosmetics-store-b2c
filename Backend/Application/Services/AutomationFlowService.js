@@ -243,6 +243,7 @@ class AutomationFlowService {
   async getAllflow(){
     return await this.flows.findAll();
   }
+  
   async publishFlow(flow_id, dto = {}) {
     try {
       // 1) lấy flow
