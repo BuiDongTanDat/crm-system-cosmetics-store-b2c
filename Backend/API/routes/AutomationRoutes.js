@@ -16,6 +16,8 @@ router.post('/flows/:flow_id/enable', AutomationFlowController.enable);
 router.post('/flows/:flow_id/disable', AutomationFlowController.disable);
 router.get('/flows/:flow_id', AutomationFlowController.getFlow);
 router.post('/trigger', AutomationController.trigger);
+router.get('/run-daily', AutomationController.runDaily);
+router.get('/trigger-now', AutomationController.triggerNow);
 // Validate & chuyển trạng thái
 router.post('/flows/:flow_id/validate', AutomationFlowController.validate);     // kiểm tra cấu hình
 router.post('/flows/:flow_id/activate', AutomationFlowController.activate);     // status -> ACTIVE
