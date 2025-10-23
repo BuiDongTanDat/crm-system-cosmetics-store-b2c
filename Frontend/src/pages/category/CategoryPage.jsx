@@ -223,7 +223,7 @@ export default function CategoryPage() {
                                             >
                                                 <Edit className="w-4 h-4" />
                                             </Button>
-                                            <ConfirmDialog
+                                            {/* <ConfirmDialog
                                                 title="Xác nhận xóa"
                                                 description={
                                                     <>
@@ -243,7 +243,7 @@ export default function CategoryPage() {
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
 
-                                            </ConfirmDialog>
+                                            </ConfirmDialog> */}
 
                                         </div>
                                     </td>

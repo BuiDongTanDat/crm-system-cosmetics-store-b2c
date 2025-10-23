@@ -1,16 +1,23 @@
 const express = require('express');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
-const OrderController = require('../controllers/OrderController');
+const OrderController = require('../Controller/OrderController');
 
 const router = express.Router();
 
-router.get('/', OrderController.getAll);
-router.get('/:id', OrderController.getById);
-router.post('/import', upload.single('file'), OrderController.importOrders);
-router.post('/sync', OrderController.syncFromAPI);
-router.get('/search', OrderController.search);
-router.get('/:id/status', OrderController.getStatus);
-router.get('/analyze/trends', OrderController.analyzeTrends);
+
+router.post('/', OrderController.create);
+
+// list or query all orders (supports ?customerId=... handled in controller)
+router.get('/', OrderController.getAllOrders);
+
+router.get('/:id', OrderController.get);
+
+router.put('/:id', OrderController.update);
+
+router.patch('/:id/status', OrderController.updateStatus);
+
+// correct: DELETE /orders/:id when router is mounted at /orders
+router.delete('/:id', OrderController.delete);
 
 module.exports = router;

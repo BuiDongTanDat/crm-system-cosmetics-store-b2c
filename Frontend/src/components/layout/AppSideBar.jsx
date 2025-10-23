@@ -50,7 +50,7 @@ const navItems = [
     subItems: [
       { name: "Pipeline", path: "/kanban", pro: false },
       { name: "Leads", path: "/leads", pro: false },
-      { name: "Cơ hội bán hàng", path: "/opporturnities", pro: false }
+      // { name: "Cơ hội bán hàng", path: "/opporturnities", pro: false }
     ],
   },
   {
