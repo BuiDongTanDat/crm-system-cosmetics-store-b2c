@@ -120,8 +120,45 @@ export function ProductForm({
   }, [data]);
 
   // ======= Handlers =======
-  const handleChange = (key) => (e) =>
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const handleChange = (key) => (e) => {
+    let raw = e.target.value;
+
+    // Nêu chỉnh sửa discount_percent, cho phép người dùng nhập nhưng ép kiểu số khi cập nhật state
+    if (key === "discount_percent") {
+      // allow empty input while typing
+      if (raw === "" || raw === "-" || raw === ".") {
+        setForm((prev) => ({ ...prev, [key]: raw }));
+        return;
+      }
+      // parse and clamp between 0 and 100
+      let n = Number(raw);
+      if (isNaN(n)) {
+        // ignore invalid input
+        return;
+      }
+      if (n < 0) n = 0;
+      if (n > 100) n = 100;
+      // keep as string for input, preserve up to 2 decimals
+      raw = String(Number(n.toFixed(2)));
+    }
+
+    setForm((prev) => {
+      const next = { ...prev, [key]: raw };
+
+      // Xử lý tự động tính giá hiện tại khi giá gốc hoặc chiết khấu thay đổi
+      if (key === "discount_percent" || key === "price_original") {
+        const orig = Number(next.price_original ?? 0);
+        const discRaw = Number(next.discount_percent ?? 0);
+        const disc = discRaw > 1 ? discRaw / 100 : discRaw; // accept percent or decimal
+        if (!isNaN(orig) && orig > 0) {
+          const computed = orig * (1 - (isNaN(disc) ? 0 : disc));
+          next.price_current = String(Math.round(computed));
+        }
+      }
+
+      return next;
+    });
+  };
 
   const handleSubmit = () => {
     if (!form.name?.trim()) return toast.error("Vui lòng nhập tên sản phẩm");
@@ -230,11 +267,13 @@ export function ProductForm({
                     placeholder={`Nhập ${label.toLowerCase()}...`}
                   />
                 ) : (
+                  // Disable manual editing for price_current (auto-calculated)
                   <input
-                    disabled={mode === "view"}
+                    disabled={key === "price_current" ? true : (mode === "view")}
                     value={form[key] || ""}
                     onChange={handleChange(key)}
                     type={isNumeric ? "number" : "text"}
+                    {...(key === "discount_percent" ? { min: 0, max: 100, step: "0.01" } : {})}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
                     placeholder={`Nhập ${label.toLowerCase()}...`}
                   />

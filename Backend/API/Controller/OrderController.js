@@ -1,51 +1,126 @@
-// Method	Endpoint	Mô tả
-// GET	/orders	Danh sách đơn hàng
-// GET	/orders/:id	Chi tiết đơn hàng (kèm order details)
-// POST	/orders/import	Import đơn hàng từ CSV
-// POST	/orders/sync	Đồng bộ dữ liệu từ web/POS/API
-// GET	/orders/search?q=	Tìm kiếm đơn hàng
-// GET	/orders/:id/status	Xem trạng thái đơn hàng
-// GET	/orders/analyze/trends	Phân tích AI xu hướng mua (repeat, upsell)
-// const OrderService = require('../../Application/Services/OrderService');
-const IOrderService = require('../../Application/Interfaces/IOrderService');
+const OrderService = require('../../Application/Services/OrderService');
+const OrderDetailService = require('../../Application/Services/OrderDetailService');
+const { OrderResponseDTO } = require('../../Application/DTOs/OrderDTO');
+
 class OrderController {
-  static async getAll(req, res) {
-    const data = await IOrderService.getAll();
-    res.json(data);
+  // POST /orders
+  async create(req, res, next) {
+    try {
+      console.log('OrderController.create body=', req.body);
+      const payload = req.body;
+      const created = await OrderService.createOrder(payload);
+      return res.status(201).json(OrderResponseDTO.fromEntity(created));
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async getById(req, res) {
-    const data = await IOrderService.getById(req.params.id);
-    res.json(data);
+  async get(req, res, next) {
+    try {
+      const id = req.params.id;
+      const order = await OrderService.getOrder(id);
+      if (!order) return res.status(404).json({ message: 'Order not found' });
+      const details = await OrderDetailService.getByOrderId(id);
+      return res.json(OrderResponseDTO.fromEntity(order, details));
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async importOrders(req, res) {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    const result = await IOrderService.importOrders(req.file.path);
-    res.json(result);
+  // GET /orders
+  async getAllOrders(req, res, next) {
+    try {
+      const customerId = req.query && (req.query.customerId || req.query.customer_id) ? (req.query.customerId || req.query.customer_id) : null;
+      const opts = {};
+      if (req.query.status) opts.status = req.query.status;
+      // Nếu có customerId thì lọc theo customer, không thì lấy tất cả
+      const orders = await OrderService.listByCustomer(customerId, opts);
+
+      // Map sang DTO kèm details
+      const mapped = await Promise.all(
+        (orders || []).map(async (o) => {
+          const id = o.order_id || o.id || o._id;
+          const items = await OrderDetailService.getByOrderId(id);
+          return OrderResponseDTO.fromEntity(o, items);
+        })
+      );
+
+      return res.json(mapped);
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async syncFromAPI(req, res) {
-    const { source } = req.body;
-    const result = await IOrderService.syncOrdersFromAPI(source);
-    res.json(result);
+
+  // PUT /orders/:id
+  async update(req, res, next) {
+    try {
+      const id = req.params.id;
+      const patch = req.body;
+      const updated = await OrderService.updateOrder(id, patch);
+      const details = await OrderDetailService.getByOrderId(id);
+      return res.json(OrderResponseDTO.fromEntity(updated, details));
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async search(req, res) {
-    const { q } = req.query;
-    const result = await IOrderService.searchOrders(q);
-    res.json(result);
+  // PATCH /orders/:id/status
+  async updateStatus(req, res, next) {
+    try {
+      const id = req.params.id;
+      const status = req && req.body ? req.body.status : undefined;
+      const finalStatus = typeof status !== 'undefined' ? status : req.query && req.query.status ? req.query.status : undefined;
+
+      if (typeof finalStatus === 'undefined' || finalStatus === null || finalStatus === '') {
+        return res.status(400).json({ message: 'Thiếu trường status' });
+      }
+
+      const updated = await OrderService.updateStatus(id, finalStatus);
+      const details = await OrderDetailService.getByOrderId(id);
+      return res.json(OrderResponseDTO.fromEntity(updated, details));
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async getStatus(req, res) {
-    const result = await IOrderService.getOrderStatus(req.params.id);
-    res.json(result);
+  // DELETE /orders/:id
+  async delete(req, res, next) {
+    try {
+      const id = req.params.id;
+      await OrderService.deleteOrder(id);
+      return res.status(204).send();
+    } catch (err) {
+      return next(err);
+    }
+  }
+  // GET /orders?customerId=? 
+  async listByCustomer(req, res, next) {
+    try {
+      const customerId = req.query.customer_id || req.query.customerId;
+      if (!customerId) {
+        return res.status(400).json({ message: 'Missing customer_id' });
+      }
+
+      const opts = {};
+      if (req.query.status) opts.status = req.query.status;
+
+      const orders = await OrderService.listByCustomer(customerId, opts);
+
+      const mapped = await Promise.all(
+        (orders || []).map(async (o) => {
+          const id = o.order_id || o.id || o._id;
+          const items = await OrderDetailService.getByOrderId(id);
+          return OrderResponseDTO.fromEntity(o, items);
+        })
+      );
+
+      return res.json(mapped);
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  static async analyzeTrends(req, res) {
-    const result = await IOrderService.analyzeTrends();
-    res.json(result);
-  }
 }
 
-module.exports = OrderController;
+module.exports = new OrderController();
