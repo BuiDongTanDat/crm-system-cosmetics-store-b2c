@@ -28,7 +28,7 @@ export default function EmployeePage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const employeesPerPage = 6;
+    const employeesPerPage = 8;
 
     // Field mapping for CSV export/import
     const employeeFieldMapping = {
@@ -376,9 +376,9 @@ export default function EmployeePage() {
             </div>
 
             {/* Scrollable content: table, pagination, dialog */}
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 pt-4">
                 {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[800px]">
                             <thead className="bg-gray-50">
@@ -408,24 +408,24 @@ export default function EmployeePage() {
                                         onMouseEnter={() => setHoveredRow(employee.id)}
                                         onMouseLeave={() => setHoveredRow(null)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">{employee.email}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center">
                                             <div className="text-sm text-gray-900">{employee.phone}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center">
                                             <span >{employee.role}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center w-32 uppercase">
+                                        <td className="px-6 py-2 whitespace-nowrap text-center w-32 uppercase">
                                             <span className={getStatusBadge(employee.status)}>
                                                 {employee.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center w-36">
+                                        <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
                                                         ? "opacity-100 translate-y-0 pointer-events-auto"

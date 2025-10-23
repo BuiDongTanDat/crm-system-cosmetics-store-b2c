@@ -21,9 +21,9 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         
         // Thêm variant mới cho menu
-        menuItem: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-105 active:scale-95",
-        menuSubmenu: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-105 active:scale-95",
-        subMenuItem: "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold hover:scale-105 active:scale-95",
+        menuItem: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-103 active:scale-95",
+        menuSubmenu: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-103 active:scale-95",
+        subMenuItem: "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold  active:scale-95",
         
 
         //Variant action button

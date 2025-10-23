@@ -27,6 +27,8 @@ export default function CategoryForm({
         status: "ACTIVE"
     });
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     useEffect(() => {
         setMode(propMode || (data ? "view" : "add"));
     }, [propMode, data]);
@@ -74,33 +76,46 @@ export default function CategoryForm({
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         if (e) e.preventDefault();
         if (!form.name.trim()) {
             toast.error("Tên danh mục không được để trống!");
             return;
         }
+
         // Đảm bảo status luôn là "ACTIVE" hoặc "INACTIVE"
         const status = form.status === "ACTIVE" || form.status === "INACTIVE"
             ? form.status
             : (form.status === "Active" ? "ACTIVE" : (form.status === "Inactive" ? "INACTIVE" : "ACTIVE"));
 
-        // Gửi nguyên form (bao gồm category_id chỉ khi có giá trị)
         const payload = {
             name: form.name,
             description: form.description,
             status,
-            ...(form.category_id ? { category_id: form.category_id } : {}) // <-- only include if truthy
+            ...(form.category_id ? { category_id: form.category_id } : {})
         };
 
-        onSave(payload);
+        try {
+            setIsSubmitting(true);
+            const res = await onSave?.(payload);
+            // Nếu onSave trả về object lỗi theo contract { success: false, message }
+            if (res && res.success === false) {
+                // Này bên page sẽ toast lỗi từ API nên tắt cái này tránh toast 2 lần á
+                // toast.error(String(res.message || "Có lỗi khi lưu danh mục"));
+                // giữ modal mở và ở chế độ edit để người dùng sửa
+                (propSetMode || setMode)("edit");
+                return;
+            }
 
-        // điều chỉnh mode/đóng modal dựa trên presence của category_id / id
-        if (data?.category_id || data?.id) {
-            (propSetMode || setMode)("view");
-        } else {
-            (propSetMode || setMode)("close");
-            onClose?.();
+            // Nếu thành công: chuyển mode/đóng modal như trước
+            if (data?.category_id || data?.id) {
+                (propSetMode || setMode)("view");
+            } else {
+                (propSetMode || setMode)("close");
+                onClose?.();
+            }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -180,7 +195,7 @@ export default function CategoryForm({
                             <Button type="button" variant="outline" onClick={handleCancel}>
                                 Hủy
                             </Button>
-                            <Button type="submit" onClick={handleSubmit} variant="actionUpdate">
+                            <Button type="submit" onClick={handleSubmit} variant="actionUpdate" disabled={isSubmitting}>
                                 <Save className="w-4 h-4" />
                                 Lưu thay đổi
                             </Button>

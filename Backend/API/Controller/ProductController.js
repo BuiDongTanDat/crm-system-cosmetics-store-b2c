@@ -1,6 +1,6 @@
 const path = require('path');
-const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
-const productService = require('../../Application/Services/ProductService');
+const ProductService = require('../../Application/Services/ProductService');
+const { Parser } = require('json2csv');
 
 module.exports = {
   // --- CRUD ---
@@ -63,18 +63,42 @@ module.exports = {
     }
   },
 
-  // --- Import CSV ---
+  //Import CSV 
   async importCSV(req, res) {
     try {
-      const filePath = req.file ? req.file.path : null;
-      if (!filePath) {
-        return res.status(400).json({ error: 'Chưa có file CSV tải lên' });
-      }
+        // Ensure the file is received correctly
+        const filePath =
+            (req.file && req.file.path) || // Single file upload
+            (req.files && req.files.length > 0 && req.files[0].path) || // Multiple files
+            null;
 
-      const result = await ProductService.importFromCSV(filePath);
-      res.json({ message: 'Import thành công', result });
+        if (!filePath) {
+            return res.status(400).json({ error: 'Chưa có file CSV tải lên hoặc field name bị thiếu' });
+        }
+
+        // Process the file using the service
+        const result = await ProductService.importFromCSV(filePath);
+        res.json({ message: 'Import hoàn tất', result });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+        console.error('Error importing CSV:', err);
+        res.status(500).json({ error: 'Failed to import CSV', details: err.message });
     }
   },
+
+  // Xuất file CSV
+  async exportCSV(req, res) {
+    try {
+        const csvString = await ProductService.exportToCSV();
+
+        // Set headers for file download
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="products.csv"');
+
+        // Send the CSV string as the response body
+        return res.status(200).send(csvString);
+    } catch (err) {
+        console.error('Error exporting CSV:', err);
+        res.status(500).json({ error: 'Failed to export products to CSV', details: err.message });
+    }
+  }
 };

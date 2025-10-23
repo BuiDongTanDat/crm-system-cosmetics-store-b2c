@@ -38,7 +38,7 @@ export default function RolePage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const rolesPerPage = 6;
+    const rolesPerPage = 8;
 
     const filteredRoles = roles.filter(role =>
         (role.role_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -192,9 +192,9 @@ export default function RolePage() {
             </div>
 
             {/* Scrollable content: table, pagination, dialog */}
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1  pt-4">
                 {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[800px]">
                             <thead className="bg-gray-50">
@@ -223,10 +223,10 @@ export default function RolePage() {
                                         onMouseEnter={() => setHoveredRow(role.role_name)}
                                         onMouseLeave={() => setHoveredRow(null)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 2 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{role.role_name}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-start">
+                                        <td className="px-6 py-2 whitespace-nowrap text-start">
                                             <div className="text-sm text-gray-900">
                                                 {role.permissions && role.permissions.length > 0
                                                     ? (() => {
@@ -238,17 +238,17 @@ export default function RolePage() {
                                                 }
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                        <td className="px-6 py-2 text-center whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
                                                 {formatDate(role.created_at)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                        <td className="px-6 py-2 text-center whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
                                                 {formatDateTime(role.updated_at)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center w-36">
+                                        <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === role.role_name
                                                     ? "opacity-100 translate-y-0 pointer-events-auto"

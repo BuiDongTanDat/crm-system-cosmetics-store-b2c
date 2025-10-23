@@ -89,7 +89,7 @@ class OrderController {
     try {
       const id = req.params.id;
       await OrderService.deleteOrder(id);
-      return res.status(204).send();
+      return res.status(201).json({ message: 'Đã xóa đơn hàng' });
     } catch (err) {
       return next(err);
     }

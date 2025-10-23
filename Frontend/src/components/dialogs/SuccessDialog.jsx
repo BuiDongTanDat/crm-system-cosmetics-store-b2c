@@ -8,11 +8,12 @@ import {
   DialogFooter,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { Bug, Download, SquarePen } from 'lucide-react';
 
 export default function SuccessDialog({
   open = false,
   message = 'Thao tác thành công.',
-  onClose = () => {},
+  onClose = () => { },
   title = 'Thành công',
 }) {
   const renderContent = () => {
@@ -29,6 +30,50 @@ export default function SuccessDialog({
         </ul>
       );
     }
+
+    // Nếu message có cấu trúc { message: '...', result: { imported, updated, failed, errors: [...] } }
+    if (message && typeof message === 'object') {
+      const msgText = message.message || '';
+      const result = message.result || {};
+      const { imported = 0, updated = 0, failed = 0, errors = [] } = result;
+
+      return (
+        <div className="text-sm leading-relaxed">
+          {/* {msgText && (
+            <p className="font-semibold text-foreground mb-2">{msgText}</p>
+          )} */}
+
+          <div className="bg-muted/40 rounded-xl p-3 border border-border mb-3">
+            <p className="m-0">
+              <Download className="inline w-4 h-4 mr-1 text-green-600" />
+              Số sản phẩm đã thêm: <strong>{imported}</strong> <br />
+              <SquarePen className="inline w-4 h-4 mr-1 text-blue-600" />
+              Số sản phẩm đã cập nhật: <strong>{updated}</strong> <br />
+              <Bug className="inline w-4 h-4 mr-1 text-red-600" />
+              Thất bại: <strong>{failed}</strong>
+            </p>
+          </div>
+
+          {errors.length > 0 && (
+            <div className="bg-destructive/10 rounded-lg p-3 border border-destructive/30">
+              <p className="font-semibold text-destructive mb-2">
+                Chi tiết lỗi ({errors.length}):
+              </p>
+              <ul className="list-disc pl-5 space-y-2">
+                {errors.map((err, idx) => (
+                  <li key={idx} className="text-destructive">
+                    <div><strong>Dòng:</strong> {err.row ?? 'N/A'}</div>
+                    {err.field && <div><strong>Trường:</strong> {err.field}</div>}
+                    <div><strong>Lỗi:</strong> {err.message ?? JSON.stringify(err)}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
 
     try {
       if (message.response && (message.response.data || message.message)) {
@@ -59,7 +104,7 @@ export default function SuccessDialog({
         </div>
 
         <DialogFooter className="mt-4">
-          <Button onClick={onClose} variant="actionCreate">
+          <Button onClick={onClose} variant="outline">
             Đóng
           </Button>
         </DialogFooter>

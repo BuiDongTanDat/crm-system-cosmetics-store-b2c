@@ -28,7 +28,7 @@ export function ProductForm({
     price_current: "Giá hiện tại (VNĐ)",
     price_original: "Giá gốc (VNĐ)",
     discount_percent: "Giảm giá (%)",
-    rating: "Đánh giá (⭐)",
+    rating: "Đánh giá",
     reviews_count: "Số lượt đánh giá",
     monthly_sales: "Doanh số hàng tháng",
     sell_progress: "Tiến độ bán hàng",

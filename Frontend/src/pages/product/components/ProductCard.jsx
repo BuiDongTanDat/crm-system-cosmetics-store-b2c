@@ -10,7 +10,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
   return (
     <div
       className="bg-white border-gray-200 overflow-hidden rounded-sm
-                hover:scale-105 hover:shadow-md shadow-sm
+                hover:scale-103 hover:shadow-md shadow-sm
                 transition-all duration-150 animate-fade-in relative"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -29,7 +29,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
 
       {/* Content */}
       <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between ">
           <p className="font-semibold text-gray-900 text-sm truncate">
             {product.name}
           </p>

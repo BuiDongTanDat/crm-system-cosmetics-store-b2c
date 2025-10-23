@@ -38,7 +38,7 @@ export default function CategoryPage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const categoriesPerPage = 6;
+    const categoriesPerPage = 8;
     const totalPages = Math.max(1, Math.ceil(filteredCategories.length / categoriesPerPage));
     const currentCategories = filteredCategories.slice(
         (currentPage - 1) * categoriesPerPage,
@@ -76,39 +76,49 @@ export default function CategoryPage() {
             if (!payloadToSend.id) delete payloadToSend.id;
 
             let savedItem;
-            if (idForUpdate) {
-                await updateCategory(idForUpdate, payloadToSend);
-                savedItem = await getCategory(idForUpdate);
-            } else {
-                savedItem = await createCategory(payloadToSend);
-            }
 
-            if (savedItem) {
-                if (idForUpdate) {
-                    setCategories((prev) => {
-                        const idx = prev.findIndex((c) => (c.category_id || c.id) == idForUpdate);
-                        if (idx !== -1) {
-                            const newArr = [...prev];
-                            newArr[idx] = savedItem;
-                            return newArr;
-                        }
-                        return [...prev, savedItem];
-                    });
-                    setModal({ open: true, mode: "view", category: savedItem });
-                    toast.success("Cập nhật danh mục thành công!");
-                } else {
-                    setCategories((prev) => [savedItem, ...prev]);
-                    closeModal();
-                    toast.success( "Thêm danh mục thành công.");
+            if (idForUpdate) {
+                const updateRes = await updateCategory(idForUpdate, payloadToSend);
+
+                // Kiểm tra nếu lỗi
+                if (updateRes && updateRes.error) {
+                    return { success: false, message: String(updateRes.error) };
                 }
+
+                savedItem = (updateRes && (updateRes.category_id || updateRes.id)) ? updateRes : await getCategory(idForUpdate);
+
+                // Cập nhật state và giữ modal mở ở chế độ "view"
+                setCategories((prev) => {
+                    const idx = prev.findIndex((c) => (c.category_id || c.id) == idForUpdate);
+                    if (idx !== -1) {
+                        const newArr = [...prev];
+                        newArr[idx] = savedItem;
+                        return newArr;
+                    }
+                    return [...prev, savedItem];
+                });
+                setModal({ open: true, mode: "view", category: savedItem });
+                toast.success("Cập nhật danh mục thành công!");
+                return { success: true, data: savedItem };
             } else {
-                await fetchCategories();
-                closeModal();
+                const createRes = await createCategory(payloadToSend);
+                // Kiểm tra nếu lỗi
+                if (createRes && createRes.error) {
+                    return { success: false, message: String(createRes.error) };
+                }
+
+                savedItem = createRes;
+
+                // Cập nhật state để thêm mục mới nhưng KHÔNG đóng modal ở đây; trả về success cho form
+                setCategories((prev) => [savedItem, ...prev]);
+                toast.success("Thêm danh mục thành công.");
+                return { success: true, data: savedItem };
             }
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Không thể lưu danh mục!";
+            const msg = err?.message || "Không thể lưu danh mục!";
             toast.error(String(msg));
             console.error("Lỗi lưu danh mục:", err);
+            return { success: false, message: String(msg) };
         }
     };
     const handleDelete = async (id) => {
@@ -118,7 +128,7 @@ export default function CategoryPage() {
             closeModal();
             toast.error("Xóa danh mục thành công!");
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Không thể xóa danh mục!";
+            const msg = err?.message || "Không thể xóa danh mục!";
             toast.error(String(msg));
             console.error("Lỗi xóa danh mục:", err);
         }
@@ -200,12 +210,12 @@ export default function CategoryPage() {
                                     key={`${category.category_id || category.id || 'cat'}-${index}`}
                                     className="group hover:bg-gray-50 transition-colors"
                                 >
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{category.name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">{category.description}</td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-6 py-2 text-sm font-medium text-gray-900">{category.name}</td>
+                                    <td className="px-6 py-2 text-sm text-gray-900">{category.description}</td>
+                                    <td className="px-6 py-2 text-center">
                                         <span className={getStatusBadge(category.status)}>{category.status}</span>
                                     </td>
-                                    <td className="px-6 py-4 text-center w-36">
+                                    <td className="px-6 py-2 text-center w-36">
                                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
                                             <Button
                                                 variant="actionRead"
