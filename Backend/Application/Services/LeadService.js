@@ -152,6 +152,106 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'ADD_INTERACTION_FAILED' }));
     }
   }
+  // ⚠️ Thay thế hàm static cũ bằng bản instance dưới đây:
+  async updateLeadStatus(leadId, rawStatus) {
+    try {
+      // Map để nhận cả tên status kiểu UI (UPPERCASE) về schema DB (lowercase)
+      const MAP_TO_DB = {
+        LEADS: 'new',
+        NEW: 'new',
+        CONTACTED: 'contacted',
+        QUALIFIED: 'qualified',
+        NURTURING: 'nurturing',
+        CONVERTED: 'converted',
+        'CLOSED-LOST': 'closed_lost',
+        CLOSED_LOST: 'closed_lost',
+      };
+
+      const normalized = String(rawStatus || '').trim();
+      const toStatus =
+        MAP_TO_DB[normalized.toUpperCase()] || normalized.toLowerCase();
+
+      const ALLOWED = [
+        'new',
+        'contacted',
+        'qualified',
+        'nurturing',
+        'converted',
+        'closed_lost',
+      ];
+      if (!ALLOWED.includes(toStatus)) {
+        return fail({
+          status: 400,
+          code: 'INVALID_STATUS',
+          message: `Trạng thái không hợp lệ. Hợp lệ: ${ALLOWED.join(', ')}`,
+        });
+      }
+
+      // Tồn tại lead không?
+      const found = await this.repo.findById(leadId);
+      if (!found) {
+        return fail({
+          status: 404,
+          code: 'LEAD_NOT_FOUND',
+          message: 'Không tìm thấy lead cần cập nhật',
+        });
+      }
+
+      // Không đổi gì
+      if (found.status === toStatus) {
+        return ok({ message: 'Status unchanged', data: found });
+      }
+
+      // Dùng flow chuẩn để vừa đổi trạng thái vừa ghi lịch sử
+      const updatedRes = await this.changeStatus(
+        leadId,
+        toStatus,
+        'pipeline_drag_drop',
+        null,
+        { source: 'pipeline' }
+      );
+      return updatedRes; // đã là {ok, data|error} theo format chung
+    } catch (err) {
+      return fail(
+        asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' })
+      );
+    }
+  }
+  // Thêm mới: gom leads theo cột (stage) cho UI Kanban
+  async getPipelineColumns() {
+    try {
+      const ORDER = [
+        'new',
+        'contacted',
+        'qualified',
+        'nurturing',
+        'converted',
+        'closed_lost',
+      ];
+
+      // Lấy toàn bộ lead (tuỳ bạn, có thể giới hạn theo campaign / owner sau)
+      const leads = await this.repo.findAll();
+
+      // Khởi tạo khung cột rỗng theo thứ tự cố định
+      const columns = ORDER.reduce((acc, k) => {
+        acc[k] = [];
+        return acc;
+      }, {});
+
+      for (const l of leads) {
+        const key = (l.status || 'new').toLowerCase();
+        const bucket = ORDER.includes(key) ? key : 'new';
+        columns[bucket].push(l);
+      }
+
+      return ok({ columns, order: ORDER });
+    } catch (err) {
+      return fail(
+        asAppError(err, { status: 500, code: 'PIPELINE_FETCH_FAILED' })
+      );
+    }
+  }
+
   async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = null) {
     try {
       const lead = await this.repo.findById(leadId);

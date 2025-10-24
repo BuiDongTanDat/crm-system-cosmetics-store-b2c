@@ -55,9 +55,12 @@ export const getPriorityLabel = (priority) => {
 };
 
 //Hàm tạo tên viết tắt từ tên đầy đủ
-export const getInitials = (name) => {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase();
-};
+export function getInitials(input) {
+  if (!input || typeof input !== 'string') return 'NA';
+  const parts = input.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NA';
+  return parts.slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
 
 //Hàm kiểm tra email hợp lệ
 export const isValidEmail = (email) => {
@@ -114,10 +117,10 @@ export const exportToCSV = (data, filename = 'data.csv', headers = null) => {
 
   // Tự động tạo headers từ keys của object đầu tiên nếu không được cung cấp
   const csvHeaders = headers || Object.keys(data[0]);
-  
+
   // Tạo header row
   const headerRow = csvHeaders.join(',');
-  
+
   // Tạo data rows
   const dataRows = data.map(row => {
     return csvHeaders.map(header => {
@@ -133,11 +136,11 @@ export const exportToCSV = (data, filename = 'data.csv', headers = null) => {
 
   // Kết hợp header và data
   const csvContent = [headerRow, ...dataRows].join('\n');
-  
+
   // Thêm BOM để hỗ trợ UTF-8 trong Excel
   const BOM = '\uFEFF';
   const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-  
+
   // Tạo link download
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -158,7 +161,7 @@ export const importFromCSV = (file, hasHeader = true) => {
       try {
         const text = e.target.result;
         const lines = text.split('\n').filter(line => line.trim() !== '');
-        
+
         if (lines.length === 0) {
           reject(new Error('File CSV trống'));
           return;
@@ -169,10 +172,10 @@ export const importFromCSV = (file, hasHeader = true) => {
           const result = [];
           let current = '';
           let inQuotes = false;
-          
+
           for (let i = 0; i < line.length; i++) {
             const char = line[i];
-            
+
             if (char === '"') {
               if (inQuotes && line[i + 1] === '"') {
                 current += '"';
@@ -192,11 +195,11 @@ export const importFromCSV = (file, hasHeader = true) => {
         };
 
         const parsedLines = lines.map(parseCSVLine);
-        
+
         if (hasHeader) {
           const headers = parsedLines[0];
           const dataLines = parsedLines.slice(1);
-          
+
           const data = dataLines.map(line => {
             const obj = {};
             headers.forEach((header, index) => {
@@ -204,7 +207,7 @@ export const importFromCSV = (file, hasHeader = true) => {
             });
             return obj;
           });
-          
+
           resolve({ headers, data });
         } else {
           resolve({ headers: null, data: parsedLines });
@@ -213,7 +216,7 @@ export const importFromCSV = (file, hasHeader = true) => {
         reject(new Error('Lỗi phân tích file CSV: ' + error.message));
       }
     };
-    
+
     reader.onerror = () => reject(new Error('Lỗi đọc file'));
     reader.readAsText(file, 'UTF-8');
   });

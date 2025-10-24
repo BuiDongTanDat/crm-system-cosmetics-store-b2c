@@ -16,9 +16,9 @@ class LeadRepository {
   }
   async update(leadId, updateData) {
     const lead = await Lead.findByPk(leadId);
-    if (!lead) return null; 
+    if (!lead) return null;
   }
-  
+
   async findById(leadId) {
     return await Lead.findByPk(leadId);
   }
@@ -34,7 +34,7 @@ class LeadRepository {
   async findAll() {
     return await Lead.findAll();
   }
-  
+
   async save(lead) {
     const payload = typeof lead?.toJSON === 'function' ? lead.toJSON() : lead;
     if (!payload.lead_id) return await Lead.create(payload);
@@ -246,7 +246,7 @@ class LeadRepository {
     await lead.update({ lead_score: Number(sum) || 0 });
     return lead;
   }
-   async aggregateByStatus() {
+  async aggregateByStatus() {
     const [rows] = await Lead.sequelize.query(`
       SELECT status, COUNT(*)::int AS count
       FROM leads

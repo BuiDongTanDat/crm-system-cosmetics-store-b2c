@@ -47,6 +47,7 @@ export default function KanbanColumn({
 
   const handleDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     const cardId = e.dataTransfer.getData("text/plain");
     onDrop(cardId, column.id);
     setIsDragOver(false);
@@ -60,11 +61,10 @@ export default function KanbanColumn({
   return (
     <div className="flex flex-col h-full bg-gray-50 rounded-lg shadow-sm border border-gray-200">
       {/* Header */}
-      <div 
+      <div
         data-column-header
-        className={`${column.headerColor} text-white p-2 rounded-t-lg flex-shrink-0 ${
-          isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'
-        } select-none`}
+        className={`${column.headerColor} text-white p-2 rounded-t-lg flex-shrink-0 ${isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'
+          } select-none`}
       >
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-xs uppercase tracking-wide">{column.title}</h3>
