@@ -3,6 +3,9 @@
 // GET	/leads/:id	Chi tiết lead	
 // POST	/leads	Tạo lead mới	
 // PUT	/leads/:id	Cập nhật lead	
+// GET /pipeline/summary	Tổng hợp số deals, giá trị, tỷ lệ	→ sử dụng aggregateByStatus()
+// GET /pipeline/columns	Trả về danh sách cột (stage) và lead tương ứng	group theo status
+// PATCH /pipeline/:leadId/status	Cập nhật status khi kéo thả lead sang cột khác	nhận { status: 'CONTACTED' }
 // DELETE	/leads/:id	Xóa lead	
 // POST	/leads/:id/assign	Gán lead cho nhân viên	
 // POST	/leads/:id/status	Cập nhật trạng thái	
@@ -16,7 +19,7 @@ const LeadService = require('../../Application/Services/LeadService');
 const { ok, fail, asAppError } = require('../../Application/helpers/errors');
 const { CreateRequestLeadDTO } = require('../../Application/DTOs/LeadDTO');
 class LeadController {
-  
+
   static async importLeads(req, res) {
     try {
       if (!req.file) throw new Error("No file uploaded");
@@ -26,7 +29,7 @@ class LeadController {
       res.status(400).json({ error: err.message });
     }
   }
-  
+
   static async getLeadDetails(req, res) {
     const { id } = req.params;
     const result = await LeadService.getLeadDetails(id);
@@ -46,9 +49,49 @@ class LeadController {
   //   const result = await LeadService.listLeads(req.query);
   //   res.status(result.ok ? 200 : 500).json(result);
   // }
-  static async pipeline(req, res) {
-    const result = await LeadService.getPipelineSummary();
-    res.status(result.ok ? 200 : 500).json(result);
+  static async getPipelineSummary(req, res) {
+    try {
+      const result = await LeadService.getPipelineSummary();
+      return res
+        .status(result.ok ? 200 : (result.error?.status || 500))
+        .json(result);
+    } catch (err) {
+      return res
+        .status(500)
+        .json(
+          fail(asAppError(err, { status: 500, code: 'PIPELINE_SUMMARY_FAILED' }))
+        );
+    }
+  }
+  static async getPipelineColumns(req, res) {
+    try {
+      const result = await LeadService.getPipelineColumns();
+      return res
+        .status(result.ok ? 200 : (result.error?.status || 500))
+        .json(result);
+    } catch (err) {
+      return res
+        .status(500)
+        .json(
+          fail(asAppError(err, { status: 500, code: 'PIPELINE_FETCH_FAILED' }))
+        );
+    }
+  }
+  static async updateLeadStatus(req, res) {
+    try {
+      const { leadId } = req.params;
+      const { status } = req.body;
+      const result = await LeadService.updateLeadStatus(leadId, status);
+      return res
+        .status(result.ok ? 200 : (result.error?.status || 400))
+        .json(result);
+    } catch (err) {
+      return res
+        .status(500)
+        .json(
+          fail(asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' }))
+        );
+    }
   }
   static async getAll(req, res) {
     try {
