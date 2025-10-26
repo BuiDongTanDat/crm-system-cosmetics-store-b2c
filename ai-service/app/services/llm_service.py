@@ -182,7 +182,7 @@ class LLMService:
                 "note": "AI trả về text không hợp lệ, dùng fallback theo ràng buộc.",
                 "summary_report": (raw or "")[:300]
             }
-
+    
     # ----------------- Core Gemini Call -----------------
     async def _generate(self, prompt: str, model: str) -> str:
         """

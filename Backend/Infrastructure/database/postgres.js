@@ -13,8 +13,10 @@ class DataManager {
         DB_PORT = '5432',
         DB_LOGGING = 'false',
         DB_SSL = 'false',
+        NODE_ENV = 'development',   // Thêm
       } = process.env;
 
+      this.env = NODE_ENV;
       this.sequelize = new Sequelize(DB_NAME, DB_USER, String(DB_PASSWORD), {
         host: DB_HOST,
         port: parseInt(DB_PORT, 10),
@@ -29,10 +31,7 @@ class DataManager {
         dialectOptions:
           DB_SSL === 'true'
             ? {
-              ssl: {
-                require: true,
-                rejectUnauthorized: false,
-              },
+              ssl: { require: true, rejectUnauthorized: false },
             }
             : {},
       });
@@ -52,11 +51,8 @@ class DataManager {
     }
   }
 
-  /**
-   * Load models và thiết lập associations
-   */
   loadModels() {
-    // ===== Import các model =====
+    // Import tất cả model của bạn
     require('../../Domain/Entities/User');
     require('../../Domain/Entities/Role');
     require('../../Domain/Entities/Product');
@@ -65,32 +61,45 @@ class DataManager {
     require('../../Domain/Entities/Category');
     require('../../Domain/Entities/ProductReviews');
     require('../../Domain/Entities/ProductSpecifications');
-
     require('../../Domain/Entities/Lead');
     require('../../Domain/Entities/LeadStatusHistory');
     require('../../Domain/Entities/LeadInteraction');
-
     require('../../Domain/Entities/AlModelResult');
     require('../../Domain/Entities/AutomationFlow');
     require('../../Domain/Entities/AutomationTrigger');
     require('../../Domain/Entities/AutomationAction');
-
   }
 
   async sync(options = { alter: true }) {
     try {
       this.loadModels();
       await this.sequelize.sync(options);
-      console.log(' Database synced');
+      console.log('🧩 Database synced');
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('❌ Sync error:', error);
       throw error;
     }
   }
 
-  async connectAndSync(options = { alter: true }) {
+  async connectAndSync() {
     await this.connect();
-    await this.sync(options);
+    // sau này chỉnh lại development cho đúng tại vì đang test mail
+    if (this.env === 'production') {
+      console.log('⚙️ Running in DEVELOPMENT mode (code-first)');
+      await this.sync({ alter: true });
+      if (process.env.SEED_ON_START === 'true') {
+        try {
+          const { seedDatabase } = require('./seed');
+          await seedDatabase();
+        } catch (err) {
+          console.error('Seed error:', err);
+        }
+      }
+    } else {
+      console.log('Running in PRODUCTION mode (database-first)');
+      this.loadModels(); // chỉ load model để dùng trong app
+ 
+    }
   }
 
   getSequelize() {
@@ -100,5 +109,4 @@ class DataManager {
 
 const instance = new DataManager();
 Object.freeze(instance);
-
 module.exports = instance;

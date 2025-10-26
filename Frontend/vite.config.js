@@ -19,12 +19,12 @@ export default defineConfig(({ mode }) => {
         clientPort: env.HMR_PORT ? parseInt(env.HMR_PORT) : 5174,
       },
       // Nếu chỉ muốn mock FE, hãy comment toàn bộ block proxy này lại như trên
-      //     proxy: {
-      //     '^/(api|automation)(/|$)': {
-      //       target: 'http://backend:5000',
-      //       changeOrigin: true,
-      //     },
-      // },
+      proxy: {
+        '^/(api|automation)(/|$)': {
+          target: 'http://backend:5000',
+          changeOrigin: true,
+        },
+      },
     },
     preview: {
       host: "0.0.0.0",

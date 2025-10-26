@@ -16,7 +16,7 @@ const productRoutes = require('./API/routes/productRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
 const CampaignRoute = require('./API/routes/CampaignRoutes')
 const OrderRoutes = require('./API/routes/OrderRoutes');
-const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes'); 
+const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 
 // Middlewares
@@ -30,11 +30,7 @@ require('./Domain/Events/EngagementEvents');
 
 const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
 const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
-
 const app = express();
-
-
-//Middlewares
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
@@ -42,8 +38,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-//Routes
-
+/* =========================
+   Middlewares
+/* =========================
+   Routes
+========================= */
 app.use('/auth', authRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
@@ -52,9 +51,9 @@ app.use('/roles', roleRoutes);
 app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
-app.use('/orders',OrderRoutes);
-app.use('/order_details',OrderDetailRoutes);
-app.use('/customers',CustomerRoutes);
+app.use('/orders', OrderRoutes);
+app.use('/order_details', OrderDetailRoutes);
+app.use('/customers', CustomerRoutes);
 
 // Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
