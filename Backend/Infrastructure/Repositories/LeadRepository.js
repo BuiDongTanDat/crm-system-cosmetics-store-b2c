@@ -1,9 +1,8 @@
 // backend/src/Infrastructure/Repositories/LeadRepository.js
-const { Op } = require('sequelize');
+const { fn, col, literal, Op } = require('sequelize');
 const Lead = require('../../Domain/Entities/Lead');
 const LeadInteraction = require('../../Domain/Entities/LeadInteraction');
 const LeadStatusHistory = require('../../Domain/Entities/LeadStatusHistory');
-
 // Use the same sequelize instance the models were initialized with
 const sequelize = Lead.sequelize;
 
@@ -34,7 +33,18 @@ class LeadRepository {
   async findAll() {
     return await Lead.findAll();
   }
-
+  async getLeadsGroupedByStatus() {
+    const rows = await Lead.findAll({
+      attributes: [
+        'status',
+        [fn('COUNT', col('lead_id')), 'count'],
+        [fn('SUM', literal('COALESCE(predicted_value::numeric, 0)')), 'sum_value']
+      ],
+      group: ['status'],
+      raw: true,
+    });
+    return rows;
+  }
   async save(lead) {
     const payload = typeof lead?.toJSON === 'function' ? lead.toJSON() : lead;
     if (!payload.lead_id) return await Lead.create(payload);

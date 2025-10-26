@@ -54,6 +54,7 @@ app.use('/products', productRoutes);
 app.use('/orders', OrderRoutes);
 app.use('/order_details', OrderDetailRoutes);
 app.use('/customers', CustomerRoutes);
+app.use('/campaign', CampaignRoute)
 
 // Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));

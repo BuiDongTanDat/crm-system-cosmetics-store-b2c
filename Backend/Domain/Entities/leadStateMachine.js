@@ -12,7 +12,7 @@ module.exports = {
             properties?.reason === 'no_budget',
     },
 
-  
+
     transitions: {
         new: ['contacted', 'closed_lost'],
         contacted: ['qualified', 'nurturing', 'closed_lost'],
@@ -36,4 +36,9 @@ module.exports = {
             this.transitions[from].includes(to)
         );
     },
+    allowedStatuses() {
+        const nodes = new Set(Object.keys(this.transitions));
+        Object.values(this.transitions).forEach(arr => arr.forEach(s => nodes.add(s)));
+        return Array.from(nodes); // ['new','contacted',...]
+    }
 };

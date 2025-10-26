@@ -72,6 +72,16 @@ Lead.init(
       references: { model: 'campaigns', key: 'campaign_id' },
       onDelete: 'SET NULL'
     },
+    product_interest: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Sản phẩm mà lead quan tâm',
+    },
+    deal_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Tên deal, mặc định lấy theo tên chiến dịch',
+    },
     assigned_to: {
       type: DataTypes.UUID,
       allowNull: true,
@@ -92,12 +102,32 @@ Lead.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    predicted_value: {
+      type: DataTypes.DECIMAL,
+      allowNull: true,
+      defaultValue: 0,
+      comment: 'Giá trị doanh thu tiềm năng mà lead có thể mang lại',
+    },
+    predicted_value_currency: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'VND',
+      comment: 'Đơn vị tiền tệ cho predicted_value',
+    },
+    priority: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: {
+        isIn: [['low', 'medium', 'high', 'urgent']],
+      },
+    },
   },
   {
     sequelize,
     modelName: 'Lead',
     tableName: 'leads',
-    timestamps: false,   // nếu muốn có updated_at thì chuyển sang true và map lại tên cột
+    timestamps: false,
     underscored: true,
   }
 );

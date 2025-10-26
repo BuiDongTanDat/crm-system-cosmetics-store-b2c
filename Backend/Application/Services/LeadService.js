@@ -4,13 +4,17 @@ const sequelize = DataManager.getSequelize();
 const leadRepository = require('../../Infrastructure/Repositories/LeadRepository.js');
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository.js');
 const campaignRepository = require('../../Infrastructure/Repositories/CampaignRepository.js');
-const stateMachine = require('../../Domain//Entities/leadStateMachine.js');
+const stateMachine = require('../../Domain/Entities/leadStateMachine.js');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 const aiClient = require('../../Infrastructure/external/AIClient.js');
 const { ImportLeadFromCSVDTO } = require('../DTOs/LeadDTO.js');
 const { AppError, asAppError, ok, fail } = require('../helpers/errors.js');
 const csv = require('csvtojson');
-
+const MAP_TO_DB = {
+  leads: 'new', new: 'new', contacted: 'contacted', qualified: 'qualified',
+  nurturing: 'nurturing', converted: 'converted', 'closed-lost': 'closed_lost',
+  closed_lost: 'closed_lost', lost: 'closed_lost',
+};
 class LeadService {
   constructor() {
     this.repo = leadRepository;
@@ -24,15 +28,19 @@ class LeadService {
       if (!leadData) {
         throw new AppError('Lead data is required', { status: 400, code: 'VALIDATION_ERROR' });
       }
-      // kiểm tra campaign_id nếu có
+
+      // 1) Kiểm tra campaign_id nếu có
       let campaign = null;
       if (leadData.campaign_id) {
         campaign = await campaignRepository.findById(leadData.campaign_id);
         if (!campaign) console.log(`[WARN] Campaign ${leadData.campaign_id} not found`);
       }
 
-      // validate cơ bản + kiểm tra trùng
-      const { customer_id, source, status, lead_score, conversion_prob, assigned_to, tags } = leadData;
+      // 2) Validate cơ bản + kiểm tra trùng
+      const {
+        customer_id, source, status, lead_score, conversion_prob,
+        assigned_to, tags, priority, product_interest
+      } = leadData;
 
       if (leadData.email) {
         const dupEmail = await this.repo.findByEmail(leadData.email);
@@ -56,12 +64,13 @@ class LeadService {
         throw new AppError('conversion_prob must be between 0 and 1', { status: 400, code: 'VALIDATION_ERROR' });
       }
 
+      // 3) Chuẩn bị payload cơ bản
       const payload = {
         customer_id: finalCustomerId,
         name: leadData.name || 'Unnamed Lead',
         phone: leadData.phone || null,
         email: leadData.email || null,
-        source: source || 'inbound',
+        source: source || 'inbound',          // NOTE: model default đang 'Inbound', bạn có thể đồng bộ lại
         status: status || 'new',
         campaign_id: leadData.campaign_id || null,
         tags: Array.isArray(tags) ? tags : [],
@@ -69,152 +78,164 @@ class LeadService {
         conversion_prob: conversion_prob ?? 0,
         assigned_to: assigned_to || null,
         created_at: new Date(),
+
+        // 🔹 Trường mới:
+        priority: priority || 'medium',
+        product_interest: product_interest || null,
+        // tên deal = tên chiến dịch (nếu có campaign)
+        deal_name: campaign?.name || null,
+
+        // 🔮 chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
+        predicted_prob: null,
+        predicted_value: 0,
+        predicted_value_currency: 'VND',
+        last_predicted_at: null,
       };
+
+      // 4) Gọi AI service để dự đoán (best-effort, không chặn luồng nếu lỗi)
+      try {
+        const features = {
+          // Bạn có thể thêm nhiều feature hơn tùy mô hình của bạn
+          name: payload.name,
+          email: payload.email,
+          phone: payload.phone,
+          source: payload.source,
+          lead_score: payload.lead_score,
+          tags: payload.tags,
+          campaign_id: payload.campaign_id,
+          priority: payload.priority,
+          product_interest: payload.product_interest,
+          // Thêm thông tin campaign nếu có
+          campaign_channel: campaign?.channel || null,
+          campaign_name: campaign?.name || null,
+          assigned_to: payload.assigned_to,
+        };
+
+        const aiResp = await aiService.scoreLead(features);
+        if (aiResp) {
+          const { predicted_prob, predicted_value, predicted_value_currency } = aiResp;
+
+          if (predicted_prob !== undefined && !isNaN(predicted_prob)) {
+            payload.predicted_prob = predicted_prob;
+          }
+          if (predicted_value !== undefined && !isNaN(predicted_value)) {
+            payload.predicted_value = predicted_value;
+          }
+          if (predicted_value_currency) {
+            payload.predicted_value_currency = predicted_value_currency;
+          }
+          payload.last_predicted_at = new Date();
+        }
+      } catch (aiErr) {
+        console.warn('[AI] Failed to score lead, continue without predictions:', aiErr?.message || aiErr);
+      }
+
       console.log('Creating lead with payload:', payload);
-      // transaction: tạo lead + tạo interaction "quan_tam"
+
+      // 5) Transaction: tạo lead + tạo interaction "interested"
       const result = await sequelize.transaction(async (t) => {
         const lead = await this.repo.create(payload, { transaction: t });
+
         await this.repo.addInteraction(lead.lead_id, {
-          type: 'interested',                 // hoặc 'interested' tuỳ naming convention của bạn
+          type: 'interested',
           channel: campaign?.channel || payload.source || 'unknown',
           occurred_at: new Date(),
           properties: {
             campaign_id: lead.campaign_id,
             campaign_name: campaign?.name || null,
+            product_interest: payload.product_interest || null,
             note: 'Tương tác đầu tiên từ chiến dịch marketing',
+            // đưa thêm kết quả AI vào interaction để trace
+            ai_predicted_prob: payload.predicted_prob,
+            ai_predicted_value: payload.predicted_value,
+            ai_currency: payload.predicted_value_currency,
           },
-          score_delta: 5,                   // nếu muốn cộng điểm mở đầu có thể set > 0
-          created_by: assigned_to || null,  // hoặc 'system'
+          score_delta: 5,
+          created_by: assigned_to || null, // hoặc 'system'
         }, { transaction: t });
 
         return lead;
       });
+
+      // 6) Publish sự kiện (kèm predicted fields & trường mới)
       try {
         await Rabbit.publish('lead_created', {
           lead_id: result.lead_id,
           campaign_id: result.campaign_id,
           source: result.source,
           tags: result.tags,
+          priority: result.priority,
+          product_interest: result.product_interest,
+          deal_name: result.deal_name,
+          predicted_prob: result.predicted_prob,
+          predicted_value: result.predicted_value,
+          predicted_value_currency: result.predicted_value_currency,
         });
         console.log(`[EVENT] lead_created published for lead ${result.lead_id}`);
       } catch (pubErr) {
         console.error('[RabbitMQ] Failed to publish lead_created:', pubErr);
       }
+
       return ok(result);
     } catch (err) {
       return fail(asAppError(err, { status: err?.status || 500, code: 'CREATE_LEAD_FAILED' }));
     }
   }
+
   async addInteraction(leadId, payload) {
-    try {
-      const lead = await this.repo.findById(leadId);
-      if (!lead) throw new AppError('Lead not found', { status: 404 });
+    const toContacted = stateMachine.interactionHints?.toContacted?.(payload);
+    const toClosedLost = stateMachine.interactionHints?.toClosedLost?.(payload);
 
-      const result = await sequelize.transaction(async (t) => {
-        // 1) ghi interaction + cộng điểm
-        const item = await this.repo.addInteraction(leadId, payload, { transaction: t });
+    let nextStatus = null;
+    if (toContacted && lead.status === 'new') nextStatus = 'contacted';
+    if (toClosedLost) nextStatus = 'closed_lost';
 
-        // 2) quyết định auto chuyển trạng thái
-        let nextStatus = null;
+    const scoreDelta = Number(payload.score_delta || 0);
+    const newScore = (lead.lead_score || 0) + scoreDelta;
+    if (!nextStatus &&
+      newScore >= stateMachine.thresholds.qualifiedScore &&
+      ['new', 'contacted'].includes(lead.status)) {
+      nextStatus = 'qualified';
+    }
 
-        // 2.a) rule theo interaction → CONTACTED
-        if (stateMachine.interactionHints.toContacted(payload) && lead.status === 'new') {
-          nextStatus = 'contacted';
-        }
-
-        // 2.b) rule not interested → CLOSED_LOST
-        if (stateMachine.interactionHints.toClosedLost(payload)) {
-          nextStatus = 'closed_lost';
-        }
-
-        // 2.c) rule theo điểm (>= qualifiedScore)
-        const scoreDelta = Number(payload.score_delta || 0);
-        const newScore = (lead.lead_score || 0) + scoreDelta;
-        if (!nextStatus && newScore >= stateMachine.thresholds.qualifiedScore && ['new', 'contacted'].includes(lead.status)) {
-          nextStatus = 'qualified';
-        }
-
-        // 3) update status (nếu có) + ghi lịch sử
-        if (nextStatus && nextStatus !== lead.status && stateMachine.canTransition(lead.status, nextStatus)) {
-          await this.repo.update(leadId, { status: nextStatus }, {
-            changed_by: payload.created_by || null,
-            reason: `auto_transition_by_interaction:${payload.type}`,
-            meta: { interaction_id: item.interaction_id },
-            transaction: t
-          });
-        }
-
-        return { interaction: item, status: nextStatus || lead.status };
-      });
-
-      return ok(result);
-    } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'ADD_INTERACTION_FAILED' }));
+    if (nextStatus && nextStatus !== lead.status && stateMachine.canTransition(lead.status, nextStatus)) {
+      await this.changeStatus(
+        leadId,
+        nextStatus,
+        `auto_transition_by_interaction:${payload.type}`,
+        payload.created_by || null,
+        { interaction_id: item.interaction_id }
+      );
     }
   }
-  // ⚠️ Thay thế hàm static cũ bằng bản instance dưới đây:
+  // Thay thế hàm static cũ bằng bản instance dưới đây:
   async updateLeadStatus(leadId, rawStatus) {
     try {
-      // Map để nhận cả tên status kiểu UI (UPPERCASE) về schema DB (lowercase)
-      const MAP_TO_DB = {
-        LEADS: 'new',
-        NEW: 'new',
-        CONTACTED: 'contacted',
-        QUALIFIED: 'qualified',
-        NURTURING: 'nurturing',
-        CONVERTED: 'converted',
-        'CLOSED-LOST': 'closed_lost',
-        CLOSED_LOST: 'closed_lost',
-      };
+      const norm = String(rawStatus || '').trim().toLowerCase();
+      const toStatus = MAP_TO_DB[norm] || norm;
 
-      const normalized = String(rawStatus || '').trim();
-      const toStatus =
-        MAP_TO_DB[normalized.toUpperCase()] || normalized.toLowerCase();
-
-      const ALLOWED = [
-        'new',
-        'contacted',
-        'qualified',
-        'nurturing',
-        'converted',
-        'closed_lost',
+      const allowed = stateMachine.allowedStatuses ? stateMachine.allowedStatuses() : [
+        'new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'
       ];
-      if (!ALLOWED.includes(toStatus)) {
-        return fail({
-          status: 400,
-          code: 'INVALID_STATUS',
-          message: `Trạng thái không hợp lệ. Hợp lệ: ${ALLOWED.join(', ')}`,
-        });
+      if (!allowed.includes(toStatus)) {
+        return fail({ status: 400, code: 'INVALID_STATUS', message: `Hợp lệ: ${allowed.join(', ')}` });
       }
 
-      // Tồn tại lead không?
       const found = await this.repo.findById(leadId);
-      if (!found) {
-        return fail({
-          status: 404,
-          code: 'LEAD_NOT_FOUND',
-          message: 'Không tìm thấy lead cần cập nhật',
-        });
+      if (!found) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead cần cập nhật' });
+
+      const from = String(found.status || '').toLowerCase();
+      if (from === toStatus) return ok({ message: 'Status unchanged', data: found });
+
+      //  enforce đồ thị bằng state machine
+      if (!stateMachine.canTransition(from, toStatus)) {
+        return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${toStatus}` });
       }
 
-      // Không đổi gì
-      if (found.status === toStatus) {
-        return ok({ message: 'Status unchanged', data: found });
-      }
-
-      // Dùng flow chuẩn để vừa đổi trạng thái vừa ghi lịch sử
-      const updatedRes = await this.changeStatus(
-        leadId,
-        toStatus,
-        'pipeline_drag_drop',
-        null,
-        { source: 'pipeline' }
-      );
-      return updatedRes; // đã là {ok, data|error} theo format chung
+      //  đi qua cổng chuẩn (repo.logStatusChange sẽ ghi history trong transaction)
+      return await this.changeStatus(leadId, toStatus, 'pipeline_drag_drop', null, { source: 'pipeline' });
     } catch (err) {
-      return fail(
-        asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' })
-      );
+      return fail(asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' }));
     }
   }
   // Thêm mới: gom leads theo cột (stage) cho UI Kanban
@@ -252,18 +273,25 @@ class LeadService {
     }
   }
 
-  async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = null) {
+  async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
     try {
-      const lead = await this.repo.findById(leadId);
-      if (!lead) throw new AppError('Lead not found', { status: 404 });
+      const to = String(toStatus || '').trim().toLowerCase();
 
-      if (!stateMachine.canTransition(lead.status, toStatus)) {
-        throw new AppError(`Invalid transition ${lead.status} → ${toStatus}`, { status: 400, code: 'INVALID_TRANSITION' });
+      const lead = await this.repo.findById(leadId);
+      if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
+
+      const from = String(lead.status || '').toLowerCase();
+      if (from === to) return ok({ message: 'Status unchanged', data: lead });
+
+      // state machine guard
+      if (!stateMachine.canTransition(from, to)) {
+        return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
       }
 
-      const updated = await this.repo.updateById(leadId, { status: toStatus }, {
-        changed_by: changedBy, reason, meta
-      });
+      const updated = await this.repo.logStatusChange(leadId, to, {
+        reason, changed_by: changedBy, meta
+      }); // repo sẽ transaction + lock + ghi LeadStatusHistory
+      if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
 
       return ok(updated);
     } catch (err) {
@@ -433,6 +461,39 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'AUTO_CONVERT_LEAD_FAILED' }));
     }
   }
+  async getPipelineMetrics() {
+    const rows = await this.repo.getLeadsGroupedByStatus();
+
+    const byStatus = {};
+    let totalDeals = 0;
+    let totalValue = 0;
+
+    for (const r of rows) {
+      const status = (r.status || 'new').toLowerCase();
+      const count = Number(r.count) || 0;
+      const sum = Number(r.sum_value) || 0;
+
+      byStatus[status] = { count, sumValue: sum };
+      totalDeals += count;
+      totalValue += sum;
+    }
+
+    const converted = byStatus.converted?.count || 0;
+    const closedLost = byStatus.closed_lost?.count || 0;
+    const lost = byStatus.lost?.count || 0;
+    const doneLeads = converted + closedLost + lost;
+    const processingLeads = Math.max(0, totalDeals - doneLeads);
+    const conversionRate = totalDeals > 0 ? (converted / totalDeals) * 100 : 0;
+
+    return {
+      totalDeals,
+      totalValue,
+      conversionRate: Number(conversionRate.toFixed(2)),
+      processingLeads,
+      doneLeads,
+      byStatus,
+    };
+  }
   async getLeadDetails(leadId) {
     try {
       // 1) Lấy lead chính
@@ -475,7 +536,7 @@ class LeadService {
       const lead = await this.repo.findById(leadId);
       if (!lead) throw new AppError('Lead not found', { status: 404 });
 
-      // 🧠 Caching — nếu đã có predicted_prob trong 24h, không gọi lại AI
+      // Caching — nếu đã có predicted_prob trong 24h, không gọi lại AI
       if (!force && lead.predicted_prob && lead.last_predicted_at) {
         const ageHours = (Date.now() - new Date(lead.last_predicted_at)) / (1000 * 60 * 60);
         if (ageHours < 24) {

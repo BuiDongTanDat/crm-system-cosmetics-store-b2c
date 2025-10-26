@@ -26,6 +26,7 @@ export const formatDateTimeSeparate = (dateString) => {
   return { date, time };
 };
 
+
 // Lấy màu sắc theo mức độ ưu tiên
 export const getPriorityColor = (priority) => {
   switch (priority) {
@@ -33,6 +34,8 @@ export const getPriorityColor = (priority) => {
       return 'bg-red-100 text-red-800 border-red-200';
     case 'medium':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'urgent':
+      return 'bg-orange-100 text-orange-800 border-orange-200';
     case 'low':
       return 'bg-green-100 text-green-800 border-green-200';
     default:
@@ -49,6 +52,8 @@ export const getPriorityLabel = (priority) => {
       return 'Trung bình';
     case 'low':
       return 'Thấp';
+    case 'urgent':
+      return 'khẩn cấp';
     default:
       return 'Không xác định';
   }
