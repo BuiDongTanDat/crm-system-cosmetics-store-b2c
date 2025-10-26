@@ -34,8 +34,18 @@ export function EmployeeForm({
         status: (data.status || "active").toUpperCase(),
         password: "",
       });
+    } else {
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        role: "Sales",
+        status: "ACTIVE",
+        password: "",
+      });
     }
-  }, [data]);
+  }, [data, mode]);
+
 
   const handleCancel = () => {
     if (data) {
@@ -55,25 +65,29 @@ export function EmployeeForm({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.email) {
       toast.error("Vui lòng nhập họ tên và email");
       return;
     }
 
-    const isCreating = !data?.id;
+    try {
+      // Trả về kết quả save, để page quyết định có đóng/chuyển view hay không
+      await onSave({
+        ...form,
+        id: data?.id,
+        status: form.status.toLowerCase(),
+      });
 
-    onSave({
-      ...form,
-      id: data?.id,
-      status: form.status.toLowerCase(), // gửi về backend dạng lowercase
-    });
 
-    // Nếu là update, chuyển về view mode
-    if (!isCreating) {
-      setMode?.("view");
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi lưu nhân viên.";
+      toast.error(errorMessage);
+      // Không setMode ở đây nữa
     }
   };
+
 
   const handleChange = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));

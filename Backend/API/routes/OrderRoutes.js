@@ -11,7 +11,7 @@ router.post('/', OrderController.create);
 // list or query all orders (supports ?customerId=... handled in controller)
 router.get('/', OrderController.getAllOrders);
 
-router.get('/:id', OrderController.get);
+router.get('/:id', OrderController.getOrderById);
 
 router.put('/:id', OrderController.update);
 

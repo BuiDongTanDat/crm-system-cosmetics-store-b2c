@@ -69,9 +69,9 @@ export default function EmployeePage() {
             // Chỉ lấy các role đang active và có role_name
             setRoles(
                 data.map(role => ({
-                        value: role.role_name,
-                        label: role.role_name
-                    }))
+                    value: role.role_name,
+                    label: role.role_name
+                }))
             );
         } catch (err) {
             console.error("Lỗi tải danh sách vai trò:", err);
@@ -86,8 +86,8 @@ export default function EmployeePage() {
 
     const filteredEmployees = employees.filter(employee =>
         (employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.role?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+            employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.role?.toLowerCase().includes(searchTerm.toLowerCase())) &&
         (filterRole ? employee.role === filterRole : true) &&
         (filterStatus ? employee.status === filterStatus.toLowerCase() : true)
     );
@@ -109,21 +109,27 @@ export default function EmployeePage() {
         // Lấy chi tiết user từ API nếu cần
         try {
             const res = await getUserById(employee.id);
-            setModal({ open: true, mode: 'view', employee: {
-                id: res.user_id,
-                name: res.full_name,
-                email: res.email,
-                phone: res.phone,
-                role: res.role_name,
-                status: res.status
-            }});
+            setModal({
+                open: true, mode: 'view', employee: {
+                    id: res.user_id,
+                    name: res.full_name,
+                    email: res.email,
+                    phone: res.phone,
+                    role: res.role_name,
+                    status: res.status
+                }
+            });
         } catch (err) {
             toast.error("Không thể lấy chi tiết nhân viên!");
         }
     };
 
     const handleEdit = (employee) => {
-        setModal({ open: true, mode: 'edit', employee });
+        setModal({
+            open: true,
+            mode: 'edit',
+            employee: { ...employee } // tạo object mới
+        });
     };
 
     const handleCreate = () => {
@@ -147,45 +153,38 @@ export default function EmployeePage() {
                     status: employeeData.status,
                     password: employeeData.password
                 };
+
                 await updateUser(employeeData.id, payload);
                 savedItem = await getUserById(employeeData.id);
-                if (savedItem && savedItem.user_id) {
-                    setEmployees(prev => {
-                        const idx = prev.findIndex(e => e.id === employeeData.id);
-                        if (idx !== -1) {
-                            const newArr = [...prev];
-                            newArr[idx] = {
-                                id: savedItem.user_id,
-                                name: savedItem.full_name,
-                                email: savedItem.email,
-                                phone: savedItem.phone,
-                                role: savedItem.role_name,
-                                status: savedItem.status
-                            };
-                            return newArr;
-                        }
-                        return [...prev, {
+
+                // Update employee list
+                setEmployees(prev => prev.map(emp =>
+                    emp.id === savedItem.user_id
+                        ? {
                             id: savedItem.user_id,
                             name: savedItem.full_name,
                             email: savedItem.email,
                             phone: savedItem.phone,
                             role: savedItem.role_name,
                             status: savedItem.status
-                        }];
-                    });
-                    setModal({ open: true, mode: 'view', employee: {
+                        }
+                        : emp
+                ));
+
+                // Luôn chuyển sang view sau khi lưu thành công
+                setModal(prev => ({
+                    ...prev,
+                    mode: 'view',
+                    employee: {
                         id: savedItem.user_id,
                         name: savedItem.full_name,
                         email: savedItem.email,
                         phone: savedItem.phone,
                         role: savedItem.role_name,
                         status: savedItem.status
-                    }});
-                    toast.success("Cập nhật nhân viên thành công!");
-                } else {
-                    await fetchEmployees();
-                    setModal({ open: true, mode: 'view', employee: employeeData });
-                }
+                    }
+                }));
+                toast.success("Cập nhật nhân viên thành công!");
             } else {
                 // Create
                 const payload = {
@@ -197,27 +196,28 @@ export default function EmployeePage() {
                     password: employeeData.password
                 };
                 savedItem = await createUser(payload);
-                if (savedItem && savedItem.user_id) {
-                    setEmployees(prev => [{
-                        id: savedItem.user_id,
-                        name: savedItem.full_name,
-                        email: savedItem.email,
-                        phone: savedItem.phone,
-                        role: savedItem.role_name,
-                        status: savedItem.status
-                    }, ...prev]);
-                    toast.success("Thêm nhân viên thành công.");
-                    closeModal();
-                } else {
-                    await fetchEmployees();
-                    closeModal();
-                }
+
+                setEmployees(prev => [{
+                    id: savedItem.user_id,
+                    name: savedItem.full_name,
+                    email: savedItem.email,
+                    phone: savedItem.phone,
+                    role: savedItem.role_name,
+                    status: savedItem.status
+                }, ...prev]);
+
+                toast.success("Thêm nhân viên thành công!");
+                closeModal();
             }
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.response?.data || err?.message || "Lỗi khi lưu nhân viên!";
-            toast.error(String(msg));
+            const errorMessage = err?.response?.data?.message || err?.message || "Lỗi khi lưu nhân viên!";
+            toast.error(errorMessage);
+
+            // Giữ modal ở edit để sửa tiếp
+            setModal(prev => ({ ...prev, mode: 'edit' }));
         }
     };
+
 
     const handleDelete = async (id) => {
         try {
@@ -299,7 +299,7 @@ export default function EmployeePage() {
             : `${baseClass}  text-red-800 bg-red-100`;
     };
 
-    
+
 
     return (
         <div className="flex flex-col">
@@ -329,7 +329,7 @@ export default function EmployeePage() {
                             />
                         </div>
 
-                        
+
 
                         {/* Add Employee */}
                         <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
@@ -351,27 +351,27 @@ export default function EmployeePage() {
                 </div>
                 <div className="flex gap-3 items-center justify-end w-full">
                     {/* Filter by Role */}
-                        <DropdownOptions
-                            options={[
-                                { value: "", label: "Tất cả vai trò" },
-                                ...roles
-                            ]}
-                            value={filterRole}
-                            onChange={setFilterRole}
-                            width="w-40"
-                        />
+                    <DropdownOptions
+                        options={[
+                            { value: "", label: "Tất cả vai trò" },
+                            ...roles
+                        ]}
+                        value={filterRole}
+                        onChange={setFilterRole}
+                        width="w-40"
+                    />
 
-                        {/* Filter by Status */}
-                        <DropdownOptions
-                            options={[
-                                { value: "", label: "Tất cả trạng thái" },
-                                { value: "active", label: "ACTIVE" },
-                                { value: "inactive", label: "INACTIVE" }
-                            ]}
-                            value={filterStatus}
-                            onChange={setFilterStatus}
-                            width="w-40"
-                        />
+                    {/* Filter by Status */}
+                    <DropdownOptions
+                        options={[
+                            { value: "", label: "Tất cả trạng thái" },
+                            { value: "active", label: "ACTIVE" },
+                            { value: "inactive", label: "INACTIVE" }
+                        ]}
+                        value={filterStatus}
+                        onChange={setFilterStatus}
+                        width="w-40"
+                    />
                 </div>
             </div>
 
@@ -428,8 +428,8 @@ export default function EmployeePage() {
                                         <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
-                                                        ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                        : "opacity-0 translate-y-1 pointer-events-none"
+                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                    : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
 
@@ -494,17 +494,19 @@ export default function EmployeePage() {
                 <AppDialog
                     open={modal.open}
                     onClose={closeModal}
-                    title={{
-                        view: `Chi tiết nhân viên - ${modal.employee?.name || ''}`,
-                        edit: modal.employee ? `Chỉnh sửa nhân viên - ${modal.employee.name}` : 'Thêm nhân viên mới'
-                    }}
+                    // ... các props khác
                     mode={modal.mode}
+                    // THÊM: Truyền hàm setMode để EmployeeForm có thể tự chuyển mode (view <-> edit)
+                    setMode={(newMode) => setModal(prev => ({
+                        ...prev,
+                        mode: newMode === 'close' ? prev.mode : newMode // 'close' để xử lý đóng modal
+                    }))}
                     FormComponent={EmployeeForm}
                     data={modal.employee}
                     onSave={handleSave}
                     onDelete={handleDelete}
                     availableRoles={roles}
-                    maxWidth="sm:max-w-2xl"
+                // ...
                 />
             </div>
         </div>

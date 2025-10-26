@@ -9,46 +9,19 @@ class UserService {
 
     async getAllUsers() {
         const users = await this.userRepository.findAll();
-        return users.map(user => new UserDTO({
-            user_id: user.user_id,
-            full_name: user.full_name,
-            email: user.email,
-            phone: user.phone,
-            role_name: user.role_name,
-            status: user.status,
-            created_at: user.created_at,
-            updated_at: user.updated_at
-        }));
+        return users.map(UserDTO.fromEntity);
     }
 
     async getUserById(userId) {
         const user = await this.userRepository.findById(userId);
         if (!user) return null;
-        return new UserDTO({
-            user_id: user.user_id,
-            full_name: user.full_name,
-            email: user.email,
-            phone: user.phone,
-            role_name: user.role_name,
-            status: user.status,
-            created_at: user.created_at,
-            updated_at: user.updated_at
-        });
+        return UserDTO.fromEntity(user);
     }
 
     async createUser(userData) {
         try {
             const user = await this.userRepository.create(userData);
-            return new UserDTO({
-                user_id: user.user_id,
-                full_name: user.full_name,
-                email: user.email,
-                phone: user.phone,
-                role_name: user.role_name,
-                status: user.status,
-                created_at: user.created_at,
-                updated_at: user.updated_at
-            });
+            return UserDTO.fromEntity(user);
         } catch (err) {
             //  Xử lý lỗi unique
             if (err instanceof UniqueConstraintError) {
@@ -79,16 +52,7 @@ class UserService {
     async updateUser(userId, updates) {
         try {
             const user = await this.userRepository.update(userId, updates);
-            return new UserDTO({
-                user_id: user.user_id,
-                full_name: user.full_name,
-                email: user.email,
-                phone: user.phone,
-                role_name: user.role_name,
-                status: user.status,
-                created_at: user.created_at,
-                updated_at: user.updated_at
-            });
+            return UserDTO.fromEntity(user);
         } catch (err) {
             if (err instanceof UniqueConstraintError) {
                 const field = err.errors && err.errors[0] && err.errors[0].path;

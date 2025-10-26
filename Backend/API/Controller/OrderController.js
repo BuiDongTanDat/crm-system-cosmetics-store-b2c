@@ -1,126 +1,115 @@
 const OrderService = require('../../Application/Services/OrderService');
-const OrderDetailService = require('../../Application/Services/OrderDetailService');
-const { OrderResponseDTO } = require('../../Application/DTOs/OrderDTO');
+
 
 class OrderController {
-  // POST /orders
+  // Tạo đơn hàng
   async create(req, res, next) {
     try {
-      console.log('OrderController.create body=', req.body);
-      const payload = req.body;
-      const created = await OrderService.createOrder(payload);
-      return res.status(201).json(OrderResponseDTO.fromEntity(created));
+      console.log('OrderController.create body =', req.body);
+      const created = await OrderService.createOrder(req.body);
+      // createOrder đã trả về OrderResponseDTO sẵn
+      return res.status(201).json(created);
     } catch (err) {
+      console.error('Error creating order:', err);
       return next(err);
     }
   }
 
-  async get(req, res, next) {
+  // Lấy đơn hàng theo ID
+  async getOrderById(req, res, next) {
     try {
       const id = req.params.id;
-      const order = await OrderService.getOrder(id);
-      if (!order) return res.status(404).json({ message: 'Order not found' });
-      const details = await OrderDetailService.getByOrderId(id);
-      return res.json(OrderResponseDTO.fromEntity(order, details));
+      const order = await OrderService.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      }
+      // getOrder đã trả về OrderResponseDTO rồi
+      return res.json(order);
     } catch (err) {
       return next(err);
     }
   }
 
-  // GET /orders
+  // Lấy tất cả đơn hàng (hoặc lọc theo ?customerId=... / ?customer_id=... )
   async getAllOrders(req, res, next) {
     try {
-      const customerId = req.query && (req.query.customerId || req.query.customer_id) ? (req.query.customerId || req.query.customer_id) : null;
+      const customerId = req.query.customer_id || req.query.customerId || null;
       const opts = {};
       if (req.query.status) opts.status = req.query.status;
-      // Nếu có customerId thì lọc theo customer, không thì lấy tất cả
-      const orders = await OrderService.listByCustomer(customerId, opts);
 
-      // Map sang DTO kèm details
-      const mapped = await Promise.all(
-        (orders || []).map(async (o) => {
-          const id = o.order_id || o.id || o._id;
-          const items = await OrderDetailService.getByOrderId(id);
-          return OrderResponseDTO.fromEntity(o, items);
-        })
-      );
-
-      return res.json(mapped);
+      let orders;
+      if (customerId) {
+        // nếu có customerId trong query -> lấy theo customer
+        orders = await OrderService.listByCustomer(customerId, opts);
+      } else {
+        orders = await OrderService.getAllOrders();
+      }
+      return res.json(orders);
     } catch (err) {
       return next(err);
     }
   }
 
-
-  // PUT /orders/:id
+  // Cập nhật đơn hàng
   async update(req, res, next) {
     try {
       const id = req.params.id;
       const patch = req.body;
       const updated = await OrderService.updateOrder(id, patch);
-      const details = await OrderDetailService.getByOrderId(id);
-      return res.json(OrderResponseDTO.fromEntity(updated, details));
+      return res.json(updated); // updateOrder trả về OrderResponseDTO
     } catch (err) {
       return next(err);
     }
   }
 
-  // PATCH /orders/:id/status
+  //Cập nhật trạng thái đơn hàng
   async updateStatus(req, res, next) {
     try {
       const id = req.params.id;
-      const status = req && req.body ? req.body.status : undefined;
-      const finalStatus = typeof status !== 'undefined' ? status : req.query && req.query.status ? req.query.status : undefined;
+      const status =
+        req.body?.status ??
+        req.query?.status ??
+        undefined;
 
-      if (typeof finalStatus === 'undefined' || finalStatus === null || finalStatus === '') {
+      if (!status) {
         return res.status(400).json({ message: 'Thiếu trường status' });
       }
 
-      const updated = await OrderService.updateStatus(id, finalStatus);
-      const details = await OrderDetailService.getByOrderId(id);
-      return res.json(OrderResponseDTO.fromEntity(updated, details));
+      const updated = await OrderService.updateStatus(id, status);
+      return res.json(updated); // updateStatus trả về OrderResponseDTO
     } catch (err) {
       return next(err);
     }
   }
 
-  // DELETE /orders/:id
+  // Xóa đơn hàng
   async delete(req, res, next) {
     try {
       const id = req.params.id;
       await OrderService.deleteOrder(id);
-      return res.status(201).json({ message: 'Đã xóa đơn hàng' });
+      return res.status(200).json({ message: 'Đã xoá đơn hàng thành công' });
     } catch (err) {
       return next(err);
     }
   }
-  // GET /orders?customerId=? 
+
+  // Lấy đơn hàng theo id khách hàng
   async listByCustomer(req, res, next) {
     try {
       const customerId = req.query.customer_id || req.query.customerId;
       if (!customerId) {
-        return res.status(400).json({ message: 'Missing customer_id' });
+        return res.status(400).json({ message: 'Thiếu customer_id' });
       }
 
       const opts = {};
       if (req.query.status) opts.status = req.query.status;
 
       const orders = await OrderService.listByCustomer(customerId, opts);
-
-      const mapped = await Promise.all(
-        (orders || []).map(async (o) => {
-          const id = o.order_id || o.id || o._id;
-          const items = await OrderDetailService.getByOrderId(id);
-          return OrderResponseDTO.fromEntity(o, items);
-        })
-      );
-
-      return res.json(mapped);
+      return res.json(orders);
     } catch (err) {
       return next(err);
     }
   }
-
 }
 
 module.exports = new OrderController();

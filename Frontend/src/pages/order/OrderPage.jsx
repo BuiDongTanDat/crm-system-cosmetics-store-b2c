@@ -7,7 +7,7 @@ import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
-import CountUp from 'react-countup';
+
 import { PaymentMethod } from "@/lib/data";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/helper";
 import { getOrders, createOrder, updateOrder, deleteOrder } from "@/services/orders";
@@ -155,27 +155,32 @@ export default function OrderPage() {
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
 
     const handleSave = async (payload) => {
-        const customerMap = Object.fromEntries((customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""]));
-        const productMap = Object.fromEntries((products || []).map(p => [p.product_id || p.id, p]));
+        const customerMap = Object.fromEntries(
+            (customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""])
+        );
+        const productMap = Object.fromEntries(
+            (products || []).map(p => [p.product_id || p.id, p])
+        );
 
         try {
             if (payload.order_id) {
-                // update
+                // Update
                 const res = await updateOrder(payload.order_id, payload);
                 const saved = res?.data || res || payload;
+                console.log("Saved order response:", saved);
 
-                const enriched = {
+                const enrichedForTable = {
                     ...saved,
-                    customer_name: customerMap[saved.customer_id] || saved.customer_name || saved.customerId || saved.customer_id,
+                    order_id: String(saved.order_id),
+                    customer_name: customerMap[saved.customer_id] || saved.customer_name || saved.customer_id,
                     items: (saved.items || []).map(it => {
                         const prod = productMap[it.product_id];
                         const qty = Number(it.quantity ?? it.qty ?? 0);
-                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
-                        // normalize discount from response
+                        const unit = Number(it.unit_price ?? it.price ?? prod?.price_current ?? 0);
                         let rawDisc = it.discount ?? it.discount_percent ?? 0;
                         let disc = Number(rawDisc) || 0;
                         if (disc > 1) disc = disc / 100;
-                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
+                        const original_price = Number(it.price_original ?? it.original_price ?? prod?.price_original ?? 0) || unit;
                         return {
                             order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
                             product_id: it.product_id || null,
@@ -184,55 +189,73 @@ export default function OrderPage() {
                             price: unit,
                             original_price,
                             discount: disc,
-                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
+                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
                         };
-                    })
+                    }),
                 };
 
-                setOrders(prev => prev.map(o => o.order_id === enriched.order_id ? enriched : o));
-                setModal(prev => ({ ...prev, mode: 'view', order: enriched }));
+                setOrders(prev => prev.map(o =>
+                    String(o.order_id) === String(enrichedForTable.order_id)
+                        ? { ...enrichedForTable, _updatedAt: Date.now() } // force re-render
+                        : o
+                ));
+                console.log("Enriched updated order:", enrichedForTable);
+
                 toast.success('Cập nhật đơn hàng thành công!');
-            } else {
-                // create
-                const res = await createOrder(payload);
-                const created = res?.data || res || payload;
-                const newId = created.order_id || created.id || ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `local-${Date.now()}`);
-
-                const enriched = {
-                    ...created,
-                    order_id: newId,
-                    customer_name: customerMap[created.customer_id] || created.customer_name || created.customerId || created.customer_id,
-                    items: (created.items || payload.items || []).map(it => {
-                        const prod = productMap[it.product_id];
-                        const qty = Number(it.quantity ?? it.qty ?? 0);
-                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
-                        let rawDisc = it.discount ?? it.discount_percent ?? 0;
-                        let disc = Number(rawDisc) || 0;
-                        if (disc > 1) disc = disc / 100;
-                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
-                        return {
-                            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
-                            product_id: it.product_id || null,
-                            product_name: it.product_name || prod?.name || "",
-                            quantity: qty,
-                            price: unit,
-                            original_price,
-                            discount: disc,
-                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
-                        };
-                    })
-                };
-
-                // prepend new order so it appears at top of the list
-                setOrders(prev => [enriched, ...prev]);
-                closeModal();
-                toast.success('Thêm đơn hàng thành công!');
+                return;
             }
+
+            // Create
+            const res = await createOrder(payload);
+            const created = res?.data || res || payload;
+            const newId =
+                created.order_id ||
+                created.id ||
+                (typeof crypto !== 'undefined' && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : `local-${Date.now()}`);
+
+            const enriched = {
+                ...created,
+                order_id: newId,
+                customer_name:
+                    customerMap[created.customer_id] ||
+                    created.customer_name ||
+                    created.customer_id,
+                items: (created.items || payload.items || []).map(it => {
+                    const prod = productMap[it.product_id];
+                    const qty = Number(it.quantity ?? it.qty ?? 0);
+                    const unit = Number(it.unit_price ?? it.price ?? prod?.price_current ?? 0);
+                    let rawDisc = it.discount ?? it.discount_percent ?? 0;
+                    let disc = Number(rawDisc) || 0;
+                    if (disc > 1) disc = disc / 100;
+                    const original_price =
+                        Number(it.price_original ?? it.original_price ?? prod?.price_original ?? 0) || unit;
+                    return {
+                        order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
+                        product_id: it.product_id || null,
+                        product_name: it.product_name || prod?.name || "",
+                        quantity: qty,
+                        price: unit,
+                        original_price,
+                        discount: disc,
+                        subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
+                    };
+                }),
+            };
+
+            setOrders(prev => [enriched, ...prev]);
+
+            // Reset modal state to trigger table re-render
+            setModal({ open: false, mode: "view", order: null });
+
+            toast.success('Thêm đơn hàng thành công!');
         } catch (err) {
             console.error("Lỗi khi lưu đơn hàng:", err);
             toast.error('Có lỗi khi lưu đơn hàng');
         }
     };
+
 
     const handleDelete = async (id) => {
         try {
@@ -374,14 +397,14 @@ export default function OrderPage() {
                                 <div className="relative flex items-center mb-2">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-2" />
                                     <Input value={customerSearch}
-                                    onChange={(e) => setCustomerSearch(e.target.value)}
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                    onKeyUp={(e) => e.stopPropagation()}
-                                    placeholder="Tìm kiếm khách hàng..."
-                                    
-                                />
+                                        onChange={(e) => setCustomerSearch(e.target.value)}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        onKeyUp={(e) => e.stopPropagation()}
+                                        placeholder="Tìm kiếm khách hàng..."
+
+                                    />
                                 </div>
-                                
+
                                 <DropdownMenuItem key="all" onSelect={() => { setSelectedCustomer(''); setCustomerSearch(''); }}>
                                     Tất cả khách hàng
                                 </DropdownMenuItem>
@@ -440,7 +463,7 @@ export default function OrderPage() {
                                             {order.customer_name || order.customer_id}
                                         </td>
                                         <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
-                                            {formatDateTime(order.order_date)}
+                                            {formatDateTime(order.order_date)} {/* Ensure correct timezone */}
                                         </td>
                                         <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
                                             {formatCurrency(order.total_amount || order.total || 0)}

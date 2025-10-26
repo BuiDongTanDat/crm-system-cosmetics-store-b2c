@@ -57,10 +57,11 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
         <div className="relative mb-0 h-10">
           {/* Rating và Giá - hiển thị bình thường */}
           <div className={`flex justify-between items-end transition-opacity duration-150 ease-in-out ${hovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            {/* Rating bên trái */}
-            <span className="flex text-yellow-500 text-sm font-medium gap-1">
-              <Star className="w-4 h-4" />  {product.rating || 0}
+            <span className="flex items-center gap-1 text-yellow-500 text-sm font-medium">
+              <Star className="w-4 h-4 -mt-[1px]" />
+              {product.rating || 0}
             </span>
+
 
             {/* Giá bên phải */}
             <div className="text-right">

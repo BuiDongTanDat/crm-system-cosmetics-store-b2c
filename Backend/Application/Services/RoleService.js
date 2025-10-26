@@ -43,12 +43,7 @@ class RoleService {
 
     async getAllRoles() {
         const roles = await this.roleRepository.getAllRoles();
-        return roles.map(role => new RoleDTO({
-            role_name: role.role_name,
-            permissions: role.permissions,
-            created_at: role.created_at,
-            updated_at: role.updated_at
-        }));
+        return roles.map(RoleDTO.fromEntity);
     }
 
     async getRoleByName(roleName) {
@@ -57,12 +52,7 @@ class RoleService {
         }
         const role = await this.roleRepository.getRoleByName(roleName);
         if (!role) return null;
-        return new RoleDTO({
-            role_name: role.role_name,
-            permissions: role.permissions,
-            created_at: role.created_at,
-            updated_at: role.updated_at
-        });
+        return RoleDTO.fromEntity(role);
     }
 
     async createRole(roleData) {
@@ -75,12 +65,7 @@ class RoleService {
         }
 
         const role = await this.roleRepository.createRole(valid);
-        return new RoleDTO({
-            role_name: role.role_name,
-            permissions: role.permissions,
-            created_at: role.created_at,
-            updated_at: role.updated_at
-        });
+        return RoleDTO.fromEntity(role);
     }
 
     async updateRole(roleName, updates) {
@@ -98,12 +83,7 @@ class RoleService {
         }
 
         const role = await this.roleRepository.updateRole(roleName, valid);
-        return new RoleDTO({
-            role_name: role.role_name,
-            permissions: role.permissions,
-            created_at: role.created_at,
-            updated_at: role.updated_at
-        });
+        return RoleDTO.fromEntity(role);
     }
 
     async deleteRole(roleName) {

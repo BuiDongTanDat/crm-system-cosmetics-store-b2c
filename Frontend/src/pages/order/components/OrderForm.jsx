@@ -24,7 +24,7 @@ export function OrderForm({
   statusLabels = {}   // { code: "VN label" }
 }) {
   // Lấy ngày hiện tại ở định dạng YYYY-MM-DD để gán sẵn khi tạo đơn hàng mới nè
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString(); // Ensure valid ISO string
 
   const [form, setForm] = useState({
     order_id: null,
@@ -66,7 +66,7 @@ export function OrderForm({
         order_id: data.order_id || data.orderId || null,
         customer_id: data.customer_id || "",
         customer_name: data.customer_name || "",
-        order_date: data.order_date ? data.order_date.split("T")[0] : (data.order_date || today),
+        order_date: data.order_date ? new Date(data.order_date).toISOString() : today, // Ensure valid ISO string
         total_amount: data.total_amount || data.total || 0,
         // normalize in case incoming data accidentally contains VN labels
         payment_method: normalizePaymentCode(data.payment_method) || 'cash_on_delivery',
@@ -226,7 +226,7 @@ export function OrderForm({
       ...(form.order_id ? { order_id: form.order_id } : {}),
       customer_id: form.customer_id || null,
       // send an ISO timestamp for order_date (backend example includes time + Z)
-      order_date: form.order_date ? (new Date(form.order_date)).toISOString() : new Date().toISOString(),
+      order_date: form.order_date ? new Date(form.order_date).toISOString() : new Date().toISOString(),
       total_amount: totalAmount,
       currency: "VND",
       payment_method: form.payment_method,
@@ -386,7 +386,7 @@ export function OrderForm({
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Khách hàng</label>
                 {mode === "view" ? (
-                  <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                  <div className="  text-sm w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
                     {form.customer_name || form.customer_id || '-'}
                   </div>
                 ) : (
@@ -406,7 +406,7 @@ export function OrderForm({
                           onKeyDown={(e) => e.stopPropagation()}
                           onKeyUp={(e) => e.stopPropagation()}
                           placeholder="Tìm kiếm khách hàng..."
-                          
+
                         />
                       </div>
                       {customers
@@ -436,9 +436,9 @@ export function OrderForm({
                 <input
                   disabled={mode === "view"}
                   type="date"
-                  value={form.order_date}
+                  value={form.order_date ? form.order_date.split("T")[0] : ""}
                   onChange={(e) => setForm(f => ({ ...f, order_date: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  className=" text-sm w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 />
               </div>
             </div>
@@ -553,14 +553,14 @@ export function OrderForm({
                   {/* expanded dropdown width & height */}
                   <DropdownMenuContent className="w-96 max-w-full max-h-96 overflow-y-auto p-2">
                     <div className="relative flex items-center mb-2">
-                        <Search className="w-4 h-4 text-gray-400 absolute left-2" />
+                      <Search className="w-4 h-4 text-gray-400 absolute left-2" />
                       <Input
                         value={productSearch}
                         onChange={(e) => setProductSearch(e.target.value)}
                         placeholder="Tìm sản phẩm..."
                         onKeyDown={(e) => e.stopPropagation()}
                         onKeyUp={(e) => e.stopPropagation()}
-                        
+
                       />
                     </div>
                     {products
@@ -628,7 +628,7 @@ export function OrderForm({
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       value={formatCurrency(detail.price)}
                       onChange={(e) => updateOrderDetail(index, 'price', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${ (mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${(mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                     />
                   </div>
 
@@ -642,7 +642,7 @@ export function OrderForm({
                       max="100"
                       value={Number(detail.discount || 0) * 100}
                       onChange={(e) => updateOrderDetail(index, 'discount', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${ (mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${(mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                     />
                   </div>
 
