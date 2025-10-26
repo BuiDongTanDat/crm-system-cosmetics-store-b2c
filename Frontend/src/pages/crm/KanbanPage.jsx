@@ -48,51 +48,111 @@ export default function KanbanPage() {
   const scrollIntervalRef = useRef(null);
   const resetTimersRef = useRef({});
   const isInitialLoadRef = useRef(true);
+  const PRIORITY_WEIGHT = {
+    urgent: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+  const getPriorityWeight = (p) => PRIORITY_WEIGHT[(p || '').toLowerCase()] || 0;
+  const sortCardsInColumn = (list) => {
+    const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
 
+    return [...list].sort((a, b) => {
+      // 1) Priority (desc)
+      const pa = getPriorityWeight(a.priority);
+      const pb = getPriorityWeight(b.priority);
+      if (pb !== pa) return pb - pa;
+
+      // 2) Lead score (desc)
+      const sa = num(a.leadScore, -Infinity);
+      const sb = num(b.leadScore, -Infinity);
+      if (sb !== sa) return sb - sa;
+
+      // 3) Conversion prob (desc)
+      const ca = num(a.conversionProb, -Infinity);
+      const cb = num(b.conversionProb, -Infinity);
+      if (cb !== ca) return cb - ca;
+
+      // 4) Value (desc)
+      const va = num(a.value, -Infinity);
+      const vb = num(b.value, -Infinity);
+      if (vb !== va) return vb - va;
+
+      // 5) Ngày tạo (desc)
+      const da = new Date(a.createdDate || 0).getTime();
+      const db = new Date(b.createdDate || 0).getTime();
+      return db - da;
+    });
+  };
+  // Null-safe helpers
   // ---------- Load data từ API ----------
   useEffect(() => {
     const load = async () => {
       try {
         const colRes = await getPipelineColumns();
-        // ✨ LOG: xem shape thật
-        console.log('[PIPELINE COLUMNS RAW]', colRes);
+        // colRes có thể là { ok, data: {...} } hoặc { data: { ok, data } } tùy wrapper
+        const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
+        const columnsObj = payload.columns ?? {};
+        const orderArr = payload.order ?? Object.keys(columnsObj);
 
-        const data = colRes?.data ?? {};
-        const columnsObj = data.columns ?? {};
-        const orderFromApi = data.order ?? [];
-        // fallback nếu BE không trả order
-        const orderArr = orderFromApi.length ? orderFromApi : Object.keys(columnsObj);
-
-        // Map BE -> UI
-        const BE2UI = {
-          new: 'new',
-          contacted: 'contacted',
-          qualified: 'qualified',
-          nurturing: 'nurturing',
-          converted: 'converted',
-          LOST: 'closed_lost',
-          closed_lost: 'closed_lost',
+        // Map trạng thái BE -> UI (BE đã dùng lowercase: new/contacted/…)
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v) ? v : 'new';
         };
 
-        // Cards: luôn lấy theo lead.status (đừng tin key của columnsObj)
-        const toCard = (lead) => ({
-          id: lead.lead_id,
-          title: lead.name || '',         // thường KanbanCard dùng 'title'
-          name: lead.name || '',          // nếu nó gọi .name
-          contactName: lead.name || '',   // phòng KanbanCard gọi tên kiểu khác
-          customerName: lead.name || '',  // phòng helper/kanban card dùng
-          email: lead.email || '',
-          phone: lead.phone || '',
-          source: lead.source || '',
-          stage: BE2UI[lead.status] || 'new',
-          status: BE2UI[lead.status] || 'new',
-          createdDate: lead.created_at?.slice(0, 10),
-          lastActivity: lead.created_at?.slice(0, 10),
-          value: 0,
-        });
-        const uiCards = Object.values(columnsObj).flatMap((leads) => (leads || []).map(toCard));
 
-        // Columns: bổ sung đủ field mà KanbanColumn/header cần
+        // Nếu CHƯA có sẵn asNumber trong file, thêm helper ngắn gọn:
+        const asNumber = (x, fallback = 0) => {
+          if (x === null || x === undefined) return fallback;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fallback;
+        };
+
+        const toCard = (lead) => {
+          const statusUI = normalizeStatus(lead?.status);
+
+          return {
+            id: lead?.lead_id,
+
+            // ✅ Tiêu đề: ưu tiên deal_name, nếu null dùng "Chiến dịch A"
+            title: lead?.deal_name || 'Chiến dịch A',
+
+            // ✅ Tên khách hàng (lead)
+            customer: lead?.name || 'Khách lẻ',
+
+            email: lead?.email || '',
+            phone: lead?.phone || '',
+            source: lead?.source || 'Inbound',
+
+            stage: statusUI,
+            status: statusUI,
+
+            createdDate: (lead?.created_at || '').slice(0, 10),
+            lastActivity: (lead?.created_at || '').slice(0, 10),
+
+            // ✅ Giá trị tiền lấy từ predicted_value (+ đơn vị)
+            value: asNumber(lead?.predicted_value, 0),
+            currency: lead?.predicted_value_currency || 'VND',
+
+            // Priority + điểm/ xác suất
+            priority: lead?.priority || 'medium',
+            leadScore: asNumber(lead?.lead_score, 0),
+            conversionProb: lead?.conversion_prob != null ? Number(lead.conversion_prob) : null, // 0..1 hoặc null
+
+            // ✅ Tags + sản phẩm
+            tags: Array.isArray(lead?.tags) ? lead.tags : [],
+            productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
+
+            // ✅ Assignee
+            assignee: lead?.assignee_name || lead?.assigned_to_name || 'Chưa phân công',
+            assigneeId: lead?.assigned_to || null,
+          };
+        };
+
+        const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
+
         const titleMap = {
           new: 'New',
           contacted: 'Contacted',
@@ -107,7 +167,7 @@ export default function KanbanPage() {
           qualified: 'bg-violet-600',
           nurturing: 'bg-amber-600',
           converted: 'bg-emerald-600',
-          closed_lost: 'bg-slate-600',
+          closed_lost: 'bg-red-600',
         };
         const cols = orderArr.map((id) => ({
           id,
@@ -115,23 +175,17 @@ export default function KanbanPage() {
           status: id,
           slug: id,
           title: titleMap[id] || id,
-          headerColor: colorMap[id] || 'bg-gray-700',
+          headerColor: colorMap[id] || 'bg-red-600',
           count: (columnsObj[id] || []).length,
         }));
-
-        // ✨ LOG: xác nhận sẽ render gì
-        console.log('[ORDER]', orderArr);
-        console.log('[COLUMNS BUILT]', cols);
-        console.log('[CARDS BUILT]', uiCards.map(c => ({ id: c.id, stage: c.stage, title: c.title })));
 
         setOrder(orderArr);
         setColumns(cols);
         setCards(uiCards);
 
-        // Summary
         const sumRes = await getPipelineSummary();
-        console.log('[SUMMARY RAW]', sumRes);
-        setSummary(sumRes?.data?.rows ?? []);
+        const sumPayload = sumRes?.data?.data ?? sumRes?.data ?? sumRes ?? {};
+        setSummary(sumPayload?.rows ?? []);
       } catch (e) {
         console.error(e);
         toast.error(e.message || 'Không tải được dữ liệu pipeline');
@@ -284,7 +338,10 @@ export default function KanbanPage() {
     };
   }, [isDraggingBoard, dragStartX, boardScrollLeft]);
 
-  const getCardsByStage = (stageId, list = cards) => list.filter((c) => (c.status || c.stage) === stageId);
+  const getCardsByStage = (stageId, list = cards) => {
+    const filtered = list.filter((c) => (c.status || c.stage) === stageId);
+    return sortCardsInColumn(filtered);
+  };
 
   // ---------- Modal handlers (giữ logic cũ) ----------
   const handleCardView = (card) => setModal({ open: true, mode: 'view', deal: card });

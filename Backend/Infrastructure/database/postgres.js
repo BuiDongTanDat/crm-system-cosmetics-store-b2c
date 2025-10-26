@@ -98,7 +98,7 @@ class DataManager {
     } else {
       console.log('Running in PRODUCTION mode (database-first)');
       this.loadModels(); // chỉ load model để dùng trong app
- 
+
     }
   }
 

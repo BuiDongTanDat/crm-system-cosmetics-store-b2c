@@ -77,7 +77,7 @@ async function seedCategories() {
     console.log('All categories seeded successfully!');
 }
 async function seedProductsFromCSV() {
-    ProductService.importFromCSV(csvFilePath);
+    await ProductService.importFromCSV(csvFilePath); // <-- thêm await
 }
 async function seedCampaign() {
     const count = await Campaign.count();
@@ -109,28 +109,63 @@ async function seedLeads(campaignId) {
         return;
     }
 
-    console.log(' Seeding leads...');
-    const statuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURING', 'CONVERTED', 'LOST'];
+    // Lấy sản phẩm từ DB (ưu tiên status ACTIVE nếu có cột status)
+    let products = [];
+    try {
+        products = await Product.findAll({
+            attributes: ['product_id', 'name'],
+            // nếu không có cột status, có thể bỏ where
+            // where: { status: 'ACTIVE' },
+            order: [['created_at', 'DESC']],
+        });
+    } catch (e) {
+        console.warn('Cannot load products, seeding leads without product_interest:', e.message);
+    }
 
-    const leads = statuses.map((status, index) => ({
-        name: `Lead Mẫu ${index + 1}`,
-        email: `lead${index + 1}@gmail.com`,
-        phone: `09000000${index + 1}`,
-        source: 'Inbound',
-        tags: ['Chiến dịch 20/10', 'tháng 10'],
-        campaign_id: campaignId,
-        status,
-    }));
+    if (!products || products.length === 0) {
+        console.warn('No products found. Leads will be created without product_interest.');
+    } else {
+        console.log(`🛒 Loaded ${products.length} products for lead product_interest.`);
+    }
+
+    console.log('Seeding leads...');
+    const statuses = ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'];
+    const priorities = ['low', 'medium', 'high', 'urgent'];
+
+    // Tạo mảng leads; product_interest lấy round-robin từ products
+    const leads = statuses.map((status, index) => {
+        const product = products.length ? products[index % products.length] : null;
+
+        return {
+            name: `Lead Mẫu ${index + 1}`,
+            email: `lead${index + 1}@gmail.com`,
+            phone: `09000000${index + 1}`,
+            source: 'Inbound',
+            tags: ['Chiến dịch 20/10', 'tháng 10'],
+            campaign_id: campaignId,
+            status,
+
+            // trường mới
+            priority: priorities[index % priorities.length],
+            product_interest: product ? product.name : null,
+
+            // dữ liệu cho AI
+            lead_score: Math.floor(Math.random() * 100),
+            conversion_prob: parseFloat((Math.random() * 0.8 + 0.1).toFixed(2)), // 0.10 - 0.90
+        };
+    });
 
     for (const lead of leads) {
         try {
-            await LeadService.createLead(lead);
-            console.log(`Created lead: ${lead.name} (${lead.status})`);
+            await LeadService.createLead(lead); // createLead sẽ tự gọi AI + set deal_name theo campaign
+            console.log(` Created lead: ${lead.name} (${lead.status})`
+                + (lead.product_interest ? ` — product_interest: ${lead.product_interest}` : ''));
         } catch (err) {
-            console.warn(`Skip lead ${lead.name}: ${err.message}`);
+            console.warn(` Skip lead ${lead.name}: ${err.message}`);
         }
     }
-    console.log(' All leads seeded successfully!');
+
+    console.log('All leads seeded successfully!');
 }
 async function seedDatabase() {
     await seedRolesAndUsers();

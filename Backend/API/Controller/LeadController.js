@@ -45,10 +45,15 @@ class LeadController {
       );
     }
   }
-  // static async list(req, res) {
-  //   const result = await LeadService.listLeads(req.query);
-  //   res.status(result.ok ? 200 : 500).json(result);
-  // }
+  static async getPipelineMetrics(req, res) {
+    try {
+      const data = await LeadService.getPipelineMetrics();
+      res.json({ ok: true, data });
+    } catch (err) {
+      console.error('[LeadController] getPipelineMetrics error:', err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  }
   static async getPipelineSummary(req, res) {
     try {
       const result = await LeadService.getPipelineSummary();

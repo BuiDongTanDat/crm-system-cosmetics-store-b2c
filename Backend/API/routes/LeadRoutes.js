@@ -15,7 +15,7 @@ router.patch('/:id', LeadController.update);
 // Status & History
 router.patch('/:id/status', LeadController.changeStatus);
 router.get('/:id/status-history', LeadController.listStatusHistory);
-
+router.get('/pipeline/metrics', LeadController.getPipelineMetrics);
 // Interactions
 router.post('/:id/interactions', LeadController.addInteraction);
 router.get('/:id/interactions', LeadController.listInteractions);

@@ -17,3 +17,8 @@ export const updateLeadStatus = (Id, status) =>
         method: 'PATCH',
         body: { status },
     });
+export const getPipelineMetrics = () =>
+    request(
+        `/leads/pipeline/metrics`, {
+        method: 'GET',
+    });
