@@ -105,7 +105,7 @@ class OrderService {
 		return OrderRepo.delete(orderId);
 	}
 
-	// Liệt kê theo customer (opts có thể chứa status)
+	// Liệt kê theo customer
 	// Nếu customerId không được cung cấp -> trả về tất cả orders
 	async listByCustomer(customerId = null, opts = {}) {
 		if (!customerId) {

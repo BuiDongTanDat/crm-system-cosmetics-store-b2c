@@ -97,7 +97,6 @@ class ProductRepository {
     // normalize BOM and remove weird chars at start
     const normalizedContent = content.replace(/^\uFEFF/, '');
 
-    // lỗi parse ngay tại bước parse sẽ được ghi vào errorsParse và sau đó cộng vào errors chính
     const errors = [];
 
     //Chỗ này mình tách thử nên  dùng csv-parse được hay không
