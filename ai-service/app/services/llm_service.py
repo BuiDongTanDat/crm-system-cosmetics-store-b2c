@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Any, Dict, List, Optional
 from app import config
-
+from datetime import datetime, timezone
 try:
     import google.generativeai as genai
     _GEMINI_AVAILABLE = True
@@ -182,7 +182,271 @@ class LLMService:
                 "note": "AI trả về text không hợp lệ, dùng fallback theo ràng buộc.",
                 "summary_report": (raw or "")[:300]
             }
-    
+    async def predict_lead_expected_value(
+        self,
+        lead: Dict[str, Any],
+        interested_products: List[Dict[str, Any]],
+        interactions: Optional[List[Dict[str, Any]]] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Dự đoán tổng giá trị kỳ vọng (EV) mà lead sẽ mang lại dựa trên sản phẩm quan tâm.
+        """
+        options = options or {}
+        currency = options.get("currency", "VND")
+        horizon_days = int(options.get("horizon_days", 30))
+        repeat_rate = float(options.get("repeat_rate", 0.10))
+        min_interest_score = float(options.get("min_interest_score", 0.0))
+        optimize_for = options.get("optimize_for", "revenue")  # hoặc "margin"
+
+        # --------- FALLBACK (Rule-based) ---------
+        if not self.enabled:
+            lead_conv = float(lead.get("conversion_prob") or 0.12)
+
+            # Hiệu chỉnh từ lead_score (nếu có): +1% xác suất cho mỗi 10 điểm, capped ±30%
+            lead_score = float(lead.get("lead_score") or 0)
+            score_factor = max(0.7, min(1.3, 1.0 + (lead_score - 50.0) / 500.0))
+
+            # Hiệu chỉnh tương tác gần đây (nếu có)
+            recency_factor = 1.0
+            if interactions:
+                latest_ts = None
+                for it in interactions:
+                    t = it.get("occurred_at")
+                    if isinstance(t, str):
+                        try:
+                            t = datetime.fromisoformat(t.replace("Z", "+00:00"))
+                        except Exception:
+                            t = None
+                    if isinstance(t, datetime):
+                        latest_ts = max(latest_ts or t, t)
+                if latest_ts:
+                    days = (datetime.now(timezone.utc) - latest_ts.astimezone(timezone.utc)).days
+                    if days <= 7:
+                        recency_factor = 1.10
+                    elif days <= 14:
+                        recency_factor = 1.05
+
+            base_prob = max(0.01, min(0.8, lead_conv * score_factor * recency_factor))
+
+            breakdown = []
+            total_ev = 0.0
+            total_margin = 0.0
+
+            for p in (interested_products or []):
+                price = float(p.get("price") or 0)
+                if price <= 0:
+                    continue
+                interest = float(p.get("interest_score") or 0.5)
+                if interest < min_interest_score:
+                    continue
+
+                category = (p.get("category") or "").lower()
+                cat_factor = 1.0
+                if category in {"serum", "treatment"}:
+                    cat_factor = 1.05
+                elif category in {"makeup"}:
+                    cat_factor = 0.95
+
+                adjusted_prob = max(0.01, min(0.95, base_prob * (0.6 + 0.8 * interest) * cat_factor))
+
+                expected_orders = 1.0 * adjusted_prob * (1.0 + repeat_rate)
+
+                expected_value = price * expected_orders
+                margin_rate = float(p.get("margin_rate")) if p.get("margin_rate") is not None else 0.4
+                expected_margin = expected_value * margin_rate
+
+                breakdown.append({
+                    "product_id": p.get("product_id"),
+                    "name": p.get("name"),
+                    "price": int(price),
+                    "base_prob": round(base_prob, 3),
+                    "adjusted_prob": round(adjusted_prob, 3),
+                    "expected_orders": round(expected_orders, 3),
+                    "expected_value": round(expected_value, 2),
+                    "expected_margin": round(expected_margin, 2),
+                    "reason": f"interest={interest}, cat_factor={cat_factor}"
+                })
+
+                total_ev += expected_value
+                total_margin += expected_margin
+
+            result: Dict[str, Any] = {
+                "lead_id": lead.get("lead_id"),
+                "currency": currency,
+                "horizon_days": horizon_days,
+                "assumptions": {
+                    "base_conversion_prob": round(base_prob, 3),
+                    "repeat_rate": repeat_rate,
+                    "min_interest_score": min_interest_score,
+                    "optimize_for": optimize_for
+                },
+                "breakdown": breakdown,
+                "expected_total_value": round(total_ev, 2),
+                "generated_at": datetime.utcnow().replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "note": "EV = price * adjusted_prob * (1 + repeat_rate)"
+            }
+            if optimize_for == "margin":
+                result["expected_total_margin"] = round(total_margin, 2)
+            return result
+
+        # --------- LLM MODE (self.enabled=True) ----------
+        constraints = [
+            f'- Tiền tệ: {currency}',
+            f'- Horizon dự báo (ngày): {horizon_days}',
+            f'- Repeat rate: {repeat_rate}',
+            f'- Lọc sản phẩm có interest_score >= {min_interest_score}',
+            f'- Tối ưu theo: {optimize_for}',
+        ]
+
+        prompt_parts = []
+        prompt_parts.append(
+            "Bạn là chuyên gia phân tích doanh thu. Hãy ước tính **giá trị kỳ vọng** (expected value) một lead mang lại "
+            "trong khoảng thời gian chỉ định, dựa trên sản phẩm mà lead quan tâm. Chỉ trả về JSON hợp lệ."
+        )
+        prompt_parts.append("📇 Lead:")
+        prompt_parts.append(json.dumps(lead, ensure_ascii=False, indent=2))
+        if interactions:
+            prompt_parts.append("🗒️ Interactions gần đây:")
+            prompt_parts.append(json.dumps(interactions, ensure_ascii=False, indent=2))
+        prompt_parts.append("🛍️ Sản phẩm quan tâm:")
+        prompt_parts.append(json.dumps(interested_products, ensure_ascii=False, indent=2))
+        prompt_parts.append("Ràng buộc & tham số:")
+        prompt_parts.extend(constraints)
+
+        schema_example = {
+            "lead_id": "<uuid>",
+            "currency": "VND",
+            "horizon_days": 30,
+            "assumptions": {
+                "base_conversion_prob": 0.18,
+                "repeat_rate": 0.15,
+                "min_interest_score": 0.2,
+                "optimize_for": "revenue"
+            },
+            "breakdown": [
+                {
+                    "product_id": "<id>",
+                    "name": "<tên>",
+                    "price": 390000,
+                    "base_prob": 0.15,
+                    "adjusted_prob": 0.21,
+                    "expected_orders": 1.1,
+                    "expected_value": 429000.0,
+                    "expected_margin": 171600.0,
+                    "reason": "<ngắn gọn>"
+                }
+            ],
+            "expected_total_value": 1200000.0,
+            "expected_total_margin": 520000.0,
+            "generated_at": "2025-10-25T02:20:00Z",
+            "note": "EV = price * adjusted_prob * (1 + repeat_rate)"
+        }
+
+        prompt_parts.append(
+            "YÊU CẦU XUẤT RA:\n"
+            "- Chỉ trả về MỘT đối tượng JSON hợp lệ theo cấu trúc mẫu dưới đây (có thể thay số liệu).\n"
+            "- Không thêm text ngoài JSON, không markdown."
+        )
+        prompt_parts.append(json.dumps(schema_example, ensure_ascii=False, indent=2))
+        prompt = "\n\n".join(prompt_parts)
+
+        raw = await self._generate(prompt, model=getattr(config, "GEMINI_MODEL_GENERIC", "gemini-1.5-flash"))
+
+        try:
+            return json.loads(raw)
+        except Exception:
+            import re
+            m = re.search(r"\{.*\}", raw or "", flags=re.DOTALL)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+            # Fallback cuối (nếu LLM trả về không hợp lệ): gọi lại chính nhánh rule-based
+            self.enabled = False
+            return await self.predict_lead_expected_value(
+                lead, interested_products, interactions, options
+            )
+
+        # --------- LLM MODE (self.enabled=True) ----------
+        constraints = []
+        constraints.append(f'- Tiền tệ: {currency}')
+        constraints.append(f'- Horizon dự báo (ngày): {horizon_days}')
+        constraints.append(f'- Repeat rate: {repeat_rate}')
+        constraints.append(f'- Lọc sản phẩm có interest_score >= {min_interest_score}')
+        constraints.append(f'- Tối ưu theo: {optimize_for}')
+
+        prompt_parts = []
+        prompt_parts.append(
+            "Bạn là chuyên gia phân tích doanh thu. Hãy ước tính **giá trị kỳ vọng** (expected value) một lead mang lại "
+            "trong khoảng thời gian chỉ định, dựa trên sản phẩm mà lead quan tâm. Chỉ trả về JSON hợp lệ."
+        )
+        prompt_parts.append("📇 Lead:")
+        prompt_parts.append(json.dumps(lead, ensure_ascii=False, indent=2))
+        if interactions:
+            prompt_parts.append("🗒️ Interactions gần đây:")
+            prompt_parts.append(json.dumps(interactions, ensure_ascii=False, indent=2))
+        prompt_parts.append("🛍️ Sản phẩm quan tâm:")
+        prompt_parts.append(json.dumps(interested_products, ensure_ascii=False, indent=2))
+        prompt_parts.append("Ràng buộc & tham số:")
+        prompt_parts.extend(constraints)
+
+        schema_example = {
+            "lead_id": "<uuid>",
+            "currency": "VND",
+            "horizon_days": 30,
+            "assumptions": {
+                "base_conversion_prob": 0.18,
+                "repeat_rate": 0.15,
+                "min_interest_score": 0.2,
+                "optimize_for": "revenue"
+            },
+            "breakdown": [
+                {
+                    "product_id": "<id>",
+                    "name": "<tên>",
+                    "price": 390000,
+                    "base_prob": 0.15,
+                    "adjusted_prob": 0.21,
+                    "expected_orders": 1.1,
+                    "expected_value": 429000.0,
+                    "expected_margin": 171600.0,
+                    "reason": "<ngắn gọn>"
+                }
+            ],
+            "expected_total_value": 1200000.0,
+            "expected_total_margin": 520000.0,
+            "generated_at": "2025-10-25T02:20:00Z",
+            "note": "EV = price * adjusted_prob * (1 + repeat_rate)"
+        }
+
+        prompt_parts.append(
+            "YÊU CẦU XUẤT RA:\n"
+            "- Chỉ trả về MỘT đối tượng JSON hợp lệ theo cấu trúc mẫu dưới đây (có thể thay số liệu).\n"
+            "- Không thêm text ngoài JSON, không markdown."
+        )
+        prompt_parts.append(json.dumps(schema_example, ensure_ascii=False, indent=2))
+        prompt = "\n\n".join(prompt_parts)
+
+        raw = await self._generate(prompt, model="your-generic-llm-id")
+
+        try:
+            return json.loads(raw)
+        except Exception:
+            import re
+            m = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+            # Fallback cuối (nếu LLM trả về không hợp lệ): gọi lại chính nhánh rule-based
+            self.enabled = False
+            return await self.predict_lead_expected_value(
+                lead, interested_products, interactions, options
+            )
+        
     # ----------------- Core Gemini Call -----------------
     async def _generate(self, prompt: str, model: str) -> str:
         """
