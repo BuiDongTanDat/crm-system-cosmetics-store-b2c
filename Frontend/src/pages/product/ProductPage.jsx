@@ -181,40 +181,6 @@ export default function ProductPage() {
       ? 'px-2 py-1 text-xs font-medium text-success   rounded-full w-[100px] text-center inline-block bg-green-100'
       : 'px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100';
 
-  // handle selecting action from DropdownOptions (import/export)
-  const CSV_ACTIONS = [
-    { value: 'import', label: 'Nhập CSV' },
-    { value: 'export', label: 'Xuất CSV' },
-  ];
-
-  const handleCSVAction = async (action) => {
-    if (action === 'import') {
-      fileInputRef.current?.click();
-    } else if (action === 'export') {
-      try {
-        const csvBlob = await exportProductsCSV();
-        if (!csvBlob) {
-          toast.error('Không có dữ liệu để xuất CSV.');
-          return;
-        }
-        // Create a URL for the Blob and trigger download
-        const url = window.URL.createObjectURL(csvBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'products.csv'; // Default filename
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-
-        toast.success('Xuất CSV thành công! File đang được tải xuống.');
-      } catch (err) {
-        console.error('Export error:', err);
-        toast.error('Lỗi khi xuất CSV.');
-      }
-    }
-  };
-
   // file input change -> call importProductsCSV directly (service expects field name "file")
   const handleImportFile = async (e) => {
     const file = e?.target?.files?.[0];
@@ -329,16 +295,20 @@ export default function ProductPage() {
 
         {/* Cụm nằm dưới */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-1">
+          <div className="flex gap-0">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('card')}
+              size="icon"
+              className = "rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
+              size="icon"
+              className = "rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
             </Button>

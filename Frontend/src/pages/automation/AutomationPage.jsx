@@ -140,16 +140,20 @@ export default function AutomationPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               Automation Flow ({filtered.length})
             </h1>
-            <div className="flex gap-1">
+            <div className="flex">
               <Button
                 variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
                 onClick={() => setViewMode('card')}
+                size="icon"
+                className="rounded-none rounded-tl-md rounded-bl-md"
               >
                 <Square className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
                 onClick={() => setViewMode('list')}
+                size="icon"
+                className="rounded-none rounded-tr-md rounded-br-md"
               >
                 <List className="w-4 h-4" />
               </Button>

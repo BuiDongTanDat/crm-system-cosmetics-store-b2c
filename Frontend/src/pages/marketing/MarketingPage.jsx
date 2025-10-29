@@ -179,16 +179,20 @@ export default function MarketingPage() {
 
         {/* Second row: view toggles (left) and filters/actions (right) */}
         <div className="flex items-center justify-between">
-          <div className="flex gap-1">
+          <div className="flex">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('card')}
+              size="icon"
+              className = "rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
+              size="icon"
+              className = "rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
             </Button>

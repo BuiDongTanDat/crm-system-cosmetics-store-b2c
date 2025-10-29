@@ -39,12 +39,12 @@ export default function OrderPage() {
     };
     // Nhãn tiếng Việt cho statuses (Hiện trên front thôi, còn lưu về biến tiếng anh)
     const STATUS_LABELS = {
-        paid: "Đã thanh toán",
         pending: "Chờ xử lý",
-        cancelled: "Đã hủy",
-        refunded: "Đã hoàn tiền",
-        failed: "Thanh toán thất bại",
         processing: "Đang xử lý",
+        cancelled: "Đã hủy",
+        paid: "Đã thanh toán", 
+        failed: "Thanh toán thất bại",
+        refunded: "Đã hoàn tiền",
         shipped: "Đã giao hàng",
         completed: "Hoàn tất",
     };

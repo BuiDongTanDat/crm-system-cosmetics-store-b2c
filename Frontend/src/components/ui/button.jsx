@@ -38,14 +38,14 @@ const buttonVariants = cva(
         
       },
       size: {
-        default: "h-10 px-4 py-2 has-[>svg]:px-3",
+        default: "h-10 p-2 has-[>svg]:px-3",
         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-9",
 
         // Thêm size cho menu
-        menuItem: "h-auto px-3 py-2.5 gap-3",
-        subMenuItem: "h-auto px-3 py-2 gap-1",
+        menuItem: "h-auto p-2 gap-2",
+        subMenuItem: "h-auto p-2 gap-1",
         
         // Size cho product
         productAction: "h-8 px-3 py-1 text-xs",

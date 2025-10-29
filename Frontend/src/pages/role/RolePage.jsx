@@ -252,7 +252,7 @@ export default function RolePage() {
                                         <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === role.role_name
-                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                    ? "opacity-100 translate-y-0 pointer-events-auto "
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
