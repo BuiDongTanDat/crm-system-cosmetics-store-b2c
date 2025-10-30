@@ -173,36 +173,38 @@ export function OrderForm({
   }, [products]);
 
   const handleCancel = () => {
-    if (data) {
-      setForm({
-        order_id: data.order_id || null,
-        customer_id: data.customer_id || "",
-        customer_name: data.customer_name || "",
-        order_date: data.order_date ? data.order_date.split("T")[0] : "",
-        total_amount: data.total_amount || 0,
-        payment_method: normalizePaymentCode(data.payment_method) || 'cash_on_delivery',
-        status: normalizeStatusCode(data.status) || 'pending',
-        channel: data.channel || "",
-        ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell) ? data.ai_suggested_crosssell.join(', ') : (data.ai_suggested_crosssell || ""),
-        notes: data.notes || "",
-      });
-      if (data.items) {
-        // normalize same as initial load
-        setOrderDetails(data.items.map(it => {
-          const quantity = Number(it.quantity ?? it.qty ?? 1);
-          const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
-          const subtotal = Number(it.subtotal ?? it.total_price ?? (quantity * price));
-          return {
-            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            product_id: it.product_id || it.productId || "",
-            product_name: it.product_name || it.name || "",
-            quantity,
-            price,
-            subtotal
-          };
-        }));
-      }
+    if (data.items && data.items.length > 0) {
+      setOrderDetails(data.items.map(it => {
+        const quantity = Number(it.quantity ?? it.qty ?? 1);
+        const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
+        const subtotal = Number(it.subtotal ?? it.total_price ?? (quantity * price));
+
+        // parse discount
+        const rawDisc = it.discount ?? it.discount_percent ?? 0;
+        let discount = Number(rawDisc) || 0;
+        if (discount > 1) discount = discount / 100;
+
+        // compute original_price
+        let original_price = Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) || 0;
+        if (!original_price) {
+          original_price = computeOriginalPrice(price, discount);
+        }
+
+        return {
+          order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          product_id: it.product_id || it.productId || "",
+          product_name: it.product_name || it.name || "",
+          quantity,
+          price,
+          subtotal,
+          discount,
+          original_price
+        };
+      }));
+    } else {
+      setOrderDetails([]);
     }
+
     setMode?.("view");
   };
 

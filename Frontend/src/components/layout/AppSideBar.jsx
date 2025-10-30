@@ -45,7 +45,7 @@ const navItems = [
     ],
   },
   {
-    name: "Bán hàng",
+    name: "Deals",
     icon: <BadgeDollarSign   className="w-5 h-5" />,
     subItems: [
       { name: "Pipeline", path: "/kanban", pro: false },

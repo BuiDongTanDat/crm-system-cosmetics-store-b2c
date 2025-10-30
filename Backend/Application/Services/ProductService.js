@@ -69,7 +69,7 @@ class ProductService {
   // Import sản phẩm từ CSV
   async importFromCSV(filePath) {
     const dto = new ImportCSVRequestDTO({ filePath });
-    if (typeof productRepository.importFromCSV !== 'function') {
+    if (typeof ProductRepository.importFromCSV !== 'function') {
       throw new Error('importFromCSV chưa được triển khai trong repository');
     }
     const result = await ProductRepository.importFromCSV(dto);

@@ -76,7 +76,7 @@ const LandingPage = () => {
             <header className="landing-header text-center z-10">
                 <div className="flex items-center justify-center space-x-3">
                     <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
-                    <span className="text-2xl font-extrabold text-blue-600">LuBoo</span>
+                    <span className="text-2xl font-extrabold text-blue-600">CChain</span>
                 </div>
                 <p className="text-gray-600 mt-2 text-lg font-medium">DỊCH VỤ - THƯƠNG HIỆU - TRUYỀN THÔNG - CHẤT LƯỢNG</p>
             </header>

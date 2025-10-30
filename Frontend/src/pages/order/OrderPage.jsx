@@ -14,22 +14,14 @@ import { getOrders, createOrder, updateOrder, deleteOrder } from "@/services/ord
 import { getCustomers } from "@/services/customers";
 import { getProducts } from "@/services/products";
 import DropdownOptions from '@/components/common/DropdownOptions'; // same component used in ProductPage
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState("");
-    const [customerSearch, setCustomerSearch] = useState("");
-
     // Nhãn tiếng Việt cho payment methods
     const PAYMENT_LABELS = {
         credit_card: "Thẻ tín dụng",
@@ -340,7 +332,7 @@ export default function OrderPage() {
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90 hover:border-blue-500"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -384,43 +376,23 @@ export default function OrderPage() {
                         />
 
                         {/* Customer dropdown with search (custom) */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="w-56 flex items-center justify-between px-3 py-2 border rounded-md bg-white cursor-pointer">
-                                    <div className="text-sm truncate">
-                                        {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                                    </div>
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                        <DropdownWithSearch
+                            items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
+                            itemKey={(c) => c.customer_id || c.id}
+                            renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
+                            filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                            onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
+                            placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                            searchPlaceholder="Tìm kiếm khách hàng..."
+                            contentClassName="max-h-64 overflow-y-auto"
+                        >
+                            <div className="w-56 flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                                <div className="text-sm truncate">
+                                    {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
                                 </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] p-2 max-h-64 overflow-y-auto">
-                                <div className="relative flex items-center mb-2">
-                                    <Search className="w-4 h-4 text-gray-400 absolute left-2" />
-                                    <Input value={customerSearch}
-                                        onChange={(e) => setCustomerSearch(e.target.value)}
-                                        onKeyDown={(e) => e.stopPropagation()}
-                                        onKeyUp={(e) => e.stopPropagation()}
-                                        placeholder="Tìm kiếm khách hàng..."
-
-                                    />
-                                </div>
-
-                                <DropdownMenuItem key="all" onSelect={() => { setSelectedCustomer(''); setCustomerSearch(''); }}>
-                                    Tất cả khách hàng
-                                </DropdownMenuItem>
-                                {customers
-                                    .filter(c => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes(customerSearch.toLowerCase()))
-                                    .map(c => {
-                                        const id = c.customer_id || c.id;
-                                        const label = c.full_name || c.fullName || c.name || id;
-                                        return (
-                                            <DropdownMenuItem key={id} onSelect={() => { setSelectedCustomer(id); setCustomerSearch(''); }}>
-                                                {label}
-                                            </DropdownMenuItem>
-                                        );
-                                    })}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                            </div>
+                        </DropdownWithSearch>
                     </div>
                 </div>
             </div>
