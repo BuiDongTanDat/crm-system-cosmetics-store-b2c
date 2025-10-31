@@ -1,3 +1,4 @@
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -17,6 +18,7 @@ module.exports = {
       },
     },
     extend: {
+      
       colors: {
         brand: {
           DEFAULT: "rgb(var(--brand) / <alpha-value>)",

@@ -1,118 +1,194 @@
 const OrderRepo = require('../../Infrastructure/Repositories/OrderRepository');
+const OrderDetailService = require('./OrderDetailService');
+const { OrderRequestDTO, OrderResponseDTO } = require('../DTOs/OrderDTO');
 
 class OrderService {
-	// helper: chuẩn hoá 1 item về shape DB và đảm bảo kiểu
-	_normalizeItem(it) {
-		if (!it) return null;
-		const quantity = Number(it.quantity ?? it.qty ?? 0);
-		// support both unit_price and price_unit from client
-		const price_unit = Number(it.price_unit ?? it.unit_price ?? it.price ?? 0);
-		const discount = Number(it.discount ?? 0) || 0;
-		return {
-			...it,
-			quantity,
-			price_unit,
-			discount,
-		};
-	}
 
-	// helper: tính tổng từ items (price_unit * qty * (1 - discount))
-	_computeTotal(items = []) {
-		let total = 0;
-		for (const raw of items) {
-			const it = this._normalizeItem(raw);
-			const line = Math.max(0, (Number(it.price_unit) || 0) * (Number(it.quantity) || 0) * (1 - (Number(it.discount) || 0)));
-			total += line;
-		}
-		return total;
-	}
-
+	
 	// Tạo order (payload có thể chứa items)
 	async createOrder(payload) {
-		// Validate basic payload
-		if (!payload || !payload.customer_id) throw new Error('Thiếu mã khách hàng');
 
-		// ensure items is array
-		const items = Array.isArray(payload.items) ? payload.items.map(i => this._normalizeItem(i)) : [];
+		const dto = new OrderRequestDTO(payload);
+		if (!dto.customer_id) throw new Error('Thiếu mã khách hàng');
 
-		// Basic per-item validation
-		for (const it of items) {
-			if (!it.product_id) throw new Error('Mỗi item cần product_id');
-			if (typeof it.quantity === 'undefined' || Number.isNaN(Number(it.quantity))) throw new Error('Mỗi item cần quantity hợp lệ');
-			if (typeof it.price_unit === 'undefined' || Number.isNaN(Number(it.price_unit))) throw new Error('Mỗi item cần price_unit hợp lệ');
+		//Chuẩn hóa item, dùng bên OrderDetailService (DTO này chưa có order id nha)
+		const items = Array.isArray(dto.items)
+			? dto.items.map(i => OrderDetailService._normalizeDetail(i))
+			: [];
+
+		//Nếu chưa có total_amount hoặc = 0 thì tính lại
+		if (!dto.total_amount || Number(dto.total_amount) === 0) {
+			throw new Error('Thiếu tổng tiền (total_amount)');
 		}
 
-		// compute total if missing or zero
-		if (payload.total_amount == null || Number(payload.total_amount) === 0) {
-			const computed = this._computeTotal(items);
-			payload.total_amount = computed;
+		// CHuẩn bị các trường bên Order
+		const orderPayload = {
+			customer_id: dto.customer_id,
+			order_date: dto.order_date,
+			total_amount: dto.total_amount,
+			currency: dto.currency,
+			payment_method: dto.payment_method,
+			status: dto.status,
+			channel: dto.channel,
+			notes: dto.notes,
+		};
+
+		//Tạo order trước rồi lấy order_id để tạo details
+		let createdOrder;
+		let createDetails = [];
+		const transaction = await OrderRepo.sequelize.transaction();
+		try {
+			createdOrder = await OrderRepo.create(orderPayload, transaction);
+			//Tạo details nếu có (Lúc này gắn thêm cái  order_id mới tạo vào DTO)
+			if (items.length > 0) {
+				const detailsWithOrderId = items.map(i => ({
+					...i,
+					order_id: createdOrder.order_id,
+				}));
+				createDetails = await OrderDetailService.createMany(detailsWithOrderId, transaction);
+			}
+
+			await transaction.commit();
+			return OrderResponseDTO.fromEntity(createdOrder, createDetails);
+		} catch (err) {
+			await transaction.rollback();
+			throw new Error(`Tạo đơn hàng thất bại: ${err.message}`);
 		}
 
-		// attach normalized items to payload using DB field names
-		const sendPayload = { ...payload, items };
-
-		return OrderRepo.create(sendPayload);
 	}
 
 	// Lấy order theo id
-	async getOrder(orderId) {
+	async getOrderById(orderId) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
-		return OrderRepo.findById(orderId);
+		const order = await OrderRepo.findById(orderId);
+		if (!order) return null; // Để nữa bên controller 
+
+		// Lấy details từ đơn hàng này
+		let details = await OrderDetailService.getByOrderId(orderId);
+		return OrderResponseDTO.fromEntity(order, details);
 	}
 
 	//Lấy tất cả order
 	async getAllOrders() {
 		try {
-			return await OrderRepo.findAll();
+			const orders = await OrderRepo.findAll();
+			// Nếu không có order nào thì trả mảng rỗng
+			if (!orders || orders.length === 0) return [];
+
+			// Với mỗi order, lấy thêm danh sách items
+			const results = await Promise.all(
+				orders.map(async (o) => {
+					const orderId = o.order_id;
+					const details = await OrderDetailService.getByOrderId(orderId);
+					return OrderResponseDTO.fromEntity(o, details);
+				})
+			);
+
+			return results;
 		} catch (err) {
-			// fallback: retry without includes if repository/ORM complains (kept for compatibility)
-			if (err && (err.name === 'SequelizeEagerLoadingError' || /is not associated/i.test(String(err.message)))) {
-				return OrderRepo.findAll({ include: [] }).catch(() => { throw err; });
-			}
-			throw err;
+			throw new Error(`Lấy danh sách đơn hàng thất bại: ${err.message}`);
 		}
 	}
 
 	// Cập nhật order (có thể kèm items để đồng bộ)
 	async updateOrder(orderId, patch) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
-		const patched = { ...patch };
-		let items = null;
-		if (Array.isArray(patch.items)) {
-			items = patch.items.map(i => this._normalizeItem(i));
-			// validate items
-			for (const it of items) {
-				if (!it.product_id) throw new Error('Mỗi item cần product_id');
-				if (typeof it.quantity === 'undefined' || Number.isNaN(Number(it.quantity))) throw new Error('Mỗi item cần quantity hợp lệ');
-				if (typeof it.price_unit === 'undefined' || Number.isNaN(Number(it.price_unit))) throw new Error('Mỗi item cần price_unit hợp lệ');
+		const found = await OrderRepo.findById(orderId);
+		if (!found) throw new Error('Mã đơn hàng không tồn tại');
+		let items = patch.items || [];
+		let total = patch.total_amount || 0;
+
+		if (Array.isArray(items) && items.length > 0) {
+			items = items.map(i => OrderDetailService._normalizeDetail(i));
+			if (!total) {
+				throw new Error('Thiếu tổng tiền (total_amount) khi cập nhật kèm items');
 			}
-			patched.items = items;
-			// recalc total when items provided
-			patched.total_amount = this._computeTotal(items);
 		}
-		return OrderRepo.update(orderId, patched);
+
+		const transaction = await OrderRepo.sequelize.transaction();
+		try {
+			await OrderRepo.update(
+				orderId, {
+				...patch,
+				total_amount: total,
+			}, transaction);
+
+			// Để tiện thì xóa item cũ rồi add lại hết
+			if (items.length > 0) {
+				await OrderDetailService.deleteByOrderId(orderId, transaction);
+				const itemsWithOrderId = items.map(i => ({
+					...i,
+					order_id: orderId,
+				}));
+				await OrderDetailService.createMany(itemsWithOrderId, transaction);
+			}
+			await transaction.commit();
+
+			// Fetch updated order and details after commit
+			const updatedOrder = await OrderRepo.findById(orderId);
+			const details = await OrderDetailService.getByOrderId(orderId);
+			return OrderResponseDTO.fromEntity(updatedOrder, details);
+		}
+		catch (err) {
+			await transaction.rollback();
+			console.error('Error during updateOrder transaction:', err);
+			throw new Error(`Cập nhật đơn hàng thất bại: ${err.message}`);
+		}
 	}
 
 	// Cập nhật trạng thái nhanh
 	async updateStatus(orderId, newStatus) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
-		return OrderRepo.updateStatus(orderId, newStatus);
+		const transaction = await OrderRepo.sequelize.transaction();
+		try {
+			await OrderRepo.updateStatus(orderId, newStatus, transaction);
+			await transaction.commit();
+
+			// Fetch updated order after commit
+			const updated = await OrderRepo.findById(orderId);
+			return OrderResponseDTO.fromEntity(updated);
+		} catch (err) {
+			await transaction.rollback();
+			throw new Error(`Cập nhật trạng thái đơn hàng thất bại: ${err.message}`);
+		}
 	}
 
-	// Xóa order
+	// Xóa order (kemf xoas details)
 	async deleteOrder(orderId) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
-		return OrderRepo.delete(orderId);
+		const transaction = await OrderRepo.sequelize.transaction();
+		try {
+			await OrderDetailService.deleteByOrderId(orderId, transaction);
+			await OrderRepo.delete(orderId, transaction);
+			await transaction.commit();
+			return true;
+		}
+		catch (err) {
+			await transaction.rollback();
+			throw new Error(`Xoá đơn hàng thất bại: ${err.message}`);
+		}
 	}
 
-	// Liệt kê theo customer (opts có thể chứa status)
+	// Liệt kê theo customer
 	// Nếu customerId không được cung cấp -> trả về tất cả orders
 	async listByCustomer(customerId = null, opts = {}) {
-		if (!customerId) {
-			// no customer specified -> return all orders (allow passing opts like limit/offset)
-			return OrderRepo.findAll(opts);
+		try {
+			// Lấy orders từ repo theo customerId
+			const orders = await OrderRepo.listByCustomer(customerId, opts);
+			if (!orders || orders.length === 0) return [];
+
+			// Với mỗi order, lấy details và chuyển sang DTO
+			const results = await Promise.all(
+				orders.map(async (o) => {
+					const details = await OrderDetailService.getByOrderId(o.order_id);
+					return OrderResponseDTO.fromEntity(o, details);
+				})
+			);
+
+			return results;
+		} catch (err) {
+			throw new Error(`Lấy danh sách đơn hàng theo khách hàng thất bại: ${err.message}`);
 		}
-		return OrderRepo.listByCustomer(customerId, opts);
 	}
 }
 

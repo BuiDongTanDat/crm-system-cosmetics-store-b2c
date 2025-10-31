@@ -35,7 +35,6 @@ class RoleRepository {
         return await role.destroy();
     }
 
-    // Nếu cần dùng transaction, có thể truyền { transaction } vào các hàm trên
 }
 
 module.exports = new RoleRepository();

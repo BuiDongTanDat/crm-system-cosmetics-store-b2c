@@ -7,29 +7,21 @@ import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
-import CountUp from 'react-countup';
+
 import { PaymentMethod } from "@/lib/data";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/helper";
 import { getOrders, createOrder, updateOrder, deleteOrder } from "@/services/orders";
 import { getCustomers } from "@/services/customers";
 import { getProducts } from "@/services/products";
 import DropdownOptions from '@/components/common/DropdownOptions'; // same component used in ProductPage
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState("");
-    const [customerSearch, setCustomerSearch] = useState("");
-
     // Nhãn tiếng Việt cho payment methods
     const PAYMENT_LABELS = {
         credit_card: "Thẻ tín dụng",
@@ -39,12 +31,12 @@ export default function OrderPage() {
     };
     // Nhãn tiếng Việt cho statuses (Hiện trên front thôi, còn lưu về biến tiếng anh)
     const STATUS_LABELS = {
-        paid: "Đã thanh toán",
         pending: "Chờ xử lý",
-        cancelled: "Đã hủy",
-        refunded: "Đã hoàn tiền",
-        failed: "Thanh toán thất bại",
         processing: "Đang xử lý",
+        cancelled: "Đã hủy",
+        paid: "Đã thanh toán", 
+        failed: "Thanh toán thất bại",
+        refunded: "Đã hoàn tiền",
         shipped: "Đã giao hàng",
         completed: "Hoàn tất",
     };
@@ -155,27 +147,32 @@ export default function OrderPage() {
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
 
     const handleSave = async (payload) => {
-        const customerMap = Object.fromEntries((customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""]));
-        const productMap = Object.fromEntries((products || []).map(p => [p.product_id || p.id, p]));
+        const customerMap = Object.fromEntries(
+            (customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""])
+        );
+        const productMap = Object.fromEntries(
+            (products || []).map(p => [p.product_id || p.id, p])
+        );
 
         try {
             if (payload.order_id) {
-                // update
+                // Update
                 const res = await updateOrder(payload.order_id, payload);
                 const saved = res?.data || res || payload;
+                console.log("Saved order response:", saved);
 
-                const enriched = {
+                const enrichedForTable = {
                     ...saved,
-                    customer_name: customerMap[saved.customer_id] || saved.customer_name || saved.customerId || saved.customer_id,
+                    order_id: String(saved.order_id),
+                    customer_name: customerMap[saved.customer_id] || saved.customer_name || saved.customer_id,
                     items: (saved.items || []).map(it => {
                         const prod = productMap[it.product_id];
                         const qty = Number(it.quantity ?? it.qty ?? 0);
-                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
-                        // normalize discount from response
+                        const unit = Number(it.unit_price ?? it.price ?? prod?.price_current ?? 0);
                         let rawDisc = it.discount ?? it.discount_percent ?? 0;
                         let disc = Number(rawDisc) || 0;
                         if (disc > 1) disc = disc / 100;
-                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
+                        const original_price = Number(it.price_original ?? it.original_price ?? prod?.price_original ?? 0) || unit;
                         return {
                             order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
                             product_id: it.product_id || null,
@@ -184,55 +181,73 @@ export default function OrderPage() {
                             price: unit,
                             original_price,
                             discount: disc,
-                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
+                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
                         };
-                    })
+                    }),
                 };
 
-                setOrders(prev => prev.map(o => o.order_id === enriched.order_id ? enriched : o));
-                setModal(prev => ({ ...prev, mode: 'view', order: enriched }));
+                setOrders(prev => prev.map(o =>
+                    String(o.order_id) === String(enrichedForTable.order_id)
+                        ? { ...enrichedForTable, _updatedAt: Date.now() } // force re-render
+                        : o
+                ));
+                console.log("Enriched updated order:", enrichedForTable);
+
                 toast.success('Cập nhật đơn hàng thành công!');
-            } else {
-                // create
-                const res = await createOrder(payload);
-                const created = res?.data || res || payload;
-                const newId = created.order_id || created.id || ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `local-${Date.now()}`);
-
-                const enriched = {
-                    ...created,
-                    order_id: newId,
-                    customer_name: customerMap[created.customer_id] || created.customer_name || created.customerId || created.customer_id,
-                    items: (created.items || payload.items || []).map(it => {
-                        const prod = productMap[it.product_id];
-                        const qty = Number(it.quantity ?? it.qty ?? 0);
-                        const unit = Number(it.unit_price ?? it.price ?? it.price_unit ?? prod?.price_current ?? 0);
-                        let rawDisc = it.discount ?? it.discount_percent ?? 0;
-                        let disc = Number(rawDisc) || 0;
-                        if (disc > 1) disc = disc / 100;
-                        const original_price = Number(it.price_original ?? it.original_price ?? it.priceOriginal ?? prod?.price_original ?? 0) || unit;
-                        return {
-                            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
-                            product_id: it.product_id || null,
-                            product_name: it.product_name || prod?.name || "",
-                            quantity: qty,
-                            price: unit,
-                            original_price,
-                            discount: disc,
-                            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit)
-                        };
-                    })
-                };
-
-                // prepend new order so it appears at top of the list
-                setOrders(prev => [enriched, ...prev]);
-                closeModal();
-                toast.success('Thêm đơn hàng thành công!');
+                return;
             }
+
+            // Create
+            const res = await createOrder(payload);
+            const created = res?.data || res || payload;
+            const newId =
+                created.order_id ||
+                created.id ||
+                (typeof crypto !== 'undefined' && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : `local-${Date.now()}`);
+
+            const enriched = {
+                ...created,
+                order_id: newId,
+                customer_name:
+                    customerMap[created.customer_id] ||
+                    created.customer_name ||
+                    created.customer_id,
+                items: (created.items || payload.items || []).map(it => {
+                    const prod = productMap[it.product_id];
+                    const qty = Number(it.quantity ?? it.qty ?? 0);
+                    const unit = Number(it.unit_price ?? it.price ?? prod?.price_current ?? 0);
+                    let rawDisc = it.discount ?? it.discount_percent ?? 0;
+                    let disc = Number(rawDisc) || 0;
+                    if (disc > 1) disc = disc / 100;
+                    const original_price =
+                        Number(it.price_original ?? it.original_price ?? prod?.price_original ?? 0) || unit;
+                    return {
+                        order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}`,
+                        product_id: it.product_id || null,
+                        product_name: it.product_name || prod?.name || "",
+                        quantity: qty,
+                        price: unit,
+                        original_price,
+                        discount: disc,
+                        subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
+                    };
+                }),
+            };
+
+            setOrders(prev => [enriched, ...prev]);
+
+            // Reset modal state to trigger table re-render
+            setModal({ open: false, mode: "view", order: null });
+
+            toast.success('Thêm đơn hàng thành công!');
         } catch (err) {
             console.error("Lỗi khi lưu đơn hàng:", err);
             toast.error('Có lỗi khi lưu đơn hàng');
         }
     };
+
 
     const handleDelete = async (id) => {
         try {
@@ -317,7 +332,7 @@ export default function OrderPage() {
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90 hover:border-blue-500"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -361,43 +376,23 @@ export default function OrderPage() {
                         />
 
                         {/* Customer dropdown with search (custom) */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="w-56 flex items-center justify-between px-3 py-2 border rounded-md bg-white cursor-pointer">
-                                    <div className="text-sm truncate">
-                                        {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                                    </div>
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                        <DropdownWithSearch
+                            items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
+                            itemKey={(c) => c.customer_id || c.id}
+                            renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
+                            filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                            onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
+                            placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                            searchPlaceholder="Tìm kiếm khách hàng..."
+                            contentClassName="max-h-64 overflow-y-auto"
+                        >
+                            <div className="w-56 flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                                <div className="text-sm truncate">
+                                    {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
                                 </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] p-2 max-h-64 overflow-y-auto">
-                                <div className="relative flex items-center mb-2">
-                                    <Search className="w-4 h-4 text-gray-400 absolute left-2" />
-                                    <Input value={customerSearch}
-                                    onChange={(e) => setCustomerSearch(e.target.value)}
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                    onKeyUp={(e) => e.stopPropagation()}
-                                    placeholder="Tìm kiếm khách hàng..."
-                                    
-                                />
-                                </div>
-                                
-                                <DropdownMenuItem key="all" onSelect={() => { setSelectedCustomer(''); setCustomerSearch(''); }}>
-                                    Tất cả khách hàng
-                                </DropdownMenuItem>
-                                {customers
-                                    .filter(c => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes(customerSearch.toLowerCase()))
-                                    .map(c => {
-                                        const id = c.customer_id || c.id;
-                                        const label = c.full_name || c.fullName || c.name || id;
-                                        return (
-                                            <DropdownMenuItem key={id} onSelect={() => { setSelectedCustomer(id); setCustomerSearch(''); }}>
-                                                {label}
-                                            </DropdownMenuItem>
-                                        );
-                                    })}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                            </div>
+                        </DropdownWithSearch>
                     </div>
                 </div>
             </div>
@@ -440,7 +435,7 @@ export default function OrderPage() {
                                             {order.customer_name || order.customer_id}
                                         </td>
                                         <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
-                                            {formatDateTime(order.order_date)}
+                                            {formatDateTime(order.order_date)} {/* Ensure correct timezone */}
                                         </td>
                                         <td className="px-4 py-2 text-center text-sm text-gray-900"> {/* reduced padding */}
                                             {formatCurrency(order.total_amount || order.total || 0)}

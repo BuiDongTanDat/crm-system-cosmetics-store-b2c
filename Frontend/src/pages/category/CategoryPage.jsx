@@ -153,7 +153,7 @@ export default function CategoryPage() {
                 {/* Header */}
                 <div className="flex items-center gap-3">
                     <h1 className="text-xl font-bold text-gray-900">
-                        Quản lý Khách hàng ({filteredCategories.length})
+                        Quản lý Danh mục ({filteredCategories.length})
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">

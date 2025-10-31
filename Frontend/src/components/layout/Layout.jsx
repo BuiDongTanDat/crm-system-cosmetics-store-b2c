@@ -28,7 +28,7 @@ function LayoutInner({ children }) {
         style={
           !isMobile
             ? {
-              marginLeft: sidebarWidth + desktopGap * 2, // sidebar left gap + itself + right gap
+              marginLeft: sidebarWidth + desktopGap * 1.5, // sidebar left gap + itself + right gap
               paddingTop: desktopGap,
               paddingRight: desktopGap,
             }

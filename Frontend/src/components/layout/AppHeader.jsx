@@ -139,7 +139,7 @@ export default function AppHeader() {
   const deleteNotification = (id) => setNotifList(prev => prev.filter(n => n.id !== id));
 
   return (
-    <header className={`mr-5 sticky top-2 z-30 flex items-center justify-between h-14 px-4 gap-4 transition-all duration-200 ${isScrolled
+    <header className={`mr-5 sticky top-2 z-30 flex items-center justify-between h-14 px-0 gap-4 transition-all duration-200 ${isScrolled
       ? 'bg-white/30 backdrop-blur-md shadow-lg border border-white/20 rounded-lg mx-0 mr-5'
       : 'bg-transparent'
       }`}>
@@ -147,7 +147,7 @@ export default function AppHeader() {
       <div className="flex items-center gap-3 min-w-0">
         <Button
           onClick={handleToggle}
-          variant={"actionNormal"}
+          variant={"actionUpdate"}
           aria-label="Toggle Sidebar"
           aria-expanded={isMobileOpen}
         >

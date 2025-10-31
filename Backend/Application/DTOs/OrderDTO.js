@@ -1,123 +1,100 @@
-// DTO trả về Order và OrderDetail
-const getField = (obj, ...keys) => {
-	// trả về giá trị trường đầu tồn tại trong obj (hỗ trợ snake_case và camelCase)
-	if (obj == null) return undefined;
+// Request DTOs
+class OrderDetailRequestDTO {
+	constructor(detail = {}) {
+		this.product_id = detail.product_id || null;
+		this.product_name = detail.product_name || null;
+		this.quantity = Number(detail.quantity) || 0;
+		this.discount = Number(detail.discount) || 0;
+		this.price_original = Number(detail.price_original) || 0;
+		this.price_unit = Number(detail.unit_price ?? detail.price_unit) || 0;
+		// Sửa subtotal: không áp dụng chiết khấu hai lần
+		this.subtotal = Number(detail.total_price ?? (this.quantity * this.price_unit)) || 0;
+	}
+}
 
-	const tryKeys = (target) => {
-		if (!target) return undefined;
-		for (const k of keys) {
-			if (Object.prototype.hasOwnProperty.call(target, k) && target[k] !== undefined) return target[k];
-		}
-		return undefined;
-	};
+class OrderRequestDTO {
+	constructor(order = {}) {
+		this.customer_id = order.customer_id || null;
+		this.order_date = order.order_date || new Date().toISOString();
+		this.total_amount = Number(order.total_amount) || 0;
+		this.currency = order.currency || 'VND';
+		this.payment_method = order.payment_method || null;
+		this.status = order.status || 'pending';
+		this.channel = order.channel || null;
+		this.notes = order.notes || null;
 
-	// 1) thử trực tiếp trên obj
-	let val = tryKeys(obj);
-	if (val !== undefined) return val;
-
-	// 2) thử trên obj.dataValues (Sequelize instances thường chứa data ở đây)
-	val = tryKeys(obj.dataValues);
-	if (val !== undefined) return val;
-
-	// 3) nếu obj là Sequelize instance, thử lấy plain object từ get({ plain: true })
-	if (typeof obj.get === 'function') {
-		try {
-			const plain = obj.get({ plain: true });
-			val = tryKeys(plain);
-			if (val !== undefined) return val;
-		} catch (e) {
-			// ignore and continue
-		}
+		// Map từng item sang DTO con
+		this.items = Array.isArray(order.items)
+			? order.items.map(item => new OrderDetailRequestDTO(item))
+			: [];
 	}
 
-	return undefined;
-};
+	static fromRequest(reqBody) {
+		return new OrderRequestDTO(reqBody);
+	}
+}
 
+// Response DTOs
 class OrderDetailResponseDTO {
 	constructor(detail = {}) {
-		// quantity
-		const quantity = Number(getField(detail, 'quantity', 'qty')) || 0;
-		// price_unit from model; support unit_price/price for incoming shapes
-		const price_unit = Number(getField(detail, 'price_unit', 'unit_price', 'price')) || 0;
-		// discount (0..1)
-		const discount = Number(getField(detail, 'discount')) || 0;
-		// price_original
-		const price_original = Number(getField(detail, 'price_original', 'original_price')) || 0;
-
-		// subtotal: prefer explicit line_total/subtotal from model/DB, else compute
-		const subtotalRaw = getField(detail, 'line_total', 'subtotal', 'sub_total');
-		const subtotal = subtotalRaw !== undefined ? Number(subtotalRaw) : Math.max(0, price_unit * quantity * (1 - discount));
-
-		this.order_detail_id = getField(detail, 'order_detail_id', 'id', '_id') || null;
-		this.order_id = getField(detail, 'orderId', 'order_id') || null;
-		this.product_id = getField(detail, 'productId', 'product_id') || null;
-		
-		this.price_unit = price_unit;
-		this.price_original = price_original;
-		this.quantity = quantity;
-		this.discount = discount;
-		this.subtotal = subtotal;
-		// Mấy trường này ban đầu định lưu nhưng mà thôi, bị dừ thừa
-		// this.product_name = getField(detail, 'productName', 'name', 'title') || null;
-		// this.meta = getField(detail, 'meta') || null;
-		// timestamps
-		this.created_at = getField(detail, 'created_at', 'createdAt') || null;
-		this.updated_at = getField(detail, 'updated_at', 'updatedAt') || null;
+		this.order_detail_id = detail.order_detail_id || null;
+		this.order_id = detail.order_id || null;
+		this.product_id = detail.product_id || null;
+		this.product_name = detail.product_name || null; // Đảm bảo ánh xạ product_name
+		this.price_unit = Number(detail.price_unit) || 0;
+		this.price_original = Number(detail.price_original) || 0;
+		this.quantity = Number(detail.quantity) || 0;
+		this.discount = Number(detail.discount) || 0;
+		// Sửa subtotal: không áp dụng chiết khấu hai lần
+		this.subtotal = Number(detail.subtotal ?? (this.quantity * this.price_unit)) || 0;
+		this.created_at = detail.created_at || null;
+		this.updated_at = detail.updated_at || null;
 	}
 
-	static fromEntity(detail) {
-		return new OrderDetailResponseDTO(detail);
+	static fromEntity(entity) {
+		return new OrderDetailResponseDTO(entity);
 	}
 
 	static fromEntities(details = []) {
-		return Array.isArray(details) ? details.map(d => new OrderDetailResponseDTO(d)) : [];
+		return details.map(d => new OrderDetailResponseDTO(d));
 	}
 }
 
 class OrderResponseDTO {
-	constructor(order = {}, details = null) {
-		const rawItems = Array.isArray(details)
-			? details
-			: Array.isArray(getField(order, 'items', 'order_items'))
-				? getField(order, 'items', 'order_items')
-				: [];
+	constructor(order = {}, details = []) {
+		this.order_id = order.order_id || null;
+		this.customer_id = order.customer_id || null;
+		this.customer_name = order.customer_name || null; // Đảm bảo ánh xạ customer_name
+		this.status = order.status || null;
+		this.order_date = order.order_date || null;
 
-		this.order_id = getField(order, 'id', 'order_id', '_id') || null;
-		this.customer_id = getField(order, 'customerId', 'customer_id') || null;
-		this.status = getField(order, 'status') || null;
-		this.order_date = getField(order, 'orderDate', 'created_at', 'order_date') || null;
-
-		// map items
-		this.items = OrderDetailResponseDTO.fromEntities(rawItems);
-
-		// Tính tổng: ưu tiên total_amount (model), fallback compute từ items
-		const computedTotal = this.items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
-		this.total_amount = Number(getField(order, 'total_amount')) || computedTotal || 0;
-		// keep legacy 'total' field too for compatibility
+		this.items = OrderDetailResponseDTO.fromEntities(details.length ? details : order.items || []);
+		this.total_amount =
+			Number(order.total_amount) ||
+			this.items.reduce((sum, it) => sum + (it.subtotal || 0), 0);
 		this.total = this.total_amount;
 
-		// additional optional fields consistent with Order model
-		this.currency = getField(order, 'currency') || null;
-		this.payment_method = getField(order, 'payment_method') || null;
-		this.channel = getField(order, 'channel') || null;
-		this.ai_suggested_crosssell = getField(order, 'ai_suggested_crosssell') || null;
-		this.notes = getField(order, 'notes') || null;
-
-		// timestamps
-		this.created_at = getField(order, 'created_at', 'createdAt') || null;
-		this.updated_at = getField(order, 'updated_at', 'updatedAt') || null;
+		this.currency = order.currency || null;
+		this.payment_method = order.payment_method || null;
+		this.channel = order.channel || null;
+		this.ai_suggested_crosssell = order.ai_suggested_crosssell || [];
+		this.notes = order.notes || null;
+		this.created_at = order.created_at || null;
+		this.updated_at = order.updated_at || null;
 	}
 
-	static fromEntity(order, details = null) {
+	static fromEntity(order, details = []) {
 		return new OrderResponseDTO(order, details);
 	}
 
 	static fromEntities(orders = []) {
-		return Array.isArray(orders) ? orders.map(o => new OrderResponseDTO(o)) : [];
+		return orders.map(o => new OrderResponseDTO(o));
 	}
 }
 
 module.exports = {
+	OrderRequestDTO,
+	OrderDetailRequestDTO,
 	OrderResponseDTO,
 	OrderDetailResponseDTO
 };

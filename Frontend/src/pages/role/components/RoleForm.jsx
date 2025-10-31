@@ -50,14 +50,12 @@ export function RoleForm({
             return;
         }
 
-        // Khi tạo mới, không truyền role_name cũ
-        onSave({
-            ...form,
-        });
+        // Gửi kèm mode để cha biết là create hay update
+        onSave({ ...form, mode });
 
-        if (data?.role_name) {
+        // Chỉ quay lại view khi đang ở edit (ko phải create)
+        if (mode === "edit" && data?.role_name) {
             setMode?.("view");
-            toast.success("Lưu vai trò thành công.");
         }
     };
 
@@ -83,7 +81,7 @@ export function RoleForm({
                         <div>
                             <label className="block text-sm font-medium mb-1">Tên vai trò</label>
                             <input
-                                disabled={mode === "view" || mode === "edit"}
+                                disabled={mode !== "create"} // chỉ cho nhập khi tạo mới
                                 value={form.role_name}
                                 onChange={handleChange("role_name")}
                                 className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"

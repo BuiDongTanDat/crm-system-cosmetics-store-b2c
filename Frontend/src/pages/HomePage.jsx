@@ -11,11 +11,11 @@ const HomePage = () => {
     { icon: "/images/dashboard/Frame_Report.png", title: "Báo cáo", path: "/reports", top: 220, left: 240, width: 300, height: 180 },
     { icon: "/images/dashboard/Frame_Marketing.png", title: "Marketing", path: "/marketing", top: 130, left: 520, width: 300, height: 180 },
     { icon: "/images/dashboard/Frame_Sales.png", title: "Bán hàng", path: "/kanban", top: 380, left: 25, width: 480, height: 250 },
-    { icon: "/images/dashboard/Frame_Customer.png", title: "Khách hàng", path: "/customers", top: 300, left: 520, width: 300, height: 300 },
+    { icon: "/images/dashboard/Frame_Customer.png", title: "Khách hàng", path: "/customer-list", top: 300, left: 520, width: 300, height: 300 },
   ];
 
   return (
-    <div className="">
+    <div className="pt-6 h-screen">
       {/* <h1 className="text-2xl font-bold">Dashboard</h1>
       <p className="mb-6">Bắt đầu quản lý doanh nghiệp và trao đổi với các khách hàng của bạn</p>
       Container chứa tất cả cards */}

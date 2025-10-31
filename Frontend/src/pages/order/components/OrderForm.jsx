@@ -6,13 +6,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2, Plus, X, Search } from "lucide-react";
+import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import { getCustomers } from "@/services/customers";
 import { getProducts } from "@/services/products";
 import { formatCurrency } from "@/utils/helper";
 import { Input } from "@/components/ui/input";
+import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 
 export function OrderForm({
   mode = "view",
@@ -24,7 +25,7 @@ export function OrderForm({
   statusLabels = {}   // { code: "VN label" }
 }) {
   // Lấy ngày hiện tại ở định dạng YYYY-MM-DD để gán sẵn khi tạo đơn hàng mới nè
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString(); // Ensure valid ISO string
 
   const [form, setForm] = useState({
     order_id: null,
@@ -53,10 +54,7 @@ export function OrderForm({
   const normalizeStatusCode = (val) => STATUS_LABEL_TO_CODE[val] || val;
 
   const [customers, setCustomers] = useState([]);
-  const [customerSearch, setCustomerSearch] = useState('');
   const [products, setProducts] = useState([]);
-  const [productSearch, setProductSearch] = useState('');
-
   // change initial details: start empty (no default blank row)
   const [orderDetails, setOrderDetails] = useState([]);
 
@@ -66,7 +64,7 @@ export function OrderForm({
         order_id: data.order_id || data.orderId || null,
         customer_id: data.customer_id || "",
         customer_name: data.customer_name || "",
-        order_date: data.order_date ? data.order_date.split("T")[0] : (data.order_date || today),
+        order_date: data.order_date ? new Date(data.order_date).toISOString() : today, // Ensure valid ISO string
         total_amount: data.total_amount || data.total || 0,
         // normalize in case incoming data accidentally contains VN labels
         payment_method: normalizePaymentCode(data.payment_method) || 'cash_on_delivery',
@@ -175,36 +173,38 @@ export function OrderForm({
   }, [products]);
 
   const handleCancel = () => {
-    if (data) {
-      setForm({
-        order_id: data.order_id || null,
-        customer_id: data.customer_id || "",
-        customer_name: data.customer_name || "",
-        order_date: data.order_date ? data.order_date.split("T")[0] : "",
-        total_amount: data.total_amount || 0,
-        payment_method: normalizePaymentCode(data.payment_method) || 'cash_on_delivery',
-        status: normalizeStatusCode(data.status) || 'pending',
-        channel: data.channel || "",
-        ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell) ? data.ai_suggested_crosssell.join(', ') : (data.ai_suggested_crosssell || ""),
-        notes: data.notes || "",
-      });
-      if (data.items) {
-        // normalize same as initial load
-        setOrderDetails(data.items.map(it => {
-          const quantity = Number(it.quantity ?? it.qty ?? 1);
-          const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
-          const subtotal = Number(it.subtotal ?? it.total_price ?? (quantity * price));
-          return {
-            order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            product_id: it.product_id || it.productId || "",
-            product_name: it.product_name || it.name || "",
-            quantity,
-            price,
-            subtotal
-          };
-        }));
-      }
+    if (data.items && data.items.length > 0) {
+      setOrderDetails(data.items.map(it => {
+        const quantity = Number(it.quantity ?? it.qty ?? 1);
+        const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
+        const subtotal = Number(it.subtotal ?? it.total_price ?? (quantity * price));
+
+        // parse discount
+        const rawDisc = it.discount ?? it.discount_percent ?? 0;
+        let discount = Number(rawDisc) || 0;
+        if (discount > 1) discount = discount / 100;
+
+        // compute original_price
+        let original_price = Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) || 0;
+        if (!original_price) {
+          original_price = computeOriginalPrice(price, discount);
+        }
+
+        return {
+          order_detail_id: it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          product_id: it.product_id || it.productId || "",
+          product_name: it.product_name || it.name || "",
+          quantity,
+          price,
+          subtotal,
+          discount,
+          original_price
+        };
+      }));
+    } else {
+      setOrderDetails([]);
     }
+
     setMode?.("view");
   };
 
@@ -226,7 +226,7 @@ export function OrderForm({
       ...(form.order_id ? { order_id: form.order_id } : {}),
       customer_id: form.customer_id || null,
       // send an ISO timestamp for order_date (backend example includes time + Z)
-      order_date: form.order_date ? (new Date(form.order_date)).toISOString() : new Date().toISOString(),
+      order_date: form.order_date ? new Date(form.order_date).toISOString() : new Date().toISOString(),
       total_amount: totalAmount,
       currency: "VND",
       payment_method: form.payment_method,
@@ -284,7 +284,6 @@ export function OrderForm({
     setOrderDetails(prev => {
       const idx = prev.findIndex(d => String(d.product_id) !== "" && String(d.product_id) === String(pid));
       if (idx !== -1) {
-        // Nếu bị trùng thì chỉ tăng số lượng lên 1
         const updated = prev.map((d, i) => {
           if (i === idx) {
             const newQty = Number(d.quantity || 0) + 1;
@@ -295,7 +294,6 @@ export function OrderForm({
         toast.info(`${product.name} đã có trong đơn, tăng số lượng lên 1`);
         return updated;
       }
-      // Không trùng thì thêm dòng mới (bao gồm discount, original_price)
       const newDetail = {
         order_detail_id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         product_id: pid,
@@ -308,8 +306,6 @@ export function OrderForm({
       };
       return [...prev, newDetail];
     });
-
-    setProductSearch('');
   };
 
   const removeOrderDetail = (index) => {
@@ -386,48 +382,25 @@ export function OrderForm({
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Khách hàng</label>
                 {mode === "view" ? (
-                  <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                  <div className="  text-sm w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
                     {form.customer_name || form.customer_id || '-'}
                   </div>
                 ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <div className="flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                        <span className="text-sm truncate">{form.customer_name || form.customer_id || "Chọn khách hàng"}</span>
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
-                      </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-64 overflow-y-auto p-2">
-                      <div className="relative flex items-center mb-2">
-                        <Search className="w-4 h-4 text-gray-400 absolute left-2" />
-                        <Input
-                          value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          onKeyUp={(e) => e.stopPropagation()}
-                          placeholder="Tìm kiếm khách hàng..."
-                          
-                        />
-                      </div>
-                      {customers
-                        .filter(c => (c.full_name || c.customer_id || '').toString().toLowerCase().includes(customerSearch.toLowerCase()))
-                        .map(c => {
-                          const label = c.full_name || c.customer_id;
-                          const id = c.customer_id;
-                          return (
-                            <DropdownMenuItem
-                              key={id}
-                              onSelect={() => {
-                                setForm(f => ({ ...f, customer_id: id, customer_name: label }));
-                                setCustomerSearch('');
-                              }}
-                            >
-                              {label}
-                            </DropdownMenuItem>
-                          );
-                        })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <DropdownWithSearch
+                    items={customers}
+                    itemKey={(c) => c.customer_id}
+                    renderItem={(c) => (c.full_name || c.customer_id)}
+                    filterFn={(c, s) => (c.full_name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                    onSelect={(c) => setForm(f => ({ ...f, customer_id: c.customer_id, customer_name: c.full_name || c.customer_id }))}
+                    placeholder={form.customer_name || form.customer_id || "Chọn khách hàng"}
+                    searchPlaceholder="Tìm kiếm khách hàng..."
+                    contentClassName="max-h-64 overflow-y-auto"
+                  >
+                    <div className="flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                      <span className="text-sm truncate">{form.customer_name || form.customer_id || "Chọn khách hàng"}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </DropdownWithSearch>
                 )}
               </div>
 
@@ -436,9 +409,9 @@ export function OrderForm({
                 <input
                   disabled={mode === "view"}
                   type="date"
-                  value={form.order_date}
+                  value={form.order_date ? form.order_date.split("T")[0] : ""}
                   onChange={(e) => setForm(f => ({ ...f, order_date: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  className=" text-sm w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 />
               </div>
             </div>
@@ -542,53 +515,35 @@ export function OrderForm({
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Chi tiết đơn hàng</h3>
               {mode === "edit" && (
-                // Replace single "Thêm sản phẩm" button with a dropdown that lists products.
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="actionCreate" >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Thêm sản phẩm
-                    </Button>
-                  </DropdownMenuTrigger>
-                  {/* expanded dropdown width & height */}
-                  <DropdownMenuContent className="w-96 max-w-full max-h-96 overflow-y-auto p-2">
-                    <div className="relative flex items-center mb-2">
-                        <Search className="w-4 h-4 text-gray-400 absolute left-2" />
-                      <Input
-                        value={productSearch}
-                        onChange={(e) => setProductSearch(e.target.value)}
-                        placeholder="Tìm sản phẩm..."
-                        onKeyDown={(e) => e.stopPropagation()}
-                        onKeyUp={(e) => e.stopPropagation()}
-                        
-                      />
+                <DropdownWithSearch
+                  items={products}
+                  itemKey={(p) => p.product_id ?? p.id}
+                  filterFn={(p, s) => (p.name || p.product_name || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                  onSelect={(p) => addOrderDetailWithProduct(p)}
+                  searchPlaceholder="Tìm sản phẩm..."
+                  contentClassName="w-96  max-w-full h-96 overflow-y-auto p-2"
+                  renderItem={(product) => (
+                    <div className="w-full">
+                      <div className="flex justify-between items-center">
+                        <span className="truncate font">{product.name}</span>
+                        <span className="text-xs text-gray-700">{product.price_current ? formatCurrency(product.price_current) : ''}</span>
+                      </div>
+                      <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
+                        <div>
+                          {(product.discount_percent ?? product.discount) ? <span className="text-amber-600 font-medium">Giảm {(product.discount_percent ?? product.discount)}%</span> : null}
+                        </div>
+                        <div>
+                          {product.price_original ? <span className="line-through">{formatCurrency(product.price_original)}</span> : null}
+                        </div>
+                      </div>
                     </div>
-                    {products
-                      .filter(p => (p.name || p.product_name || '').toString().toLowerCase().includes(productSearch.toLowerCase()))
-                      .map((product) => (
-                        <DropdownMenuItem
-                          key={product.product_id || product.id}
-                          onSelect={() => addOrderDetailWithProduct(product)}
-                        >
-                          {/* show name, current price, original price (strikethrough) and discount percent */}
-                          <div className="w-full">
-                            <div className="flex justify-between items-center">
-                              <span className="truncate font ">{product.name}</span>
-                              <span className="text-xs text-gray-700">{product.price_current ? formatCurrency(product.price_current) : ''}</span>
-                            </div>
-                            <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
-                              <div>
-                                {(product.discount_percent ?? product.discount) ? <span className="text-amber-600 font-medium">Giảm {(product.discount_percent ?? product.discount)}%</span> : null}
-                              </div>
-                              <div>
-                                {product.price_original ? <span className="line-through">{formatCurrency(product.price_original)}</span> : null}
-                              </div>
-                            </div>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  )}
+                >
+                  <Button variant="actionCreate" >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Thêm sản phẩm
+                  </Button>
+                </DropdownWithSearch>
               )}
             </div>
 
@@ -628,7 +583,7 @@ export function OrderForm({
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       value={formatCurrency(detail.price)}
                       onChange={(e) => updateOrderDetail(index, 'price', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${ (mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${(mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                     />
                   </div>
 
@@ -642,7 +597,7 @@ export function OrderForm({
                       max="100"
                       value={Number(detail.discount || 0) * 100}
                       onChange={(e) => updateOrderDetail(index, 'discount', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${ (mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${(mode === "view" || detail.product_id) ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                     />
                   </div>
 

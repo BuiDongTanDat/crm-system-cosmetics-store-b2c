@@ -45,7 +45,7 @@ const navItems = [
     ],
   },
   {
-    name: "Bán hàng",
+    name: "Deals",
     icon: <BadgeDollarSign   className="w-5 h-5" />,
     subItems: [
       { name: "Pipeline", path: "/kanban", pro: false },
@@ -278,14 +278,14 @@ export function AppSidebar() {
         <Link to="/" className="flex items-center gap-2">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-brand">
-                <span className="text-white font-bold text-sm">L</span>
-              </div>
-              <span className="text-base font-semibold">Logo</span>
+              <div className="flex items-end justify-center space-x-3">
+              <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-7 w-7" />
+               <div className="text-brand font-bold text-md">CChain</div>
+            </div>
             </>
           ) : (
             <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-brand">
-              <span className="text-white font-bold text-sm">L</span>
+              <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-7 w-7" />
             </div>
           )}
         </Link>

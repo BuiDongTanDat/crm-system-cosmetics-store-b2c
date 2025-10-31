@@ -10,19 +10,17 @@ const {
 } = require('../DTOs/ProductRequest');
 const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
 
-
-const productRepository = new ProductRepository();
 class ProductService {
 
   // Lấy tất cả sản phẩm (dạng danh sách)
   async getAll() {
-    const products = await productRepository.findAll();
+    const products = await ProductRepository.findAll();
     return ProductListResponseDTO.fromEntities(products);
   }
 
   // Lấy chi tiết sản phẩm theo ID
   async getById(id) {
-    const product = await productRepository.findById(id);
+    const product = await ProductRepository.findById(id);
     if (!product) throw new Error('Không tìm thấy sản phẩm');
     return new ProductResponseDTO(product);
   }
@@ -35,7 +33,7 @@ class ProductService {
       throw new Error('Các trường bắt buộc: name, price_current');
     }
 
-    const found = await productRepository.findByName(dto.name);
+    const found = await ProductRepository.findByName(dto.name);
     if (found) {
       const list = Array.isArray(found) ? found : [found];
       const nameNormalized = String(dto.name || "").trim().toLowerCase();
@@ -48,7 +46,7 @@ class ProductService {
       }
     }
 
-    const created = await productRepository.save(dto);
+    const created = await ProductRepository.save(dto);
     return new ProductResponseDTO(created);
   }
 
@@ -58,29 +56,29 @@ class ProductService {
     const dto = new UpdateProductRequestDTO({ ...data, product_id });
     // pass single DTO object to repository.save
     
-    const updated = await productRepository.save(dto);
+    const updated = await ProductRepository.save(dto);
     return new ProductResponseDTO(updated);
   }
 
   // Xóa sản phẩm
   async delete(id) {
-    const deleted = await productRepository.delete(id);
+    const deleted = await ProductRepository.delete(id);
     return { success: !!deleted };
   }
 
   // Import sản phẩm từ CSV
   async importFromCSV(filePath) {
     const dto = new ImportCSVRequestDTO({ filePath });
-    if (typeof productRepository.importFromCSV !== 'function') {
+    if (typeof ProductRepository.importFromCSV !== 'function') {
       throw new Error('importFromCSV chưa được triển khai trong repository');
     }
-    const result = await productRepository.importFromCSV(dto);
+    const result = await ProductRepository.importFromCSV(dto);
     return new ProductImportResponseDTO(result);
   }
 
   // Xuất sản phẩm ra CSV
   async exportToCSV() {
-    return  await productRepository.exportToCSV();
+    return  await ProductRepository.exportToCSV();
    
   }
 }

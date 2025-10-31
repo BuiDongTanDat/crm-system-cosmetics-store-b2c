@@ -95,50 +95,51 @@ export default function RolePage() {
     const handleSave = async (roleData) => {
         try {
             let savedItem;
-            if (modal.mode === 'edit' && modal.role?.role_name) {
-                //truyền role_name cũ vào API, payload có thể chứa role_name mới
-                // Role name làm khóa chính nên chắc ko có update name đâu
+
+            if (roleData.mode === "edit" && modal.role?.role_name) {
+                // Cập nhật
                 await updateRole(modal.role.role_name, roleData);
-                savedItem = await getRoleByName(roleData.role_name);
-                if (savedItem && savedItem.role_name) {
-                    setRoles((prev) => {
-                        const idx = prev.findIndex(r => r.role_name === modal.role.role_name);
-                        if (idx !== -1) {
-                            const newArr = [...prev];
-                            newArr[idx] = savedItem;
-                            return newArr;
-                        }
-                        return [...prev, savedItem];
-                    });
-                    setModal({ open: true, mode: 'view', role: savedItem });
+                savedItem = await getRoleByName(modal.role.role_name);
+
+                if (savedItem) {
+                    setRoles((prev) =>
+                        prev.map((r) =>
+                            r.role_name === modal.role.role_name ? savedItem : r
+                        )
+                    );
                     toast.success("Cập nhật vai trò thành công!");
+                    setModal({ open: true, mode: "view", role: savedItem });
                 } else {
                     await fetchRoles();
-                    setModal({ open: true, mode: 'view', role: roleData });
+                    setModal({ open: true, mode: "view", role: roleData });
                 }
-            } else {
-                // Create: không truyền role_name cũ, chỉ truyền payload
+
+            } else if (roleData.mode === "create") {
+                // Tạo mới
                 savedItem = await createRole(roleData);
                 if (savedItem && savedItem.role_name) {
                     setRoles((prev) => [savedItem, ...prev]);
-                    closeModal();
                     toast.success("Thêm vai trò thành công.");
+                    closeModal();
                 } else {
                     await fetchRoles();
                     closeModal();
                 }
+            } else {
+                console.warn("Không xác định được mode khi lưu vai trò:", roleData);
             }
-            console.log("Role saved:", roleData);
+
         } catch (err) {
             console.error("Lỗi lưu vai trò:", err);
             const msg =
-                err?.response?.data?.error || // lỗi custom từ backend
-                err?.response?.data?.message || // phòng khi backend dùng "message"
-                err?.message || // fallback axios message
+                err?.response?.data?.error ||
+                err?.response?.data?.message ||
+                err?.message ||
                 "Đã xảy ra lỗi không xác định.";
             toast.error(msg);
         }
     };
+
 
     const handleDelete = async (role_name) => {
         try {
@@ -251,7 +252,7 @@ export default function RolePage() {
                                         <td className="px-6 py-2 text-center w-36">
                                             <div
                                                 className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === role.role_name
-                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                    ? "opacity-100 translate-y-0 pointer-events-auto "
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
