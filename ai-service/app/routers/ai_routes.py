@@ -63,16 +63,31 @@ analyzer = HeuristicAnalyzer()
 # ---------- Routes ----------
 @router.post("/leads/score", response_model=ScoreResponse)
 async def score_lead(payload: LeadPayload):
+    """
+    Endpoint chính để Node gọi AI scoring.
+    Trả về schema thống nhất gồm:
+    {
+      fit_score, score, priority_suggestion, predicted_prob,
+      predicted_value, predicted_value_currency, reason,
+      confidence, features_used, next_best_action
+    }
+    """
     lead = payload.lead or {}
-    score, reason = analyzer.score_lead(lead)
-    try:
-        refined = await llm.refine_score(lead, base_score=score, base_reason=reason)
-        if refined:
-            score = refined.get("score", score)
-            reason = refined.get("reason", reason)
-    except Exception:
-        pass
-    return {"score": max(0, min(int(score), 100)), "reason": reason}
+    result = await llm.score_lead(lead)
+
+    # để an toàn nếu AI hoặc Heuristic fail
+    return {
+        "fit_score": result.get("fit_score", 0),
+        "score": max(0, min(int(result.get("score", 0)), 100)),
+        "priority_suggestion": result.get("priority_suggestion", "medium"),
+        "predicted_prob": result.get("predicted_prob", 0.0),
+        "predicted_value": result.get("predicted_value", 0.0),
+        "predicted_value_currency": result.get("predicted_value_currency", "VND"),
+        "reason": result.get("reason", "baseline"),
+        "confidence": result.get("confidence", 0.5),
+        "features_used": result.get("features_used", {}),
+        "next_best_action": result.get("next_best_action", None)
+    }
 @router.post("/score")
 async def score_lead(data: dict):
     return {"score": 0.8, "reason": "Demo score"}

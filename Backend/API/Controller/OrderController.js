@@ -1,7 +1,24 @@
 const OrderService = require('../../Application/Services/OrderService');
 
-
 class OrderController {
+  async createQuick(req, res, next) {
+    try {
+      console.log('OrderController.createQuick body =', req.body);
+      const created = await OrderService.createQuickOrder(req.body);
+      return res.status(201).json({
+        success: true,
+        message: 'Tạo đơn hàng nhanh thành công',
+        data: created,
+      });
+    } catch (err) {
+      console.error('Error creating quick order:', err);
+      return res.status(400).json({
+        success: false,
+        code: 'QUICK_ORDER_FAILED',
+        message: err.message || 'Tạo đơn hàng nhanh thất bại',
+      });
+    }
+  }
   // Tạo đơn hàng
   async create(req, res, next) {
     try {

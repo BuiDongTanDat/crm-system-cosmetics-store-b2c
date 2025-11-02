@@ -7,7 +7,6 @@ class Customer extends Model {
   // ---------- Domain helpers ----------
   updateInfo(data) {
     Object.assign(this, data);
-    // updated_at sẽ được Sequelize cập nhật khi .save()
   }
 
   addTag(tag) {
@@ -83,7 +82,7 @@ Customer.init(
     email: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true, // Postgres cho phép nhiều NULL trong unique
+      unique: true, 
       validate: {
         isEmail: true,
       },
@@ -115,7 +114,6 @@ Customer.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    // created_at / updated_at sẽ tự tạo do timestamps: true + underscored: true
   },
   {
     sequelize,
@@ -124,7 +122,6 @@ Customer.init(
     timestamps: true,
     underscored: true, // -> created_at, updated_at
     indexes: [
-      // Tùy chọn: thêm index để search
       { fields: ['full_name'] },
       { fields: ['email'] },
       { fields: ['phone'] },
