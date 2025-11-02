@@ -16,6 +16,7 @@ import {
 import { getRoles } from "@/services/roles";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 
 export default function EmployeePage() {
     const [employees, setEmployees] = useState([]);
@@ -320,12 +321,12 @@ export default function EmployeePage() {
                         {/* Search */}
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
+                            <Input
                                 type="text"
-                                placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                placeholder="Tìm kiếm nhân viên..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10" // ensure search text doesn't overlap icon
                             />
                         </div>
 
@@ -432,7 +433,6 @@ export default function EmployeePage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-
                                                 <Button
                                                     variant="actionRead"
                                                     size="icon"

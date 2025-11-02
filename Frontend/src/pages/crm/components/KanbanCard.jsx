@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, Edit, Trash2, CircleUser, Calendar, Banknote } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CircleUser, Calendar, Banknote, Eye, Edit2, Trash, Edit, Trash2 } from 'lucide-react';
+import DropdownMore from '@/components/common/DropdownMore';
 import {
   formatCurrency,
   formatDate,
@@ -13,7 +13,7 @@ import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart }) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const title = card?.title || 'Chiến dịch A';
+  const title = card?.title || 'Chiến dịch A Chiến dịch A Chiến dịch A';
   const customer = card?.customer || 'Khách lẻ';
   const value = Number.isFinite(card?.value) ? card.value : 0;
   const currency = card?.currency || 'VND';
@@ -41,16 +41,58 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
     >
       <div className="space-y-2">
         {/* Priority + Title */}
-        <div className="flex gap-1 items-start truncate">
-          <span
-            className={`self-start px-2 py-0.5 rounded-full text-[10px] font-medium border ${getPriorityColor(priority)}`}
+        <div className="flex justify-between items-start gap-2">
+          {/* Left: badge + title */}
+          <div className="flex-1 min-w-0 flex items-start gap-1">
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getPriorityColor(priority)}`}
+            >
+              {getPriorityLabel(priority)}
+            </span>
+            <div className="font-medium text-gray-800 text-xs leading-snug line-clamp-2 break-words pr-0">
+              {title}
+            </div>
+          </div>
+
+          {/* Right: menu button */}
+          <div
+            className="invisible group-hover:visible flex items-start ml-1 relative"
+            onClick={(e) => e.stopPropagation()}
           >
-            {getPriorityLabel(priority)}
-          </span>
-          <h3 className="font-semibold text-gray-900 text-xs leading-snug line-clamp-2">
-            {title}
-          </h3>
+            <DropdownMore
+              options={[
+                { id: "view", label: "Xem", icon: <Eye />, iconColor: "text-blue-500", textColor: "text-blue-700", hoverBg: "bg-blue-100" },
+                { id: "edit", label: "Chỉnh sửa", icon: <Edit />, iconColor: "text-blue-500", textColor: "text-blue-700", hoverBg: "bg-blue-100" },
+                { id: "delete", label: "Xóa", icon: <Trash2 />, iconColor: "text-red-500", textColor: "text-red-700", hoverBg: "bg-red-100" },
+              ]}
+              onChange={(val) => {
+                if (val === "view") return onView(card);
+                if (val === "edit") return onEdit(card);
+                if (val === "delete") {
+                  document.getElementById(`delete-trigger-${card.id}`).click();
+                }
+              }}
+              side="bottom"
+            />
+            <ConfirmDialog
+              title="Xác nhận xóa"
+              description={
+                <>
+                  Bạn có chắc chắn muốn xóa thẻ{" "}
+                  <span className="font-semibold text-black">{title}</span>?
+                </>}
+              onConfirm={() => onDelete(card)}
+            >
+              {/* nút ẩn làm trigger */}
+              <button
+                id={`delete-trigger-${card.id}`}
+                className="hidden"
+              />
+            </ConfirmDialog>
+
+          </div>
         </div>
+
 
         {/* Product interest (optional) */}
         {productInterest && (
@@ -116,46 +158,8 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
             <Calendar className="w-3 h-3" />
             <span>{formatDate(lastActivity)}</span>
           </div>
-
-          {/* Hover actions */}
-          <div
-            className="
-              absolute inset-0 
-              hidden group-hover:flex 
-              items-center justify-center gap-2
-              bg-white/90
-              transition-opacity duration-200
-              animate-slide-up
-            "
-          >
-            <Button
-              variant="actionRead"
-              size="icon"
-              onClick={(e) => { e.stopPropagation(); onView(card); }}
-            >
-              <Eye className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="actionUpdate"
-              size="icon"
-              onClick={(e) => { e.stopPropagation(); onEdit(card); }}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-            <ConfirmDialog
-              title="Xác nhận xóa"
-              description={<>Bạn có chắc chắn muốn xóa deal <span className="font-semibold">{title}</span>?</>}
-              confirmText="Xóa"
-              cancelText="Hủy"
-              onConfirm={() => onDelete(card.id)}
-            >
-              <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </ConfirmDialog>
-          </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

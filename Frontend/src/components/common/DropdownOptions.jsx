@@ -15,7 +15,9 @@ export default function DropdownOptions({
   disabled = false,
   className = "",
   triggerClassName = "",
-  width = "w-full"
+  width = "w-full",
+  side = "bottom",
+  sideOffset = 4,
 }) {
   const selectedOption = options.find(option => option.value === value || option.id === value);
   const displayText = selectedOption ? (selectedOption.label || selectedOption.name) : placeholder;
@@ -34,7 +36,7 @@ export default function DropdownOptions({
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className={`w-[var(--radix-dropdown-menu-trigger-width)] ${className}`}>
+      <DropdownMenuContent side={side} sideOffset={sideOffset} className={`w-[var(--radix-dropdown-menu-trigger-width)] ${className}`}>
         {options.map((option) => (
           <DropdownMenuItem
             key={option.value || option.id}

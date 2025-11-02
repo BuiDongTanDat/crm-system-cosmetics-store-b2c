@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
@@ -14,6 +8,7 @@ import { getProducts } from "@/services/products";
 import { formatCurrency } from "@/utils/helper";
 import { Input } from "@/components/ui/input";
 import DropdownWithSearch from '@/components/common/DropdownWithSearch';
+import DropdownOptions from '@/components/common/DropdownOptions';
 
 export function OrderForm({
   mode = "view",
@@ -419,55 +414,24 @@ export function OrderForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Phương thức thanh toán</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{paymentLabels[form.payment_method] || form.payment_method}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {PAYMENT_METHODS.map((pm) => (
-                      <DropdownMenuItem
-                        key={pm}
-                        onSelect={() => setForm((f) => ({ ...f, payment_method: pm }))
-                        }
-                      >
-                        {paymentLabels[pm] || pm}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
+                <DropdownOptions
+                  options={PAYMENT_METHODS.map(pm => ({ value: pm, label: paymentLabels[pm] || pm }))}
+                  value={form.payment_method}
+                  onChange={(val) => setForm(f => ({ ...f, payment_method: val }))}
+                  disabled={mode === "view"}
+                  width="w-full"
+                />
               </div>
 
               <div className="w-56">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{statusLabels[form.status] || form.status}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {ORDER_STATUSES.map((st) => (
-                      <DropdownMenuItem
-                        key={st}
-                        onSelect={() => setForm((f) => ({ ...f, status: st }))}
-                      >
-                        {statusLabels[st] || st}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
+                <DropdownOptions
+                  options={ORDER_STATUSES.map(st => ({ value: st, label: statusLabels[st] || st }))}
+                  value={form.status}
+                  onChange={(val) => setForm(f => ({ ...f, status: val }))}
+                  disabled={mode === "view"}
+                  width="w-56"
+                />
               </div>
             </div>
 

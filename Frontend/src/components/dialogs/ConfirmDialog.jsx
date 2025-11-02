@@ -10,6 +10,7 @@ import {
   DialogClose,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { Trash, Trash2 } from 'lucide-react';
 
 // ConfirmDialog props:
 // children - trigger element (asChild)
@@ -81,6 +82,7 @@ export default function ConfirmDialog({
 
           {/* Xác nhận: gọi handler, await và sau đó đóng dialog programmatic */}
           <Button onClick={handleConfirm} variant="actionDelete" disabled={loading}>
+            <Trash2 className="w-4 h-4 " />
             {loading ? `${confirmText}...` : confirmText}
           </Button>
         </DialogFooter>

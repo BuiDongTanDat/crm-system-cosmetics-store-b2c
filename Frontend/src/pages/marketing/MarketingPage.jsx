@@ -9,6 +9,8 @@ import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
 import { mockCampaigns } from '@/lib/data';
 import DropdownOptions from '@/components/common/DropdownOptions';
+import { Input } from '@/components/ui/input';
+import { formatCurrency, formatDate } from '@/utils/helper';
 
 export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState(mockCampaigns);
@@ -16,11 +18,40 @@ export default function MarketingPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [modal, setModal] = useState({ open: false, mode: 'view', campaign: null });
   const [currentPage, setCurrentPage] = useState(1);
-  const campaignsPerPage = 6;
 
   // view mode (card | list)
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
+
+  // Items per page: card = 3, list = 8
+  const campaignsPerPage = viewMode === 'card' ? 3 : 8;
+
+  // Helper: status badge classes (moved here to share between card and list)
+  const getStatusBadge = (status) => {
+    const baseClass = "w-[90px] px-2 py-1 font-medium rounded-full text-xs  inline-block text-center";
+    const statusMap = {
+      Draft: `${baseClass} text-gray-800 bg-gray-100`,
+      Running: `${baseClass} text-blue-800 bg-blue-100`,
+      Completed: `${baseClass} text-green-800 bg-green-100`,
+      Paused: `${baseClass} text-orange-800 bg-orange-100`
+    };
+    return statusMap[status] || statusMap.Draft;
+  };
+
+  // Helper: type badge classes (moved here to share between card and list)
+  const getTypeBadge = (type) => {
+    const baseClass = "w-[100px] px-2 py-1 rounded-sm text-xs font-medium inline-block border text-center";
+    const typeMap = {
+      Email: `${baseClass} bg-purple-100 text-purple-800 border-purple-200`,
+      SMS: `${baseClass} bg-green-100 text-green-800 border-green-200`,
+      Ads: `${baseClass} bg-gray-100 text-gray-800 border-gray-200`,
+      "Social Media": `${baseClass} bg-blue-100 text-blue-800 border-blue-200`,
+      "Content Marketing": `${baseClass} bg-orange-100 text-orange-800 border-orange-200 `,
+      SEO: `${baseClass} bg-indigo-100 text-indigo-800 border-indigo-200 `,
+      LiveStream: `${baseClass} bg-red-100 text-red-800 border-red-200`
+    };
+    return typeMap[type] || `${baseClass} bg-gray-100 text-gray-800`;
+  };
 
   // Field mapping for CSV export/import
   const campaignFieldMapping = {
@@ -42,6 +73,7 @@ export default function MarketingPage() {
     { value: 'Email', label: 'Email' },
     { value: 'Social', label: 'Social' },
     { value: 'Paid', label: 'Paid' },
+    { value: 'LiveStream', label: 'LiveStream' } // <-- thêm LiveStream
   ];
 
   // Filtered campaigns
@@ -53,7 +85,7 @@ export default function MarketingPage() {
   });
 
   // Pagination
-  useEffect(() => setCurrentPage(1), [searchTerm, selectedType]);
+  useEffect(() => setCurrentPage(1), [searchTerm, selectedType, viewMode]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / campaignsPerPage));
   const indexOfLast = currentPage * campaignsPerPage;
   const indexOfFirst = indexOfLast - campaignsPerPage;
@@ -68,8 +100,8 @@ export default function MarketingPage() {
   const handleSave = (campaignData) => {
     if (modal.mode === 'edit' && !campaignData.id) {
       // Create new
-      const newCampaign = { 
-        ...campaignData, 
+      const newCampaign = {
+        ...campaignData,
         id: Math.max(...campaigns.map(c => c.id)) + 1,
         performance: null
       };
@@ -78,7 +110,7 @@ export default function MarketingPage() {
     } else if (modal.mode === 'edit') {
       // Update existing
       setCampaigns(prev => prev.map(c => c.id === campaignData.id ? { ...c, ...campaignData } : c));
-      
+
       // Cập nhật dữ liệu trong modal và chuyển về view mode
       setModal(prev => ({
         ...prev,
@@ -133,7 +165,7 @@ export default function MarketingPage() {
   const handlePageChange = (page) => setCurrentPage(page);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col">
       {/* Sticky header: two-row (title/actions) like ProductPage */}
       <div
         className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
@@ -151,10 +183,9 @@ export default function MarketingPage() {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
+              <Input
                 type="text"
-                placeholder="Tìm kiếm..."
-                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 transition-all border-gray-200 bg-white/90"
+                placeholder="Tìm kiếm chiến dịch..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -184,7 +215,7 @@ export default function MarketingPage() {
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('card')}
               size="icon"
-              className = "rounded-none rounded-tl-md rounded-bl-md"
+              className="rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
@@ -192,7 +223,7 @@ export default function MarketingPage() {
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
               size="icon"
-              className = "rounded-none rounded-tr-md rounded-br-md"
+              className="rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
             </Button>
@@ -217,11 +248,11 @@ export default function MarketingPage() {
         </div>
       </div>
 
-      {/* Scrollable content: campaigns list/cards, pagination, dialog */}
-      <div className="flex-1 overflow-auto p-6">
+
+      <div className="flex-col pt-4">
         {/* View modes */}
         {viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-4 mb-6">
             {currentCampaigns.map(campaign => (
               <MarketingCard
                 key={campaign.id}
@@ -229,6 +260,8 @@ export default function MarketingPage() {
                 onView={openView}
                 onEdit={openEdit}
                 onDelete={handleDelete}
+                getStatusBadge={getStatusBadge}
+                getTypeBadge={getTypeBadge}
               />
             ))}
           </div>
@@ -253,22 +286,28 @@ export default function MarketingPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                       className="hover:bg-gray-50 transition"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-left">
-                        <div className="flex items-center">
-                          <div className="font-medium text-gray-900 truncate max-w-[220px]">{c.name}</div>
-                          <div className="text-xs text-gray-500 ml-3 truncate max-w-[220px]">{c.targetAudience}</div>
+                      <td className="px-6 py-2 whitespace-nowrap text-left">
+                        <div className="flex-col items-center">
+                          <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]">{c.name}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[220px]">{c.targetAudience}</div>
                         </div>
                       </td>
-                      <td className="text-center text-sm text-gray-800">{c.type}</td>
-                      <td className="text-center font-semibold">{c.budget ? Number(c.budget).toLocaleString('vi-VN') + '₫' : '-'}</td>
-                      <td className="text-center text-sm text-gray-700">
-                        {c.startDate ? c.startDate : '-'}{c.endDate ? ` → ${c.endDate}` : ''}
+                      <td className="text-center text-sm text-gray-800">
+                        <span className={getTypeBadge(c.type)}>{c.type}</span>
                       </td>
-                      <td className="text-center text-sm">{c.status || 'Draft'}</td>
+                      <td className="text-center">{c.budget ? formatCurrency(c.budget) : '-'}</td>
+                      <td className="text-center text-sm text-gray-700">
+                        {formatDate(c.startDate)}{c.endDate ? ` - ${formatDate(c.endDate)}` : ''}
+                      </td>
+                      <td className="text-center text-sm">
+                        <span className={getStatusBadge(c.status)}>{c.status || 'Draft'}</span>
+                      </td>
                       <td className="text-center text-sm">{c.assignee || '-'}</td>
-                      <td className="text-center w-36">
+                      <td className="text-center w-36 py-2">
                         <div
-                          className={`flex justify-center gap-1 ${hoveredRow === c.id ? 'opacity-100 animate-fade-in duration-200' : 'opacity-0 pointer-events-none'}`}
+                          className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === c.id
+                            ?"opacity-100 translate-y-0 pointer-events-auto"
+                            : "opacity-0 translate-y-1 pointer-events-none"}`}
                         >
                           <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
                             <Eye className="w-4 h-4" />

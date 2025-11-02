@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2, TrendingUp } from "lucide-react";
+import DropdownOptions from '@/components/common/DropdownOptions';
+import { Edit, Save, Trash2, TrendingUp } from "lucide-react";
 import { CampaignTypeList, CampaignStatusList, mockEmployees } from "@/lib/data";
 
 export function MarketingForm({
@@ -149,58 +144,25 @@ export function MarketingForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Loại chiến dịch</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.type}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                      className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {CampaignTypeList.map((type) => (
-                      <DropdownMenuItem
-                        key={type}
-                        onSelect={() => setForm((f) => ({ ...f, type }))}
-                      >
-                        {type}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={CampaignTypeList.map(t => ({ value: t, label: t }))}
+                  value={form.type}
+                  onChange={(val) => setForm(f => ({ ...f, type: val }))}
+                  disabled={mode === "view"}
+                />
               </div>
 
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.status}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {CampaignStatusList.map((status) => (
-                      <DropdownMenuItem
-                        key={status}
-                        onSelect={() => setForm((f) => ({ ...f, status }))}
-                      >
-                        {status}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+                <DropdownOptions
+                  options={CampaignStatusList.map(s => ({ value: s, label: s }))}
+                  value={form.status}
+                  onChange={(val) => setForm(f => ({ ...f, status: val }))}
+                  disabled={mode === "view"}
+                  width="w-40"
+                />
+               </div>
+             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
@@ -252,63 +214,27 @@ export function MarketingForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Nguồn dữ liệu</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.dataSource}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                      className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {["Leads", "Customers", "Products"].map((source) => (
-                      <DropdownMenuItem
-                        key={source}
-                        onSelect={() => setForm((f) => ({ ...f, dataSource: source }))}
-                      >
-                        {source}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Người phụ trách</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.assignee || "Chọn người phụ trách"}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                      className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {mockEmployees.map((employee) => (
-                      <DropdownMenuItem
-                        key={employee.id}
-                        onSelect={() => setForm((f) => ({ 
-                          ...f, 
-                          assigneeId: employee.id,
-                          assignee: employee.name 
-                        }))}
-                      >
-                        {employee.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+                <DropdownOptions
+                  options={["Leads", "Customers", "Products"].map(s => ({ value: s, label: s }))}
+                  value={form.dataSource}
+                  onChange={(val) => setForm(f => ({ ...f, dataSource: val }))}
+                  disabled={mode === "view"}
+                />
+             </div>
+             <div className="flex-1">
+               <label className="block text-sm font-medium mb-1">Người phụ trách</label>
+               <DropdownOptions
+                 options={mockEmployees.map(emp => ({ value: emp.id, label: emp.name }))}
+                 value={form.assigneeId || ""}
+                 onChange={(val) => {
+                   const emp = mockEmployees.find(e => e.id === val);
+                   setForm(f => ({ ...f, assigneeId: val, assignee: emp?.name || "" }));
+                 }}
+                 disabled={mode === "view"}
+                 placeholder="Chọn người phụ trách"
+               />
+             </div>
+           </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">KPI kỳ vọng</label>
@@ -431,21 +357,31 @@ export function MarketingForm({
         <div className="flex justify-end gap-3">
           {mode === "view" ? (
             <>
-              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
-                <Edit className="w-4 h-4" />
-                Chỉnh sửa
-              </Button>
-              <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+              {typeof setMode === "function" && typeof onSave === "function" && (
+                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
+                  <Edit className="w-4 h-4" />
+                  Chỉnh sửa
+                </Button>
+              )}
+              {typeof onDelete === "function" && (
+                <Button variant="actionDelete" onClick={() => onDelete(data?.id)}>
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              )}
             </>
           ) : (
             <>
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Hủy
               </Button>
-              <Button onClick={handleSubmit} variant="actionUpdate">
+              <Button
+                onClick={() => {
+                  if (typeof onSave === "function") handleSubmit();
+                }}
+                variant="actionUpdate"
+                disabled={typeof onSave !== "function"}
+              >
                 <Save className="w-4 h-4" />
                 Lưu thay đổi
               </Button>

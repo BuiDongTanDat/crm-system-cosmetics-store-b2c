@@ -34,7 +34,8 @@ export const CampaignTypeList = [
   "Ads",
   "Social Media",
   "Content Marketing",
-  "SEO"
+  "SEO",
+  "LiveStream"
 ];
 
 //Trạng thái chiến dịch
@@ -151,7 +152,7 @@ export const mockCampaigns = [
   {
     id: 1,
     name: "Khuyến mãi mùa hè 2024",
-    type: "Email",
+    type: "LiveStream",
     budget: 50000000,
     startDate: "2024-06-01",
     endDate: "2024-08-31",
@@ -176,6 +177,54 @@ export const mockCampaigns = [
     id: 2,
     name: "Ra mắt sản phẩm mới",
     type: "Social Media",
+    budget: 30000000,
+    startDate: "2024-07-01",
+    endDate: "2024-07-31",
+    targetAudience: "Khách hàng 18-35 tuổi",
+    dataSource: "Leads",
+    status: "Completed",
+    assignee: "Trần Thị B",
+    assigneeId: 2,
+    expectedKPI: "10000 lượt tương tác",
+    performance: {
+      reach: 25000,
+      openRate: 0,
+      clickRate: 12.5,
+      newLeads: 320,
+      actualCost: 28000000,
+      revenue: 85000000,
+      roi: 203.5,
+      lastUpdated: "2024-08-01"
+    }
+  },
+  {
+    id: 3,
+    name: "Ra mắt sản phẩm mới",
+    type: "LiveStream",
+    budget: 30000000,
+    startDate: "2024-07-01",
+    endDate: "2024-07-31",
+    targetAudience: "Khách hàng 18-35 tuổi",
+    dataSource: "Leads",
+    status: "Completed",
+    assignee: "Trần Thị B",
+    assigneeId: 2,
+    expectedKPI: "10000 lượt tương tác",
+    performance: {
+      reach: 25000,
+      openRate: 0,
+      clickRate: 12.5,
+      newLeads: 320,
+      actualCost: 28000000,
+      revenue: 85000000,
+      roi: 203.5,
+      lastUpdated: "2024-08-01"
+    }
+  },
+  {
+    id: 4,
+    name: "Ra mắt sản phẩm mới",
+    type: "SMS",
     budget: 30000000,
     startDate: "2024-07-01",
     endDate: "2024-07-31",

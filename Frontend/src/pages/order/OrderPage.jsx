@@ -16,6 +16,7 @@ import { getProducts } from "@/services/products";
 import DropdownOptions from '@/components/common/DropdownOptions'; // same component used in ProductPage
 import { ChevronDown } from "lucide-react";
 import DropdownWithSearch from '@/components/common/DropdownWithSearch';
+import { Input } from "@/components/ui/input";
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
@@ -329,10 +330,9 @@ export default function OrderPage() {
                         {/* Search */}
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
+                            <Input
                                 type="text"
-                                placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90 hover:border-blue-500"
+                                placeholder="Tìm kiếm đơn hàng..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />

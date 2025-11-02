@@ -446,17 +446,17 @@ export default function KanbanPage() {
     <div className="p-0 h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-col items-center justify-between z-20 gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
           <div className="flex gap-3">
-            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
+            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2 mb-2">
               <Plus className="w-4 h-4" /> Thêm Deal
             </Button>
           </div>
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-4 gap-3 mb-2">
+        <div className="grid grid-cols-4 gap-3">
           <div className="bg-white p-3 rounded-lg border border-gray-200">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">

@@ -11,6 +11,7 @@ import AppPagination from '@/components/pagination/AppPagination';
 import { mockAutomations, triggerOptions, actionOptions } from '@/lib/data';
 import { useNavigate } from 'react-router-dom'; // Nếu dùng react-router
 import { formatDate } from '@/utils/helper';
+import { Input } from '@/components/ui/input';
 
 export default function AutomationPage() {
   const [automations, setAutomations] = useState(mockAutomations);
@@ -133,8 +134,11 @@ export default function AutomationPage() {
   return (
     <div className="flex flex-col  min-h-screen">
       {/* Sticky header: title + view toggles + search + status filter + actions */}
-      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between mb-6">
+      <div
+        className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 rounded-md mb-4 w-full"
+        style={{ backdropFilter: 'blur(6px)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
           {/* Header */}
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -163,10 +167,9 @@ export default function AutomationPage() {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
+              <Input
                 type="text"
                 placeholder="Tìm kiếm automation..."
-                className="h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 border-gray-200 bg-white"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -218,7 +221,7 @@ export default function AutomationPage() {
         </div>
       </div>
       {/* Scrollable automations list */}
-      <div className="flex-1 overflow-auto pt-4 px-6">
+      <div className="flex-1 overflow-auto pt-6 px-6">
         {/* Automations view */}
         {viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">

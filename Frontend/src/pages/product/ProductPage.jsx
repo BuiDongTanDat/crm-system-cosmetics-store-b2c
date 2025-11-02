@@ -12,6 +12,7 @@ import { deleteProduct, getProduct, getProducts, createProduct, updateProduct, i
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import SuccessDialog from '@/components/dialogs/SuccessDialog';
+import { Input } from '@/components/ui/input';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -231,10 +232,9 @@ export default function ProductPage() {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
+              <Input
                 type="text"
-                placeholder="Tìm kiếm..."
-                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 transition-all border-gray-200 bg-white/90"
+                placeholder="Tìm kiếm sản phẩm..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

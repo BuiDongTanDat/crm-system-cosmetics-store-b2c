@@ -8,6 +8,7 @@ import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import { mockCustomers, CustomerTypes, CustomerSources } from "@/lib/data";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
+import { Input } from "@/components/ui/input";
 
 export default function CustomerListPage() {
     const [customers, setCustomers] = useState(mockCustomers);
@@ -155,19 +156,19 @@ export default function CustomerListPage() {
     };
 
     const getStatusBadge = (status) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block";
+        const baseClass = "px-2 py-1 rounded-sm text-xs font-medium w-[100px] text-center inline-block";
         return status === "Active"
             ? `${baseClass} bg-green-100 text-green-800`
             : `${baseClass} bg-red-100 text-red-800`;
     };
 
     const getTypeBadge = (type) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block";
+        const baseClass = "p-1 border rounded-sm text-[10px] font-medium w-[100px] text-center inline-block";
         const colorMap = {
-            [CustomerTypes.vip]: "bg-purple-100 text-purple-800",
-            [CustomerTypes.premium]: "bg-blue-100 text-blue-800",
-            [CustomerTypes.standard]: "bg-gray-100 text-gray-800",
-            [CustomerTypes.new]: "bg-yellow-100 text-yellow-800"
+            [CustomerTypes.vip]: "bg-purple-100 text-purple-800 border-purple-200",
+            [CustomerTypes.premium]: "bg-blue-100 text-blue-800 border-blue-200",
+            [CustomerTypes.standard]: "bg-gray-100 text-gray-800 border-gray-200",
+            [CustomerTypes.new]: "bg-yellow-100 text-yellow-800 border-yellow-200",
         };
         return `${baseClass} ${colorMap[type] || colorMap[CustomerTypes.standard]}`;
     };
@@ -198,10 +199,9 @@ export default function CustomerListPage() {
                         {/* Search */}
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
+                            <Input
                                 type="text"
-                                placeholder="Tìm kiếm..."
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all border-gray-200 bg-white/90 dark:bg-gray-800/90"
+                                placeholder="Tìm kiếm khách hàng..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -247,7 +247,7 @@ export default function CustomerListPage() {
                                         "SĐT",
                                         "Ngành nghề",
                                         "Nguồn KH",
-                                        "Trạng thái",
+                                        "Cấp độ",
                                         ""
                                     ].map((header) => (
                                         <th
@@ -269,7 +269,7 @@ export default function CustomerListPage() {
                                     >
                                         <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                                            <span className={getTypeBadge(customer.type)}>{customer.type}</span>
+                                            
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">{customer.email}</div>
@@ -284,9 +284,7 @@ export default function CustomerListPage() {
                                             <div className="text-sm text-gray-900">{customer.source}</div>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap text-center w-32">
-                                            <span className={getStatusBadge(customer.status)}>
-                                                {customer.status === "Active" ? "Hoạt động" : "Không hoạt động"}
-                                            </span>
+                                            <span className={getTypeBadge(customer.type)}>{customer.type}</span>
                                         </td>
                                         <td className="px-6 py-2 text-center w-36">
                                             <div

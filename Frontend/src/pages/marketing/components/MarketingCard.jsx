@@ -1,34 +1,11 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
-import { formatCurrency, formatDate } from "@/utils/helper";
 
-export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
+export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge }) {
     const [hoveredCard, setHoveredCard] = useState(false);
 
-    const getStatusBadge = (status) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium";
-        const statusMap = {
-            Draft: `${baseClass}  text-gray-800`,
-            Running: `${baseClass}  text-green-800`,
-            Completed: `${baseClass}  text-blue-800`,
-            Paused: `${baseClass}  text-yellow-800`
-        };
-        return statusMap[status] || statusMap.Draft;
-    };
-
-    const getTypeBadge = (type) => {
-        const baseClass = "px-2 py-1 rounded-full text-xs font-medium";
-        const typeMap = {
-            Email: `${baseClass} bg-purple-100 text-purple-800`,
-            SMS: `${baseClass} bg-blue-100 text-blue-800`,
-            Ads: `${baseClass} bg-red-100 text-red-800`,
-            "Social Media": `${baseClass} bg-pink-100 text-pink-800`,
-            "Content Marketing": `${baseClass} bg-orange-100 text-orange-800`,
-            SEO: `${baseClass} bg-indigo-100 text-indigo-800`
-        };
-        return typeMap[type] || typeMap.Email;
-    };
+    // helpers are passed from parent (MarketingPage) to keep styling consistent across card/list
 
     return (
         <div
@@ -43,12 +20,12 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                         {campaign.name}
                     </h3>
                     <div className="flex gap-2">
-                        <span className={getTypeBadge(campaign.type)}>{campaign.type}</span>
+                        <span className={getTypeBadge?.(campaign.type)}>{campaign.type}</span>
                     </div>
                 </div>
                 {/* Status badge - top right corner */}
-                <div className="flex-shrink-0">
-                    <span className={getStatusBadge(campaign.status)}>{campaign.status}</span>
+                <div className="flex-shrink-0 ">
+                    <span className={getStatusBadge?.(campaign.status)}>{campaign.status}</span>
                 </div>
             </div>
 
@@ -59,7 +36,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                     <DollarSign className="w-4 h-4 text-success" />
                     <div>
                         <p className="text-xs text-gray-500">Ngân sách</p>
-                        <p className="text-sm font-medium">{formatCurrency(campaign.budget)}</p>
+                        <p className="text-sm font-medium">{campaign.budget.toLocaleString()} đ</p>
                     </div>
                 </div>
 
@@ -69,7 +46,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                     <div>
                         <p className="text-xs text-gray-500">Thời gian</p>
                         <p className="text-sm font-medium">
-                            {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
+                            {new Date(campaign.startDate).toLocaleDateString("vi-VN")} - {new Date(campaign.endDate).toLocaleDateString("vi-VN")}
                         </p>
                     </div>
                 </div>
@@ -85,7 +62,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete }) {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white">
-                            {campaign.assignee.charAt(0)}
+                            {campaign.assignee ? campaign.assignee.charAt(0) : '-'}
                         </span>
                         <div>
                             <p className="text-xs text-gray-500">Phụ trách</p>

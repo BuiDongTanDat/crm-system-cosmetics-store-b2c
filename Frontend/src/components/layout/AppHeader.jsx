@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 import { notifications as mockNotifications } from '@/lib/data';
+import { Input } from "../ui/input";
 
 // Danh sách các trang từ sidebar để tìm kiếm
 const searchablePages = [
@@ -140,7 +141,7 @@ export default function AppHeader() {
 
   return (
     <header className={`mr-5 sticky top-2 z-30 flex items-center justify-between h-14 px-0 gap-4 transition-all duration-200 ${isScrolled
-      ? 'bg-white/30 backdrop-blur-md shadow-lg border border-white/20 rounded-lg mx-0 mr-5'
+      ? 'bg-white backdrop-blur-md shadow-lg border  rounded-lg px-5 mr-5'
       : 'bg-transparent'
       }`}>
       {/* Left: toggle + search */}
@@ -159,15 +160,12 @@ export default function AppHeader() {
         {/* Search input với dropdown results */}
         <div className="relative w-56 md:w-72 lg:w-80 search-container">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 z-10 pointer-events-none" />
-          <input
+          <Input
             type="text"
             placeholder="Tìm kiếm chức năng..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className={`w-full h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all ${isScrolled
-              ? 'border-gray-200 bg-white/90 dark:bg-gray-800/90'
-              : 'border-border/60 bg-white dark:bg-gray-800/60 backdrop-blur'
-              }`}
+            
           />
           
           {/* Search Results Dropdown */}
