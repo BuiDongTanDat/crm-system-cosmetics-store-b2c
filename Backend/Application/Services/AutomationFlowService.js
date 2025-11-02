@@ -240,10 +240,10 @@ class AutomationFlowService {
       return fail(asAppError(err));
     }
   }
-  async getAllflow(){
+  async getAllflow() {
     return await this.flows.findAll();
   }
-  
+
   async publishFlow(flow_id, dto = {}) {
     try {
       // 1) lấy flow
@@ -553,41 +553,42 @@ class AutomationFlowService {
       };
     }
 
-    // if (at === 'tag_update') {
-    //   return {
-    //     flow_id,
-    //     trigger_id: cfg.trigger_id || null,
-    //     action_type: 'tag_update',
-    //     channel: 'internal',
-    //     content: {
-    //       op: cfg.op || 'add',
-    //       tags: Array.isArray(cfg.tags) ? cfg.tags : (cfg.tags ? [cfg.tags] : []),
-    //     },
-    //     delay_minutes,
-    //     status,
-    //     created_at: new Date(),
-    //     executed_at: null,
-    //   };
-    // }
+    if (at === 'tag_update') {
+      return {
+        flow_id,
+        trigger_id: cfg.trigger_id || null,
+        action_type: 'tag_update',
+        channel: 'internal',
+        content: {
+          op: cfg.op || 'add', // 'add' | 'remove'
+          tags: Array.isArray(cfg.tags) ? cfg.tags : (cfg.tags ? [cfg.tags] : []),
+        },
+        delay_minutes,
+        status,
+        created_at: new Date(),
+        executed_at: null,
+      };
+    }
 
-    // if (at === 'create_task') {
-    //   return {
-    //     flow_id,
-    //     trigger_id: cfg.trigger_id || null,
-    //     action_type: 'create_task',
-    //     channel: 'internal',
-    //     content: {
-    //       assignee: cfg.assignee || null,
-    //       title: cfg.title || 'New Task',
-    //       description: cfg.description || '',
-    //       due_at: cfg.due_at || null,
-    //     },
-    //     delay_minutes,
-    //     status,
-    //     created_at: new Date(),
-    //     executed_at: null,
-    //   };
-    // }
+    if (at === 'create_task') {
+      return {
+        flow_id,
+        trigger_id: cfg.trigger_id || null,
+        action_type: 'create_task',
+        channel: 'internal',
+        content: {
+          assignee: cfg.assignee || null,
+          title: cfg.title || 'Follow-up Lead',
+          description: cfg.description || '',
+          // bạn có thể dùng delay_minutes của action chung
+          due_in_minutes: Number.isFinite(cfg.due_in_minutes) ? cfg.due_in_minutes : null,
+        },
+        delay_minutes,
+        status,
+        created_at: new Date(),
+        executed_at: null,
+      };
+    }
 
     if (at === 'delay') {
       return {

@@ -10,7 +10,159 @@ except Exception as e:
     print("[LLM] ⚠️ Google GenerativeAI SDK not found:", e)
     genai = None
     _GEMINI_AVAILABLE = False
+class HeuristicAnalyzer:
+    """
+    Rule-based scoring 0..100 cho lead.
+    """
+    def score_lead(self, lead: Dict[str, Any]) -> Tuple[int, str]:
+        score = 0
+        reasons = []
 
+        source = (lead.get("source") or "").lower()
+        if source in ("referral", "partner"):
+            score += 25; reasons.append(f"source={source}+25")
+        elif source in ("ads", "website"):
+            score += 10; reasons.append(f"source={source}+10")
+
+        status = (lead.get("status") or "").lower()
+        if status == "engaged":
+            score += 20; reasons.append("status=engaged+20")
+        elif status == "new":
+            score += 5; reasons.append("status=new+5")
+
+        if lead.get("email"):
+            score += 10; reasons.append("email+10")
+        if lead.get("phone"):
+            score += 10; reasons.append("phone+10")
+
+        interactions = lead.get("interactions") or []
+        page_views = sum(1 for i in interactions if i.get("type") == "page_view")
+        email_clicks = sum(1 for i in interactions if i.get("type") == "email_click")
+        score += min(page_views * 2, 10)
+        if page_views: reasons.append(f"page_views*2={min(page_views*2,10)}")
+        score += min(email_clicks * 5, 20)
+        if email_clicks: reasons.append(f"email_clicks*5={min(email_clicks*5,20)}")
+
+        score = max(0, min(score, 100))
+        return score, "; ".join(reasons) if reasons else "baseline"
+
+class HybridLeadScorer:
+    """
+    Gọi LLM để chấm lead (fit_score + intent score + dự báo) theo schema chuẩn.
+    Fallback về HeuristicAnalyzer nếu LLM tắt hoặc trả kết quả không hợp lệ.
+    """
+    def __init__(self, llm_service: "LLMService", heuristic: Optional[HeuristicAnalyzer] = None):
+        self.llm = llm_service
+        self.heur = heuristic or HeuristicAnalyzer()
+
+    async def score(self, lead: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Trả về dict theo schema:
+        {
+          fit_score, score, priority_suggestion, predicted_prob,
+          predicted_value, predicted_value_currency, reason, confidence,
+          features_used, next_best_action
+        }
+        """
+        # ---- LLM mode ----
+        if getattr(self.llm, "enabled", False):
+            prompt = self._build_prompt(lead)
+            raw = await self.llm._generate(prompt, model=self.llm.model_scoring)
+            try:
+                data = json.loads(raw)
+                return self._coerce_schema(data, lead)
+            except Exception:
+                # Thử gỡ JSON nếu lẫn text
+                import re
+                m = re.search(r"\{.*\}", raw or "", flags=re.DOTALL)
+                if m:
+                    try:
+                        data = json.loads(m.group(0))
+                        return self._coerce_schema(data, lead)
+                    except Exception:
+                        pass
+                # rơi xuống fallback
+
+        # ---- Fallback Heuristic ----
+        score, reason = self.heur.score_lead(lead)
+        fit_score = 70 if (lead.get("source") or "").lower() in ("referral","partner") else 45
+        predicted_prob = round(min(0.8, max(0.05, 0.4*score/100 + 0.6*fit_score/100)), 3)
+        return {
+            "fit_score": int(max(0, min(100, fit_score))),
+            "score": int(score),
+            "priority_suggestion": self._priority_from_score(score),
+            "predicted_prob": float(predicted_prob),
+            "predicted_value": 0.0,
+            "predicted_value_currency": "VND",
+            "reason": reason or "baseline",
+            "confidence": 0.5,
+            "features_used": {},
+            "next_best_action": "follow_up"
+        }
+
+    # ---------- helpers ----------
+    def _priority_from_score(self, s: float) -> str:
+        s = float(s or 0)
+        if s >= 80: return "urgent"
+        if s >= 60: return "high"
+        if s >= 30: return "medium"
+        return "low"
+
+    def _coerce_schema(self, d: Dict[str, Any], lead: Dict[str, Any]) -> Dict[str, Any]:
+        def num(x, fb=0.0):
+            try:
+                return float(x)
+            except Exception:
+                return fb
+        out = {
+            "fit_score": int(max(0, min(100, num(d.get("fit_score"), 0)))),
+            "score": int(max(0, min(100, num(d.get("score"), 0)))),
+            "priority_suggestion": (d.get("priority_suggestion") or "").lower() or "medium",
+            "predicted_prob": float(max(0.0, min(1.0, num(d.get("predicted_prob"), 0.2)))),
+            "predicted_value": float(max(0.0, num(d.get("predicted_value"), 0.0))),
+            "predicted_value_currency": d.get("predicted_value_currency") or "VND",
+            "reason": d.get("reason") or "",
+            "confidence": float(max(0.0, min(1.0, num(d.get("confidence"), 0.6)))),
+            "features_used": d.get("features_used") or {
+                "source": (lead.get("source") or "").lower(),
+                "email_domain": ((lead.get("email") or "").split("@")[-1] if lead.get("email") else None)
+            },
+            "next_best_action": d.get("next_best_action") or None
+        }
+        if out["priority_suggestion"] not in ("low","medium","high","urgent"):
+            out["priority_suggestion"] = self._priority_from_score(out["score"])
+        return out
+
+    def _build_prompt(self, lead: Dict[str, Any]) -> str:
+        schema = {
+            "fit_score": 70,
+            "score": 55,
+            "priority_suggestion": "high",
+            "predicted_prob": 0.35,
+            "predicted_value": 500000,
+            "predicted_value_currency": "VND",
+            "reason": "nguồn referral, có email/phone, đã click email",
+            "confidence": 0.7,
+            "features_used": {"source": (lead.get("source") or "").lower()},
+            "next_best_action": "call_back"
+        }
+        parts = []
+        parts.append(
+            "Bạn là hệ thống chấm điểm lead cho CRM mỹ phẩm. "
+            "Hãy phân tích lead và trả về MỘT đối tượng JSON **hợp lệ** theo schema sau (không thêm chữ nào ngoài JSON)."
+        )
+        parts.append("Lead JSON:")
+        parts.append(json.dumps(lead, ensure_ascii=False, indent=2))
+        parts.append("Schema mẫu (giá trị chỉ minh họa, hãy thay bằng kết quả của bạn):")
+        parts.append(json.dumps(schema, ensure_ascii=False, indent=2))
+        parts.append(
+            "YÊU CẦU:\n"
+            "- fit_score và score ∈ [0,100]\n"
+            "- predicted_prob ∈ [0,1]\n"
+            "- priority_suggestion ∈ {'low','medium','high','urgent'}\n"
+            "- Chỉ trả về JSON hợp lệ, không markdown, không giải thích."
+        )
+        return "\n\n".join(parts)
 
 class LLMService:
     def __init__(self):
@@ -20,6 +172,17 @@ class LLMService:
             genai.configure(api_key=config.GEMINI_API_KEY)
         else:
             print("[LLM] ⚠️ Gemini disabled (missing API key or SDK).")
+
+    async def score_lead(self, lead: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Điểm vào chính để Node gọi: trả về schema thống nhất
+        {
+          fit_score, score, priority_suggestion, predicted_prob,
+          predicted_value, predicted_value_currency, reason, confidence,
+          features_used, next_best_action
+        }
+        """
+        return await self.scorer.score(lead)
 
     # ----------------- Generate Email -----------------
     async def generate_email_content(
@@ -219,7 +382,7 @@ class LLMService:
                         except Exception:
                             t = None
                     if isinstance(t, datetime):
-                        latest_ts = max(latest_ts or t, t)
+                        latest_ts = max(latest_ts or t, t)  
                 if latest_ts:
                     days = (datetime.now(timezone.utc) - latest_ts.astimezone(timezone.utc)).days
                     if days <= 7:

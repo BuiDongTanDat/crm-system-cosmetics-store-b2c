@@ -106,7 +106,7 @@ class AutomationService {
                     const condExpr = action.condition ? this.render(action.condition, ctx) : 'true';
                     let shouldUpdate = false;
                     try {
-                        shouldUpdate = eval(condExpr); // Có thể thay bằng parser an toàn như filtrex
+                        shouldUpdate = eval(condExpr);
                     } catch (e) {
                         console.warn('[Automation] Invalid condition expression:', e.message);
                     }
@@ -120,7 +120,32 @@ class AutomationService {
                     }
                     break;
                 }
+                case 'tag_update': {
+                    const mode = action.mode || action.op || action.content?.mode || action.content?.op || 'add';
+                    const tags = action.content?.tags ?? action.tags ?? [];
+                    const leadId = ctx?.lead?.lead_id || ctx?.lead?.id;
+                    if (!leadId || !tags.length) break;
 
+                    await leadRepo.updateTags(leadId, tags, mode);
+                    console.log(`[Automation] tag_update(${mode}) -> ${leadId}:`, tags);
+                    break;
+                }
+                case 'create_task': {
+                    const dueIn = Number(action.content?.due_in_minutes || 0);
+                    const dueAt = dueIn > 0 ? new Date(Date.now() + dueIn * 60000).toISOString() : null;
+                    const taskPayload = {
+                        type: 'follow_up',
+                        lead_id: ctx.lead?.lead_id || null,
+                        customer_id: ctx.lead?.customer_id || null,
+                        title: this.render(action.content?.title || 'Follow-up lead', ctx),
+                        description: this.render(action.content?.description || '', ctx),
+                        assignee: action.content?.assignee || null,
+                        due_at: dueAt,
+                        source_flow_id: ctx.trigger?.flow_id || null,
+                    };
+                    await Rabbit.publish('task.create', taskPayload);
+                    break;
+                }
                 case 'schedule': {
                     const delay = action.delay_iso || `PT${action.delay_minutes || 5}M`;
                     const nextAction = action.next_action || { type: 'send_email' };

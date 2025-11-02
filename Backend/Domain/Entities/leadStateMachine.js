@@ -17,7 +17,7 @@ module.exports = {
         new: ['contacted', 'closed_lost'],
         contacted: ['qualified', 'nurturing', 'closed_lost'],
         qualified: ['nurturing', 'converted', 'closed_lost'],
-        nurturing: ['converted', 'closed_lost'],
+        nurturing: ['converted', 'closed_lost', 'qualified'],
         converted: [],
         closed_lost: [],
     },

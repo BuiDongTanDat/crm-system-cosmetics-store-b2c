@@ -79,13 +79,13 @@ class LeadService {
         assigned_to: assigned_to || null,
         created_at: new Date(),
 
-        // 🔹 Trường mới:
+        // Trường mới:
         priority: priority || 'medium',
         product_interest: product_interest || null,
         // tên deal = tên chiến dịch (nếu có campaign)
         deal_name: campaign?.name || null,
 
-        // 🔮 chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
+        // chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
         predicted_prob: null,
         predicted_value: 0,
         predicted_value_currency: 'VND',
@@ -105,15 +105,22 @@ class LeadService {
           campaign_id: payload.campaign_id,
           priority: payload.priority,
           product_interest: payload.product_interest,
-          // Thêm thông tin campaign nếu có
           campaign_channel: campaign?.channel || null,
           campaign_name: campaign?.name || null,
           assigned_to: payload.assigned_to,
         };
 
-        const aiResp = await aiService.scoreLead(features);
+        const aiResp = await aiClient.scoreLead(features);
+        console.log('[AI]', aiResp);
         if (aiResp) {
-          const { predicted_prob, predicted_value, predicted_value_currency } = aiResp;
+          // AI trả về cả "score" và "reason"
+          const { score, reason, predicted_prob, predicted_value, predicted_value_currency } = aiResp;
+
+          // Cập nhật lead_score nếu AI có tính ra
+          if (score !== undefined && !isNaN(score)) {
+            payload.lead_score = score;
+            payload.ai_reason = reason || null;
+          }
 
           if (predicted_prob !== undefined && !isNaN(predicted_prob)) {
             payload.predicted_prob = predicted_prob;
@@ -145,7 +152,6 @@ class LeadService {
             campaign_name: campaign?.name || null,
             product_interest: payload.product_interest || null,
             note: 'Tương tác đầu tiên từ chiến dịch marketing',
-            // đưa thêm kết quả AI vào interaction để trace
             ai_predicted_prob: payload.predicted_prob,
             ai_predicted_value: payload.predicted_value,
             ai_currency: payload.predicted_value_currency,
@@ -157,7 +163,6 @@ class LeadService {
         return lead;
       });
 
-      // 6) Publish sự kiện (kèm predicted fields & trường mới)
       try {
         await Rabbit.publish('lead_created', {
           lead_id: result.lead_id,
@@ -238,6 +243,25 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' }));
     }
   }
+  async getQualifiedLeads() {
+    try {
+      // gọi trực tiếp repo, không phân trang
+      const leads = await this.repo.findAll({ where: { status: 'qualified' } });
+
+      if (!leads || leads.length === 0) {
+        throw new AppError('Không có lead nào ở trạng thái qualified', {
+          status: 404,
+          code: 'QUALIFIED_LEADS_NOT_FOUND',
+        });
+      }
+
+      return ok(leads);
+    } catch (err) {
+      return fail(
+        asAppError(err, { status: err?.status || 500, code: 'GET_QUALIFIED_LEADS_FAILED' })
+      );
+    }
+  }
   // Thêm mới: gom leads theo cột (stage) cho UI Kanban
   async getPipelineColumns() {
     try {
@@ -273,31 +297,31 @@ class LeadService {
     }
   }
 
-  async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
-    try {
-      const to = String(toStatus || '').trim().toLowerCase();
+  // async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
+  //   try {
+  //     const to = String(toStatus || '').trim().toLowerCase();
 
-      const lead = await this.repo.findById(leadId);
-      if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
+  //     const lead = await this.repo.findById(leadId);
+  //     if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
 
-      const from = String(lead.status || '').toLowerCase();
-      if (from === to) return ok({ message: 'Status unchanged', data: lead });
+  //     const from = String(lead.status || '').toLowerCase();
+  //     if (from === to) return ok({ message: 'Status unchanged', data: lead });
 
-      // state machine guard
-      if (!stateMachine.canTransition(from, to)) {
-        return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
-      }
+  //     // state machine guard
+  //     if (!stateMachine.canTransition(from, to)) {
+  //       return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
+  //     }
 
-      const updated = await this.repo.logStatusChange(leadId, to, {
-        reason, changed_by: changedBy, meta
-      }); // repo sẽ transaction + lock + ghi LeadStatusHistory
-      if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
+  //     const updated = await this.repo.logStatusChange(leadId, to, {
+  //       reason, changed_by: changedBy, meta
+  //     }); // repo sẽ transaction + lock + ghi LeadStatusHistory
+  //     if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
 
-      return ok(updated);
-    } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
-    }
-  }
+  //     return ok(updated);
+  //   } catch (err) {
+  //     return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
+  //   }
+  // }
 
   async getPipelineSummary() {
     try {

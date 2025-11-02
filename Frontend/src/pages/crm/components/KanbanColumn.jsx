@@ -12,39 +12,78 @@ export default function KanbanColumn({
   onCardDelete,
   onDrop,
   onDragStart,
-  animatedData = null,      // { startCount, endCount, startTotal, endTotal }
-  initialAnimate = false,   // animate from 0 on initial load
+  animatedData = null, // { startCount, endCount, startTotal, endTotal }
+  initialAnimate = false, // animate from 0 on initial load
   isDraggingBoard = false,
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showAll, setShowAll] = useState(false); // 👈 toggle hiển thị thêm
   const containerRef = useRef(null);
 
-  // compute totals
-  const totalValue = cards.reduce((sum, c) => sum + (c.value || 0), 0);
+  // 1️⃣ Sắp xếp khác nhau theo loại cột
+  const sortCards = (cards) => {
+    const isClosedCol = ["converted", "closed_lost"].includes(column.id);
 
-  // Determine animation sources
+    if (isClosedCol) {
+      // Sắp xếp mới nhất (closedAt hoặc createdDate giảm dần)
+      return [...cards].sort((a, b) => {
+        const da = new Date(a.closedAt || a.lastActivity || a.createdDate || 0).getTime();
+        const db = new Date(b.closedAt || b.lastActivity || b.createdDate || 0).getTime();
+        return db - da; // mới nhất trước
+      });
+    } else {
+      // Giữ logic sắp xếp cũ (priority, leadScore, conversionProb, value, date)
+      const PRIORITY_WEIGHT = { urgent: 4, high: 3, medium: 2, low: 1 };
+      const getPriorityWeight = (p) => PRIORITY_WEIGHT[(p || "").toLowerCase()] || 0;
+      const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
+
+      return [...cards].sort((a, b) => {
+        const pa = getPriorityWeight(a.priority);
+        const pb = getPriorityWeight(b.priority);
+        if (pb !== pa) return pb - pa;
+        const sa = num(a.leadScore, -Infinity);
+        const sb = num(b.leadScore, -Infinity);
+        if (sb !== sa) return sb - sa;
+        const ca = num(a.conversionProb, -Infinity);
+        const cb = num(b.conversionProb, -Infinity);
+        if (cb !== ca) return cb - ca;
+        const va = num(a.value, -Infinity);
+        const vb = num(b.value, -Infinity);
+        if (vb !== va) return vb - va;
+        const da = new Date(a.createdDate || 0).getTime();
+        const db = new Date(b.createdDate || 0).getTime();
+        return db - da;
+      });
+    }
+  };
+
+  // 2️⃣ Giới hạn hiển thị tối đa 7 deal nếu là cột closed/converted
+  const MAX_VISIBLE = 7;
+  const sortedCards = sortCards(cards);
+  const isClosedCol = ["converted", "closed_lost"].includes(column.id);
+  const visibleCards = isClosedCol && !showAll ? sortedCards.slice(0, MAX_VISIBLE) : sortedCards;
+
+  // 3️⃣ Tổng giá trị và count
+  const totalValue = sortedCards.reduce((sum, c) => sum + (c.value || 0), 0);
+  const countEnd = sortedCards.length;
+
   const shouldAnimateCount = Boolean(animatedData) || initialAnimate;
   const shouldAnimateTotal = Boolean(animatedData) || initialAnimate;
-
-  const countStart = animatedData ? animatedData.startCount : (initialAnimate ? 0 : cards.length);
-  const countEnd = animatedData ? animatedData.endCount : cards.length;
-
-  const totalStart = animatedData ? animatedData.startTotal : (initialAnimate ? 0 : totalValue);
+  const countStart = animatedData ? animatedData.startCount : initialAnimate ? 0 : countEnd;
+  const totalStart = animatedData ? animatedData.startTotal : initialAnimate ? 0 : totalValue;
   const totalEnd = animatedData ? animatedData.endTotal : totalValue;
 
-  // Drag handlers for column container (kept from original)
+  // Drag handlers
   const handleDragOver = (e) => {
     e.preventDefault();
     setIsDragOver(true);
   };
-
   const handleDragLeave = (e) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) {
       setIsDragOver(false);
     }
   };
-
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -52,7 +91,6 @@ export default function KanbanColumn({
     onDrop(cardId, column.id);
     setIsDragOver(false);
   };
-
   const handleDragStartLocal = (e, card) => {
     e.dataTransfer.setData("text/plain", card.id);
     if (onDragStart) onDragStart();
@@ -63,7 +101,7 @@ export default function KanbanColumn({
       {/* Header */}
       <div
         data-column-header
-        className={`${column.headerColor} text-white p-2 rounded-t-lg flex-shrink-0 ${isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'
+        className={`${column.headerColor} text-white p-2 rounded-t-lg flex-shrink-0 ${isDraggingBoard ? "cursor-grabbing" : "cursor-grab"
           } select-none`}
       >
         <div className="flex items-center justify-between mb-1">
@@ -94,13 +132,19 @@ export default function KanbanColumn({
       {/* Cards Container */}
       <div
         ref={containerRef}
-        className={`flex-1 p-1 space-y-2 overflow-y-auto rounded-b-lg border ${isDragOver ? "bg-blue-50 border-2 border-blue-300 border-dashed" : "border-transparent"}`}
-        style={{ height: "calc(100vh - 280px)", scrollbarWidth: "thin", scrollbarColor: "#CBD5E1 #F1F5F9", scrollBehavior: "smooth" }}
+        className={`flex-1 p-1 space-y-2 overflow-y-auto rounded-b-lg border ${isDragOver ? "bg-blue-50 border-2 border-blue-300 border-dashed" : "border-transparent"
+          }`}
+        style={{
+          height: "calc(100vh - 280px)",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#CBD5E1 #F1F5F9",
+          scrollBehavior: "smooth",
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {cards.map(card => (
+        {visibleCards.map((card) => (
           <KanbanCard
             key={card.id}
             card={card}
@@ -112,9 +156,23 @@ export default function KanbanColumn({
           />
         ))}
 
-        {cards.length === 0 && (
+        {sortedCards.length === 0 && (
           <div className="flex items-center justify-center h-32 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg text-xs">
             Kéo deal vào đây
+          </div>
+        )}
+
+        {/* Nút xem thêm / ẩn bớt */}
+        {isClosedCol && sortedCards.length > MAX_VISIBLE && (
+          <div className="flex justify-center mt-2">
+            <button
+              className="text-xs text-blue-600 hover:underline"
+              onClick={() => setShowAll((prev) => !prev)}
+            >
+              {showAll
+                ? "Ẩn bớt"
+                : `Xem thêm (${sortedCards.length - MAX_VISIBLE})`}
+            </button>
           </div>
         )}
       </div>

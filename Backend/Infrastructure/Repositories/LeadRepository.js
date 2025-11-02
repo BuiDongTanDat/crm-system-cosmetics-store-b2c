@@ -17,7 +17,30 @@ class LeadRepository {
     const lead = await Lead.findByPk(leadId);
     if (!lead) return null;
   }
+  async updateTags(leadId, tags = [], mode = 'add') {
+    const lead = await Lead.findByPk(leadId);
+    if (!lead) return null;
 
+    let current = Array.isArray(lead.tags) ? [...lead.tags] : [];
+    if (!Array.isArray(tags)) tags = [tags];
+
+    switch (mode) {
+      case 'add':
+        current = Array.from(new Set([...current, ...tags]));
+        break;
+      case 'remove':
+        current = current.filter(t => !tags.includes(t));
+        break;
+      case 'replace':
+        current = [...tags];
+        break;
+      default:
+        break;
+    }
+
+    await lead.update({ tags: current });
+    return lead;
+  }
   async findById(leadId) {
     return await Lead.findByPk(leadId);
   }
@@ -30,8 +53,9 @@ class LeadRepository {
     return await Lead.findOne({ where: { phone } });
   }
 
-  async findAll() {
-    return await Lead.findAll();
+  async findAll(options = {}) {
+    const { where = {}, order = [['created_at', 'DESC']] } = options;
+    return Lead.findAll({ where, order });
   }
   async getLeadsGroupedByStatus() {
     const rows = await Lead.findAll({
