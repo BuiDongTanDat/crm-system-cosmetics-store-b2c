@@ -116,7 +116,6 @@ class OrderService {
 					payload.customer_id = exist.customer_id;
 					resolvedCustomer = exist;
 				} else {
-					// Không trùng → tạo mới customer "vãng lai"
 					const candidate = {
 						name: full_name || name || 'Guest',
 						phone: phone || null,

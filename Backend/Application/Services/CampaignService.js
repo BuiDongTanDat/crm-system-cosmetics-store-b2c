@@ -9,7 +9,7 @@ class CampaignService {
 
             const campaign = {
                 name: campaignData.name,
-                description: campaignData.description || null,
+                description: campaignData.summary_report || null,
                 start_date: campaignData.start_date || new Date(),
                 end_date: campaignData.end_date || null,
                 budget: campaignData.budget || 0,
@@ -17,8 +17,13 @@ class CampaignService {
                 status: campaignData.status || 'draft',
                 channel: campaignData.channel || 'unknown',
                 target_filter: campaignData.target_filter || {},
-                data_source: campaignData.data_source || null,
+                data_source: campaignData.data_source || 'AI',
                 expected_kpi: campaignData.expected_kpi || {},
+                products: Array.isArray(campaignData.products)
+                    ? campaignData.products
+                    : campaignData.product
+                        ? [campaignData.product]
+                        : [],
             };
 
             const created = await CampaignRepository.create(campaign);
@@ -28,5 +33,6 @@ class CampaignService {
             return fail(asAppError(err, { status: 500, code: 'CREATE_CAMPAIGN_FAILED' }));
         }
     }
+
 }
 module.exports = CampaignService;

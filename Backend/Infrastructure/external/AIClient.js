@@ -74,14 +74,31 @@ class AIClient {
       data: { input, options }
     });
   }
-  async suggest_marketing_campaign(topic, customer_data, Product_data) {
+  async suggest_marketing_campaign(topic, customer_data, Product_data, options) {
     return this._request('POST', '/v1/marketing/suggest_campaign', {
-      data: { topic, customer_data, Product_data }
+      data: { topic, customer_data, Product_data, options }
     });
   }
   async scoreLead(leadData, opts = {}) {
-    const data = await this._request('POST', '/v1/leads/score', { data: { lead: leadData, options: opts } });
-    return { score: Number(data?.score ?? 0), reason: data?.reason || null, raw: data };
+    const data = await this._request('POST', '/v1/leads/score', {
+      data: { lead: leadData, options: opts }
+    });
+    // Chuẩn hoá và fallback
+    const norm = (x, fb = 0) => (Number.isFinite(Number(x)) ? Number(x) : fb);
+
+    return {
+      score: norm(data?.score, 0),
+      reason: data?.reason || null,
+      fit_score: norm(data?.fit_score, 0),
+      priority_suggestion: data?.priority_suggestion || null,
+      predicted_prob: Number.isFinite(Number(data?.predicted_prob)) ? Number(data.predicted_prob) : null,
+      predicted_value: Number.isFinite(Number(data?.predicted_value)) ? Number(data.predicted_value) : 0,
+      predicted_value_currency: data?.predicted_value_currency || 'VND',
+      confidence: Number.isFinite(Number(data?.confidence)) ? Number(data.confidence) : null,
+      features_used: data?.features_used || null,
+      next_best_action: data?.next_best_action || null,
+      raw: data
+    };
   }
 
   async estimateConversionProb(leadData, opts = {}) {
