@@ -17,7 +17,10 @@ class ProductService {
     const products = await ProductRepository.findAll();
     return ProductListResponseDTO.fromEntities(products);
   }
-
+  async getAllproduct() {
+    const products = await ProductRepository.findAll();
+    return products;
+  }
   // Lấy chi tiết sản phẩm theo ID
   async getById(id) {
     const product = await ProductRepository.findById(id);

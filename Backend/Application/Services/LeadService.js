@@ -95,11 +95,10 @@ class LeadService {
       // 4) Gọi AI service để dự đoán (best-effort, không chặn luồng nếu lỗi)
       try {
         const features = {
-          // Bạn có thể thêm nhiều feature hơn tùy mô hình của bạn
           name: payload.name,
           email: payload.email,
           phone: payload.phone,
-          source: payload.source,
+          source: payload.source,           // nên normalize về lowercase: 'inbound'
           lead_score: payload.lead_score,
           tags: payload.tags,
           campaign_id: payload.campaign_id,
@@ -111,26 +110,26 @@ class LeadService {
         };
 
         const aiResp = await aiClient.scoreLead(features);
-        console.log('[AI]', aiResp);
         if (aiResp) {
-          // AI trả về cả "score" và "reason"
-          const { score, reason, predicted_prob, predicted_value, predicted_value_currency } = aiResp;
+          const {
+            score,
+            reason,
+            predicted_prob,
+            predicted_value,
+            predicted_value_currency
+          } = aiResp;
 
-          // Cập nhật lead_score nếu AI có tính ra
-          if (score !== undefined && !isNaN(score)) {
-            payload.lead_score = score;
+          if (Number.isFinite(score)) {
+            payload.lead_score = Number(score);
             payload.ai_reason = reason || null;
           }
+          if (Number.isFinite(predicted_prob) && predicted_prob >= 0 && predicted_prob <= 1) {
+            payload.conversion_prob = Number(predicted_prob);
+          }
+          payload.predicted_prob = Number.isFinite(predicted_prob) ? Number(predicted_prob) : null;
+          payload.predicted_value = Number.isFinite(predicted_value) ? Number(predicted_value) : 0;
+          if (predicted_value_currency) payload.predicted_value_currency = predicted_value_currency;
 
-          if (predicted_prob !== undefined && !isNaN(predicted_prob)) {
-            payload.predicted_prob = predicted_prob;
-          }
-          if (predicted_value !== undefined && !isNaN(predicted_value)) {
-            payload.predicted_value = predicted_value;
-          }
-          if (predicted_value_currency) {
-            payload.predicted_value_currency = predicted_value_currency;
-          }
           payload.last_predicted_at = new Date();
         }
       } catch (aiErr) {
@@ -157,7 +156,7 @@ class LeadService {
             ai_currency: payload.predicted_value_currency,
           },
           score_delta: 5,
-          created_by: assigned_to || null, // hoặc 'system'
+          created_by: assigned_to || null,
         }, { transaction: t });
 
         return lead;

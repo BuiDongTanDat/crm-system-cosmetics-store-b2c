@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict,  Union, Any
 from pydantic import BaseModel, Field
 from datetime import date
 
@@ -12,7 +12,12 @@ class RecommendedProduct(BaseModel):
     category: Optional[str] = None
     price_current: Optional[int] = Field(None, ge=0)
     reason: Optional[str] = None  # vì sao sản phẩm được chọn
-
+class TargetFilter(BaseModel):
+    age: Optional[Dict[str, int]] = None       # {"min": 18, "max": 40}
+    gender: Optional[Union[List[str], str]] = None  # "female" hoặc ["female","male"]
+    locations: Optional[List[str]] = None
+    interests: Optional[List[str]] = None
+    note: Optional[str] = None
 class CampaignSuggestion(BaseModel):
     name: str
     channel: str
@@ -22,18 +27,20 @@ class CampaignSuggestion(BaseModel):
     expected_kpi: ExpectedKPI
     note: Optional[str] = None
     summary_report: Optional[str] = None
-    # 🆕 danh sách sản phẩm nên chạy trong chiến dịch
     recommended_products: List[RecommendedProduct] = Field(default_factory=list)
+    target_filter: Optional[TargetFilter] = None
+    data_source: Optional[str] = Field(
+        default=None,
+        description='Ví dụ: "Products", "AI_GENERATED", "MANUAL"'
+    )
 
 class SuggestFromCustomersRequest(BaseModel):
     topic: Optional[str] = Field(
         None,
-        description="Chủ đề chiến dịch (vd: ra mắt sản phẩm mới, khuyến mãi tháng 10, Giáng Sinh,...)"
+        description="Chủ đề chiến dịch (vd: ra mắt sản phẩm mới, khuyến mãi tháng 10, Giáng Sinh, ...)"
     )
-    # Cho phép chỉ gửi topic → danh sách mặc định rỗng
     customer_data: List[dict] = Field(default_factory=list)
-    product_data: Optional[List[dict]] = None
-
+    product_data: List[dict] = Field(default_factory=list)
 class SuggestCampaignResponse(BaseModel):
     ok: bool
     campaign: CampaignSuggestion

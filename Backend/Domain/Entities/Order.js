@@ -56,6 +56,8 @@ Order.init(
         },
         status: {
             type: DataTypes.ENUM(
+                'draft_cart',
+                'awaiting_customer_confirmation',
                 'paid',
                 'pending',
                 'cancelled',

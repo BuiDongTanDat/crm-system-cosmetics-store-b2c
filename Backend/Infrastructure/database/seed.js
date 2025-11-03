@@ -21,9 +21,7 @@ const Product = require('../../Domain/Entities/Product'); // <- nếu chưa có 
 const csvFilePath = path.join(__dirname, 'product.csv');
 
 const userService = new UserService();
-const categoryService = new CategoryService();
 const productService = ProductService;
-const campaignService = new CampaignService();
 // LeadService trong code của bạn thường export instance, nên dùng trực tiếp
 
 async function seedRolesAndUsers() {
@@ -73,7 +71,7 @@ async function seedCategories() {
     await Promise.all(
         categories.map(async ({ name, description }) => {
             try {
-                await categoryService.create({
+                await CategoryService.create({
                     name,
                     description,
                     status: 'ACTIVE',
@@ -105,7 +103,7 @@ async function seedCampaign() {
     }
 
     console.log(' Seeding campaign...');
-    const campaign = await campaignService.createCampaign({
+    const campaign = await CampaignService.createCampaign({
         name: 'Rạng Rỡ Nét Đẹp Việt - Quà Tặng 20/10',
         channel: 'instagram',
         budget: 18000000,
@@ -309,7 +307,6 @@ async function seedDatabase() {
     const campaign = await seedCampaign();
     if (campaign) await seedLeads(campaign.campaign_id);
 
-    // 👉 NEW: Seed automation flow
     await seedWelcomeFlow();
 }
 
