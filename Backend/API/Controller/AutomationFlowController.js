@@ -45,8 +45,8 @@ const AutomationFlowController = {
     resurt = new AutomationFlowResponseDTO(data);
     return res.json(data);
   }),
-  list: asyncHandler(async (req, res) => {
-    const items = await AutomationFlowService.listFlows(req.query || {});
+  getAllflow: asyncHandler(async (req, res) => {
+    const items = await AutomationFlowService.getAllflow(req.query || {});
     return res.json({ items });
   }),
   update: asyncHandler(async (req, res) => {
@@ -88,34 +88,34 @@ const AutomationFlowController = {
   // ===== EDITOR (mới thêm) =====
 
   // PUT /api/flows/:flow_id/editor → autosave (upsert triggers/actions), vẫn DRAFT
- saveEditor: asyncHandler(async (req, res) => {
-  try {
-    const flow_id = req.params.flow_id; // lấy id từ URL
-    const dto = SaveEditorRequestDTO.from(req.body);
-    // 🔒 Gán flow_id nếu chưa có trong body
-    dto.flow_id = dto.flow_id || flow_id;
-    // nếu client không gửi isNewRecord hoặc không có thay đổi thì coi như false
-    if (dto.isNewRecord === undefined || dto.isNewRecord === null) {
-      dto.isNewRecord = false;
+  saveEditor: asyncHandler(async (req, res) => {
+    try {
+      const flow_id = req.params.flow_id; // lấy id từ URL
+      const dto = SaveEditorRequestDTO.from(req.body);
+      // 🔒 Gán flow_id nếu chưa có trong body
+      dto.flow_id = dto.flow_id || flow_id;
+      // nếu client không gửi isNewRecord hoặc không có thay đổi thì coi như false
+      if (dto.isNewRecord === undefined || dto.isNewRecord === null) {
+        dto.isNewRecord = false;
+      }
+
+      console.log('>>> saveEditor dto:', dto);
+
+      const result = await AutomationFlowService.saveEditor(flow_id, dto);
+
+      if (!result.ok) {
+        const { status = 500 } = result.error || {};
+        return res.status(status).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error('>>> saveEditor failed:', err);
+      return res
+        .status(500)
+        .json(fail(asAppError(err, { status: 500, code: 'SAVE_EDITOR_FAILED' })));
     }
-
-    console.log('>>> saveEditor dto:', dto);
-
-    const result = await AutomationFlowService.saveEditor(flow_id, dto);
-
-    if (!result.ok) {
-      const { status = 500 } = result.error || {};
-      return res.status(status).json(result);
-    }
-
-    return res.status(200).json(result);
-  } catch (err) {
-    console.error('>>> saveEditor failed:', err);
-    return res
-      .status(500)
-      .json(fail(asAppError(err, { status: 500, code: 'SAVE_EDITOR_FAILED' })));
-  }
-}),
+  }),
   // POST /api/flows/:flow_id/publish → validate & chuyển ACTIVE (hoặc simulate)
   publish: asyncHandler(async (req, res) => {
     const dto = PublishFlowRequestDTO.from(req.body || {});
