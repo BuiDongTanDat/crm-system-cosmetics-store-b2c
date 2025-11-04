@@ -122,6 +122,11 @@ Lead.init(
         isIn: [['low', 'medium', 'high', 'urgent']],
       },
     },
+    notes: {
+      type: DataTypes.TEXT,   // Postgres TEXT không giới hạn
+      allowNull: true,
+      comment: 'Ghi chú từ form liên hệ / tư vấn',
+    },
   },
   {
     sequelize,

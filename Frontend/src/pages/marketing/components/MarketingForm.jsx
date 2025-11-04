@@ -188,7 +188,7 @@ export function MarketingForm({
     setMode?.("view");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || form.budget === "") {
       alert("Vui lòng nhập tên chiến dịch và ngân sách");
       return;
@@ -231,7 +231,7 @@ export function MarketingForm({
     };
 
     try {
-      const campaign = await created(payload); 
+      const campaign = await created(payload);
       console.log("Tạo campaign thành công:", campaign);
       alert("Tạo campaign thành công!");
       onSave?.(campaign);

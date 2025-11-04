@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 import { getProducts } from "@/services/products";
 import { createLead } from "@/services/leads";
+import { getRunningCampaigns } from "@/services/campaign";
 
+// --- Constants ---
+const PLACEHOLDER_BANNER =
+    "https://tse1.explicit.bing.net/th/id/OIP.M6yQn8si3nBrwWDg3ipRIwHaE8?w=3000&h=2000&rs=1&pid=ImgDetMain&o=7&rm=3";
 
 const currencyVN = (value) =>
     (value ?? 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
@@ -59,16 +63,212 @@ const EmptyState = ({ onRefresh }) => (
         </div>
         <p className="mt-4 text-gray-700 font-medium">Chưa có sản phẩm để hiển thị</p>
         <p className="text-sm text-gray-500">Hãy thử tải lại trang hoặc thêm sản phẩm mới.</p>
-        {onRefresh && <Button onClick={onRefresh} className="mt-4">Tải lại</Button>}
+        {onRefresh && (
+            <Button onClick={onRefresh} className="mt-4">
+                Tải lại
+            </Button>
+        )}
     </div>
 );
 
-const ProductCard = ({ p }) => {
+/** ======================
+ *  Contact Modal
+ *  - thêm defaultNotes để prefill ghi chú
+ * ====================== */
+// ContactModal: thêm prop defaultProductInterest để prefill
+const ContactModal = ({
+    open,
+    onClose,
+    campaignName,
+    campaignId = null,
+    defaultNotes = "",
+    defaultProductInterest = "",   // NEW
+}) => {
+    const [form, setForm] = useState({
+        name: "",
+        email: "",
+        phone: "",
+        notes: "",
+        productInterest: "",         // NEW
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const onEsc = (e) => e.key === "Escape" && onClose?.();
+        document.addEventListener("keydown", onEsc);
+        return () => document.removeEventListener("keydown", onEsc);
+    }, [onClose]);
+
+    // Prefill notes & productInterest mỗi khi mở modal
+    useEffect(() => {
+        if (open) {
+            setForm((prev) => ({
+                ...prev,
+                notes: defaultNotes || "",
+                productInterest: defaultProductInterest || "",  // NEW
+            }));
+        }
+    }, [open, defaultNotes, defaultProductInterest]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (isSubmitting) return;
+
+        if (!form.name?.trim() || !form.email?.trim() || !form.phone?.trim()) {
+            alert("Vui lòng nhập đầy đủ Họ tên, Email và SĐT.");
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+
+            const payload = {
+                name: form.name.trim(),
+                email: form.email.trim(),
+                phone: form.phone.trim(),
+                source: "InBound",
+                tags: campaignName ? [campaignName] : [],
+                campaign_id: campaignId ?? null,
+                notes: form.notes?.trim() || "",
+                product_interest: form.productInterest?.trim() || "",
+            };
+
+            console.log("Sending lead payload:", payload);
+            const res = await createLead(payload);
+            console.log("Lead API response:", res);
+
+            alert("Cảm ơn bạn! Thông tin đã được ghi nhận.");
+            setForm({ name: "", email: "", phone: "", notes: "", productInterest: "" });
+            onClose?.();
+        } catch (err) {
+            console.error("Lead API error:", err);
+            alert("Xin lỗi, gửi thông tin thất bại. Vui lòng thử lại.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+            <div
+                ref={ref}
+                role="dialog"
+                aria-modal
+                className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden"
+            >
+                <div className="flex items-center justify-between p-4 border-b">
+                    <div>
+                        <h3 className="text-lg font-semibold">Thông Tin Liên Hệ</h3>
+                        <p className="text-sm text-gray-600">Điền thông tin để chúng tôi liên hệ với bạn.</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-50" aria-label="Đóng">
+                        <X />
+                    </button>
+                </div>
+
+                <form className="p-4 space-y-3" onSubmit={handleSubmit}>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Họ và tên *</label>
+                        <input
+                            required
+                            type="text"
+                            value={form.name}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            placeholder="Nhập họ tên"
+                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Email *</label>
+                            <input
+                                required
+                                type="email"
+                                value={form.email}
+                                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                                placeholder="email@example.com"
+                                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">SĐT *</label>
+                            <input
+                                required
+                                type="tel"
+                                value={form.phone}
+                                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                                placeholder="0123456"
+                                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+
+                    {/* NEW: Sản phẩm quan tâm */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Sản phẩm quan tâm</label>
+                        <input
+                            type="text"
+                            value={form.productInterest}
+                            onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
+                            placeholder="Nhập tên sản phẩm (ví dụ: 3CE Blur Water Tint)"
+                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {/* Ghi chú giữ nguyên */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Ghi chú</label>
+                        <textarea
+                            rows={3}
+                            value={form.notes}
+                            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                            placeholder="Nhập ghi chú (tùy chọn)"
+                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                        <div className="text-xs text-gray-500">
+                            {campaignName ? `Chiến dịch: ${campaignName}` : ""}
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-lg border font-medium hover:bg-gray-50"
+                                disabled={isSubmitting}
+                            >
+                                Hủy
+                            </button>
+                            <Button type="submit" className="px-4 py-2" disabled={isSubmitting}>
+                                {isSubmitting ? "Đang gửi..." : "Gửi Thông Tin"}
+                            </Button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+/** ======================
+ *  Product Card
+ *  - thêm 2 nút: Quan tâm & Đặt hàng
+ *  - nhận onInterest / onOrder từ props
+ * ====================== */
+const ProductCard = ({ p, onInterest, onOrder }) => {
     const outOfStock = (p.status || "").toLowerCase().includes("hết hàng");
     const lowOpacity = outOfStock ? "opacity-60" : "";
-    const discount = p.originalPrice && p.originalPrice > p.currentPrice
-        ? Math.round(((p.originalPrice - p.currentPrice) / p.originalPrice) * 100)
-        : 0;
+    const discount =
+        p.originalPrice && p.originalPrice > p.currentPrice
+            ? Math.round(((p.originalPrice - p.currentPrice) / p.originalPrice) * 100)
+            : 0;
+
+    const handleInterest = () => onInterest?.(p);
+    const handleOrder = () => onOrder?.(p);
 
     return (
         <div
@@ -116,155 +316,23 @@ const ProductCard = ({ p }) => {
                 <div className="mt-3 flex items-end justify-between">
                     <div className="text-right ml-auto">
                         {p.originalPrice && p.originalPrice > p.currentPrice && (
-                            <div className="text-[12px] text-gray-400 line-through">{currencyVN(p.originalPrice)}</div>
+                            <div className="text-[12px] text-gray-400 line-through">
+                                {currencyVN(p.originalPrice)}
+                            </div>
                         )}
                         <div className="text-base font-bold text-gray-900">{currencyVN(p.currentPrice)}</div>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-};
 
-const ContactModal = ({ open, onClose, campaignName, campaignId = null }) => {
-    const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        const onEsc = (e) => e.key === "Escape" && onClose?.();
-        document.addEventListener("keydown", onEsc);
-        return () => document.removeEventListener("keydown", onEsc);
-    }, [onClose]);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (isSubmitting) return;
-
-        if (!form.name?.trim() || !form.email?.trim() || !form.phone?.trim()) {
-            alert("Vui lòng nhập đầy đủ Họ tên, Email và SĐT.");
-            return;
-        }
-
-        try {
-            setIsSubmitting(true);
-
-            const payload = {
-                name: form.name.trim(),
-                email: form.email.trim(),
-                phone: form.phone.trim(),
-                source: "InBound",                 // đổi nếu server yêu cầu đúng case
-                tags: campaignName ? [campaignName] : [],
-                campaign_id: campaignId ?? null,   // null tốt hơn ""
-                // notes: form.notes?.trim() || ""
-            };
-
-            console.log("Sending lead payload:", payload);
-            const res = await createLead(payload);
-            console.log("Lead API response:", res);
-
-            alert("Cảm ơn bạn! Thông tin đã được ghi nhận.");
-            setForm({ name: "", email: "", phone: "", notes: "" });
-            onClose?.();
-        } catch (err) {
-            console.error("Lead API error:", err);
-            alert("Xin lỗi, gửi thông tin thất bại. Vui lòng thử lại.");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-            <div
-                ref={ref}
-                role="dialog"
-                aria-modal
-                className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden"
-            >
-                <div className="flex items-center justify-between p-4 border-b">
-                    <div>
-                        <h3 className="text-lg font-semibold">Thông Tin Liên Hệ</h3>
-                        <p className="text-sm text-gray-600">
-                            Điền thông tin để chúng tôi liên hệ với bạn.
-                        </p>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-50" aria-label="Đóng">
-                        <X />
-                    </button>
+                {/* Action buttons */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="h-9 text-sm" onClick={handleInterest}>
+                        <Star size={14} className="mr-1" /> Quan tâm
+                    </Button>
+                    <Button className="h-9 text-sm" onClick={handleOrder} disabled={outOfStock}>
+                        Đặt hàng
+                    </Button>
                 </div>
-
-                <form className="p-4 space-y-3" onSubmit={handleSubmit}>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Họ và tên *</label>
-                        <input
-                            required
-                            type="text"
-                            value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="Nhập họ tên"
-                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium mb-1">Email *</label>
-                            <input
-                                required
-                                type="email"
-                                value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                placeholder="email@example.com"
-                                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">SĐT *</label>
-                            <input
-                                required
-                                type="tel"
-                                value={form.phone}
-                                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                placeholder="0123456"
-                                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Ghi chú</label>
-                        <textarea
-                            rows={3}
-                            value={form.notes}
-                            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                            placeholder="Nhập ghi chú (tùy chọn)"
-                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2">
-                        {/* Hiển thị chiến dịch nếu có */}
-                        <div className="text-xs text-gray-500">
-                            {campaignName ? `Chiến dịch: ${campaignName}` : ""}
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="px-4 py-2 rounded-lg border font-medium hover:bg-gray-50"
-                                disabled={isSubmitting}
-                            >
-                                Hủy
-                            </button>
-                            <Button type="submit" className="px-4 py-2" disabled={isSubmitting}>
-                                {isSubmitting ? "Đang gửi..." : "Gửi Thông Tin"}
-                            </Button>
-                        </div>
-                    </div>
-                </form>
             </div>
         </div>
     );
@@ -277,75 +345,179 @@ const useCarousel = (items, visible = 4) => {
 
     const slides = useMemo(() => {
         if (!items.length) return [];
-        return Array.from({ length: Math.min(visible, items.length) }, (_, i) => items[(start + i) % items.length]);
+        return Array.from(
+            { length: Math.min(visible, items.length) },
+            (_, i) => items[(start + i) % items.length]
+        );
     }, [items, start, visible]);
 
     return { start, setStart, next, prev, slides };
 };
 
-// --- Campaign slider (discounted products) ---
-const CampaignSlider = ({ products, title = "THÁNG 11 • SIÊU SALE MỸ PHẨM" }) => {
-    // Filter items with a real discount
-    const items = useMemo(
-        () => products.filter((p) => Number(p.originalPrice) > Number(p.currentPrice)),
-        [products]
-    );
+// --- Normalize campaign products ---
+const normalizeCampaignProduct = (raw) => {
+    const p = raw?.dataValues ?? raw ?? {};
+    return {
+        id: p.product_id || raw.product_id,
+        name: p.name || raw.name || "Sản phẩm",
+        brand: p.brand || raw.brand,
+        category: p.category || raw.category,
+        shortDescription: p.short_description || raw.short_description,
+        image: p.image || "/images/placeholder-product.jpg",
+        currentPrice: Number(p.price_current ?? raw.price_current ?? 0),
+        originalPrice: Number(p.price_original ?? raw.price_original ?? 0),
+        rating: Number(p.rating ?? raw.rating ?? 0),
+        status: p.status || raw.status || "AVAILABLE",
+    };
+};
 
-    // Responsive cards per view
-    const [perView, setPerView] = useState(3);
-    useEffect(() => {
-        const onResize = () => {
-            const w = window.innerWidth;
-            setPerView(w < 640 ? 1 : w < 1024 ? 2 : 3);
-        };
-        onResize();
-        window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
-    }, []);
+const dateVN = (iso) => {
+    try {
+        return new Date(iso).toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    } catch {
+        return "";
+    }
+};
 
-    // Animated translateX track
-    const CARD_W = 264; // 248 + gap
-    const [index, setIndex] = useState(0);
-    const canSlide = items.length > 0;
-    useEffect(() => {
-        if (!canSlide) return;
-        const t = setInterval(() => setIndex((i) => (i + 1) % Math.max(items.length, 1)), 3500);
-        return () => clearInterval(t);
-    }, [canSlide, items.length]);
-
-    // Looping: duplicate list to make it seamless
-    const looped = useMemo(() => [...items, ...items, ...items], [items]);
-    const offset = index * CARD_W;
-
-    return (
-        <section className="relative z-10 mt-20">
-            <div className="mx-auto max-w-6xl px-4 sm:px-6">
-                <div className="rounded-3xl bg-gradient-to-r from-rose-50 via-pink-50 to-purple-50 border border-rose-100 p-6 sm:p-8 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-xl sm:text-2xl font-bold text-rose-600 flex items-center gap-2">
-                            <Sparkles className="shrink-0" /> {title}
-                        </h3>
-                        <div className="text-sm text-rose-500/80 hidden sm:block">Giảm giá chỉ trong tháng – sắm đẹp, da thêm yêu ✨</div>
-                    </div>
-
-                    {items.length === 0 ? (
-                        <p className="mt-6 text-center text-sm text-rose-500">Chưa có sản phẩm trong chiến dịch.</p>
-                    ) : (
-                        <div className="relative mt-6 overflow-hidden">
-                            <div
-                                className="flex gap-4 will-change-transform"
-                                style={{ transform: `translateX(-${offset}px)`, transition: "transform 700ms ease" }}
-                            >
-                                {looped.map((p, i) => (
-                                    <div key={`${p.id}-${i}`} className="w-[248px] shrink-0">
-                                        <ProductCard p={p} />
-                                    </div>
-                                ))}
+// --- Combined: Month Sale Header + Running Campaigns ---
+const RunningCampaigns = ({ campaigns, loading, error, title, onInterest, onOrder }) => {
+    if (loading) {
+        return (
+            <section id="campaign" className="relative z-10 mt-16">
+                <div className="mx-auto max-w-6xl px-4 sm:px-6">
+                    {title && (
+                        <div className="rounded-3xl bg-gradient-to-r from-rose-50 via-pink-50 to-purple-50 border border-rose-100 p-6 sm:p-8 shadow-sm mb-6">
+                            <div className="flex items-center justify-between gap-3">
+                                <h3 className="text-xl sm:text-2xl font-bold text-rose-600 flex items-center gap-2">
+                                    <Sparkles className="shrink-0" /> {title}
+                                </h3>
+                                <div className="text-sm text-rose-500/80 hidden sm:block">
+                                    Giảm giá chỉ trong tháng – sắm đẹp, da thêm yêu ✨
+                                </div>
                             </div>
-                            <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-rose-50 to-transparent" />
-                            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-rose-50 to-transparent" />
                         </div>
                     )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="rounded-2xl border bg-white shadow-sm overflow-hidden animate-pulse"
+                            >
+                                <div className="h-40 bg-gray-100" />
+                                <div className="p-4 space-y-2">
+                                    <div className="h-5 bg-gray-100 w-1/2 rounded" />
+                                    <div className="h-4 bg-gray-100 w-1/3 rounded" />
+                                    <div className="h-24 bg-gray-100 rounded" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (error) {
+        return (
+            <section id="campaign" className="relative z-10 mt-16">
+                <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+                    <p className="text-red-600 font-medium">{error}</p>
+                </div>
+            </section>
+        );
+    }
+
+    if (!campaigns?.length) return null;
+
+    return (
+        <section id="campaign" className="relative z-10 mt-16">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+                {title && (
+                    <div className="rounded-3xl bg-gradient-to-r from-rose-50 via-pink-50 to-purple-50 border border-rose-100 p-6 sm:p-8 shadow-sm mb-6">
+                        <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-xl sm:text-2xl font-bold text-rose-600 flex items-center gap-2">
+                                <Sparkles className="shrink-0" /> {title}
+                            </h3>
+                            <div className="text-sm text-rose-500/80 hidden sm:block">
+                                Giảm giá chỉ trong tháng – sắm đẹp, da thêm yêu ✨
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-10">
+                    {campaigns.map((c) => {
+                        const prods = (c?.products ?? []).map(normalizeCampaignProduct);
+                        return (
+                            <div
+                                key={c.campaign_id}
+                                className="rounded-3xl border bg-white shadow-sm overflow-hidden"
+                            >
+                                {/* Banner cao hơn & lấy hết ảnh */}
+                                <div className="relative h-[520px] sm:h-[600px] w-full bg-black">
+                                    <img
+                                        src={c.banner || PLACEHOLDER_BANNER}
+                                        alt={c.name}
+                                        className="h-full w-full object-contain"
+                                        loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                                    <div className="absolute bottom-4 left-4 right-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-white text-xl sm:text-2xl font-semibold drop-shadow">
+                                                {c.name}
+                                            </h3>
+                                            {(c.start_date || c.end_date) && (
+                                                <p className="text-white/80 text-xs mt-1">
+                                                    {dateVN(c.start_date)} - {dateVN(c.end_date)}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="shrink-0">
+                                            <Button
+                                                onClick={() =>
+                                                    onInterest?.(
+                                                        { name: `Chiến dịch: ${c.name}` },
+                                                        { campaignName: c.name, campaignId: c.campaign_id }
+                                                    )
+                                                }
+                                                className="shadow"
+                                            >
+                                                <Star className="mr-2" size={16} /> Quan tâm
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Products of campaign */}
+                                <div className="p-4 sm:p-6">
+                                    {prods.length ? (
+                                        <div className="flex flex-wrap gap-4">
+                                            {prods.map((p) => (
+                                                <ProductCard
+                                                    key={p.id}
+                                                    p={p}
+                                                    onInterest={(prod) =>
+                                                        onInterest?.(prod, { campaignName: c.name, campaignId: c.campaign_id })
+                                                    }
+                                                    onOrder={(prod) =>
+                                                        onOrder?.(prod, { campaignName: c.name, campaignId: c.campaign_id })
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-600">Chưa có sản phẩm trong chiến dịch này.</p>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </section>
@@ -365,17 +537,27 @@ const Footer = () => (
                     Mỹ phẩm chính hãng – nâng niu làn da bạn mỗi ngày. Chất lượng tạo nên niềm tin.
                 </p>
                 <div className="mt-4 flex items-center gap-3">
-                    <a href="#" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Facebook"><Facebook size={18} /></a>
-                    <a href="#" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Instagram"><Instagram size={18} /></a>
-                    <a href="mailto:hello@cchain.vn" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Email"><Mail size={18} /></a>
+                    <a href="#" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Facebook">
+                        <Facebook size={18} />
+                    </a>
+                    <a href="#" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Instagram">
+                        <Instagram size={18} />
+                    </a>
+                    <a href="mailto:hello@cchain.vn" className="p-2 rounded-full border hover:bg-gray-50" aria-label="Email">
+                        <Mail size={18} />
+                    </a>
                 </div>
             </div>
 
             <div>
                 <h4 className="font-semibold text-gray-900">Liên hệ</h4>
                 <ul className="mt-3 space-y-2 text-sm text-gray-600">
-                    <li>Hotline: <span className="font-medium text-gray-900">0900 000 000</span></li>
-                    <li>Email: <a href="mailto:hello@cchain.vn" className="hover:underline">hello@cchain.vn</a></li>
+                    <li>
+                        Hotline: <span className="font-medium text-gray-900">0900 000 000</span>
+                    </li>
+                    <li>
+                        Email: <a href="mailto:hello@cchain.vn" className="hover:underline">hello@cchain.vn</a>
+                    </li>
                     <li>Địa chỉ: 123 Đường Đẹp, Quận 1, TP.HCM</li>
                 </ul>
             </div>
@@ -383,28 +565,52 @@ const Footer = () => (
             <div>
                 <h4 className="font-semibold text-gray-900">Đăng ký nhận ưu đãi</h4>
                 <p className="mt-2 text-sm text-gray-600">Nhận tin khuyến mãi & bí kíp chăm da mỗi tuần.</p>
-                <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); alert("Đã đăng ký nhận tin!"); }}>
-                    <input type="email" required placeholder="Email của bạn" className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <form
+                    className="mt-3 flex gap-2"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        alert("Đã đăng ký nhận tin!");
+                    }}
+                >
+                    <input
+                        type="email"
+                        required
+                        placeholder="Email của bạn"
+                        className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                     <Button type="submit">Đăng ký</Button>
                 </form>
             </div>
         </div>
-        <div className="border-t py-4 text-center text-xs text-gray-500">© {new Date().getFullYear()} CChain Beauty • All rights reserved.</div>
+        <div className="border-t py-4 text-center text-xs text-gray-500">
+            © {new Date().getFullYear()} CChain Beauty • All rights reserved.
+        </div>
     </footer>
 );
 
 const LandingPage = () => {
-    const [showForm, setShowForm] = useState(false);
+    const [showForm, setShowForm] = useState(false); // legacy flag (không dùng nữa)
+    const [contactCtx, setContactCtx] = useState({
+        open: false,
+        campaignName: null,
+        campaignId: null,
+        notes: "",
+        productInterest: "",
+    });
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [products, setProducts] = useState([]);
+
+    const [campaigns, setCampaigns] = useState([]);
+    const [campaignsLoading, setCampaignsLoading] = useState(true);
+    const [campaignsError, setCampaignsError] = useState("");
 
     const fetchProducts = async () => {
         setLoading(true);
         setError("");
         try {
             const res = await getProducts();
-            // Expecting an array of products. Normalize keys to match UI expectations.
             const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
             setProducts(list);
         } catch (e) {
@@ -415,11 +621,27 @@ const LandingPage = () => {
         }
     };
 
+    const fetchRunningCampaigns = async () => {
+        setCampaignsLoading(true);
+        setCampaignsError("");
+        try {
+            const res = await getRunningCampaigns();
+            const items = res?.data?.items ?? res?.items ?? [];
+            const running = items.filter((it) => (it.status || "").toLowerCase() === "running");
+            setCampaigns(running);
+        } catch (e) {
+            console.error("getRunningCampaigns error", e);
+            setCampaignsError("Không thể tải chiến dịch đang chạy. Vui lòng thử lại.");
+        } finally {
+            setCampaignsLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchProducts();
+        fetchRunningCampaigns();
     }, []);
 
-    // Decide how many cards to show based on viewport
     const [visibleCount, setVisibleCount] = useState(4);
     useEffect(() => {
         const update = () => {
@@ -433,16 +655,34 @@ const LandingPage = () => {
 
     const { start, setStart, next, prev, slides } = useCarousel(products, visibleCount);
 
-    // Auto-play every 5s
     useEffect(() => {
         if (!products.length) return;
         const t = setInterval(next, 5000);
         return () => clearInterval(t);
     }, [products, next]);
 
-    // Compute campaign subtitle month
     const now = new Date();
     const month = now.toLocaleDateString("vi-VN", { month: "long" });
+
+    // Handlers cho 2 nút
+    const openInterest = (product, ctx = {}) => {
+        setContactCtx({
+            open: true,
+            campaignName: ctx.campaignName ?? null,
+            campaignId: ctx.campaignId ?? null,
+            notes: `Quan tâm sản phẩm: ${product?.name || ""}`,
+            productInterest: `${product?.name || ""}`,
+        });
+    };
+    const openOrder = (product, ctx = {}) => {
+        setContactCtx({
+            open: true,
+            campaignName: ctx.campaignName ?? null,
+            campaignId: ctx.campaignId ?? null,
+            notes: `Đặt hàng sản phẩm: ${product?.name || ""}`,
+            productInterest: `${product?.name || ""}`,
+        });
+    };
 
     return (
         <div className="relative min-h-screen bg-gradient-to-b from-white to-blue-50">
@@ -451,17 +691,8 @@ const LandingPage = () => {
                 className="pointer-events-none absolute inset-0 bg-[url('/images/background/bg.jpg')] bg-cover bg-center opacity-10"
                 aria-hidden
             />
-
-            {/* Contact Button */}
-            <div className="fixed top-6 right-6 z-40">
-                <Button onClick={() => setShowForm(true)} className="shadow-lg">
-                    <PhoneCall className="mr-2" /> LIÊN HỆ VỚI CHÚNG TÔI
-                </Button>
-            </div>
-
             {/* Header */}
             <header className="fixed top-0 left-0 w-full z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
-                {/* Top bar */}
                 <div className="hidden md:flex justify-between items-center px-6 py-2 text-sm text-gray-600 bg-gradient-to-r from-blue-50 to-pink-50">
                     <div className="flex items-center gap-3">
                         <a href="#" aria-label="Facebook" className="hover:text-blue-600 transition">
@@ -476,15 +707,12 @@ const LandingPage = () => {
                     </div>
                 </div>
 
-                {/* Main navigation */}
                 <div className="flex items-center justify-between px-6 py-3 max-w-6xl mx-auto">
-                    {/* Logo */}
                     <div className="flex items-center gap-2 cursor-pointer">
                         <img src="/images/logo/Logo.svg" alt="CChain" className="h-8 w-8" />
                         <span className="text-xl font-extrabold text-blue-600">CChain Beauty</span>
                     </div>
 
-                    {/* Navigation links */}
                     <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-700">
                         <a href="#products" className="hover:text-blue-600 transition">Sản phẩm</a>
                         <a href="#about" className="hover:text-blue-600 transition">Giới thiệu</a>
@@ -493,19 +721,15 @@ const LandingPage = () => {
                         <a href="#contact" className="hover:text-blue-600 transition">Liên hệ</a>
                     </nav>
 
-                    {/* Contact button */}
-                    <Button
-                        onClick={() => setShowForm(true)}
-                        variant="actionUpdate"
-                        className="hidden sm:flex items-center gap-2"
-                    >
+                    <Button onClick={() => setContactCtx({ open: true, campaignName: null, campaignId: null, notes: "" })}
+                        variant="actionUpdate" className="hidden sm:flex items-center gap-2">
                         <PhoneCall size={16} />
                         <span>Liên hệ ngay</span>
                     </Button>
                 </div>
             </header>
 
-            {/* Add spacing below header so content doesn’t hide */}
+            {/* Spacer below header */}
             <div className="h-[90px] md:h-[120px]" />
 
             {/* Intro Image */}
@@ -514,12 +738,12 @@ const LandingPage = () => {
                     src="/images/background/Intro.png"
                     alt="Intro"
                     className="cursor-pointer max-w-xs md:max-w-md lg:max-w-lg transition-transform duration-200 hover:scale-105 drop-shadow"
-                    onClick={() => setShowForm(true)}
+                    onClick={() => setContactCtx({ open: true, campaignName: null, campaignId: null, notes: "" })}
                 />
             </div>
 
             {/* Products */}
-            <section className="relative z-10 mt-14 px-4 sm:px-6">
+            <section id="products" className="relative z-10 mt-14 px-4 sm:px-6">
                 <h2 className="text-2xl font-bold text-center text-gray-900">SẢN PHẨM HOT</h2>
                 <div className="mx-auto mt-3 h-[2px] w-24 rounded bg-blue-600/60" />
 
@@ -544,11 +768,11 @@ const LandingPage = () => {
                             </div>
                         )}
 
-                        {!loading && !error && products.length === 0 && (
-                            <EmptyState onRefresh={fetchProducts} />
-                        )}
+                        {!loading && !error && products.length === 0 && <EmptyState onRefresh={fetchProducts} />}
 
-                        {!loading && !error && slides.map((p) => <ProductCard key={p.id} p={p} />)}
+                        {!loading && !error && slides.map((p) => (
+                            <ProductCard key={p.id} p={p} onInterest={openInterest} onOrder={openOrder} />
+                        ))}
                     </div>
 
                     {/* Next */}
@@ -576,13 +800,28 @@ const LandingPage = () => {
                 )}
             </section>
 
-            {/* Campaign Slider for discounted products */}
-            <CampaignSlider products={products} title={`${month.toUpperCase()} • SIÊU SALE MỸ PHẨM`} />
+            {/* COMBINED: Month Sale Title + Running Campaigns (banners + products) */}
+            <RunningCampaigns
+                campaigns={campaigns}
+                loading={campaignsLoading}
+                error={campaignsError}
+                title={`${month.toUpperCase()} • SIÊU SALE MỸ PHẨM`}
+                onInterest={openInterest}
+                onOrder={openOrder}
+            />
 
             {/* Footer */}
             <Footer />
 
-            <ContactModal open={showForm} onClose={() => setShowForm(false)} />
+            {/* Contact modal with prefilled notes */}
+            <ContactModal
+                open={contactCtx.open}
+                onClose={() => setContactCtx((prev) => ({ ...prev, open: false }))}
+                campaignName={contactCtx.campaignName}
+                campaignId={contactCtx.campaignId}
+                defaultNotes={contactCtx.notes}
+                defaultProductInterest={contactCtx.productInterest}  // <-- THÊM DÒNG NÀY
+            />
         </div>
     );
 };
