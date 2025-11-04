@@ -1,5 +1,6 @@
+// pages/automation/AutomationPage.jsx
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Play, Pause, Mail, Settings, Users, Calendar, List, Square, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, Play, Pause, Mail, Settings, List, Square, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DropdownOptions from '@/components/common/DropdownOptions';
 import AppDialog from '@/components/dialogs/AppDialog';
@@ -8,26 +9,73 @@ import AutomationCard from '@/pages/automation/components/AutomationCard';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
-import { mockAutomations, triggerOptions, actionOptions } from '@/lib/data';
-import { useNavigate } from 'react-router-dom'; // Nếu dùng react-router
+import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/utils/helper';
 
+import { request } from '@/utils/api';
+import { getFlow } from '@/services/automation'; // ⬅️ dùng service đã unwrap
+
+// ✅ Adapter: API -> UI
+const adaptFlow = (f) => ({
+  id: f.flow_id,                               // UI & Card đang dùng "id"
+  name: f.name,
+  description: f.description || '',
+  status: (f.status || 'UNDEFINED').toUpperCase(), // API trả "active" → UI cần "ACTIVE"
+  tags: Array.isArray(f.tags) ? f.tags : [],
+  created_by: f.created_by || '—',
+  created_at: f.created_at || null,
+  updated_at: f.updated_at || null,
+  triggers: Array.isArray(f.triggers) ? f.triggers : [],
+  actions: Array.isArray(f.actions) ? f.actions : [],
+  type: f.type || 'Flow',
+});
+
+// (giữ 2 hàm này tại đây cho gọn, nếu thích có thể dời sang services)
+const deleteFlow = (id) => request(`/automation/flows/${id}`, { method: 'DELETE' });
+const updateFlowStatus = (id, status) =>
+  request(`/automation/flows/${id}/status`, { method: 'PATCH', body: { status } });
+
 export default function AutomationPage() {
-  const [automations, setAutomations] = useState(mockAutomations);
+  const [automations, setAutomations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [modal, setModal] = useState({ open: false, mode: 'view', automation: null });
   const [currentPage, setCurrentPage] = useState(1);
   const automationsPerPage = 3;
 
-  // view mode (card | list)
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
 
+  const navigate = useNavigate();
+
+  // 🔄 Fetch data từ API (đã unwrap trong service)
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const items = await getFlow(); // <-- đã là array sạch
+      setAutomations(items.map(adaptFlow));
+    } catch (e) {
+      setError(e?.message || 'Không thể tải danh sách flows');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   // Filtered automations
-  const filtered = automations.filter(a => {
+  const filtered = automations.filter((a) => {
     const term = searchTerm.trim().toLowerCase();
-    const matchesSearch = !term || (a.name || '').toLowerCase().includes(term) || (a.type || '').toLowerCase().includes(term);
+    const matchesSearch =
+      !term ||
+      (a.name || '').toLowerCase().includes(term) ||
+      (a.description || '').toLowerCase().includes(term);
     const matchesStatus = selectedStatus === 'all' || a.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -41,88 +89,64 @@ export default function AutomationPage() {
 
   // Handlers
   const openView = (a) => setModal({ open: true, mode: 'view', automation: a });
-  const navigate = useNavigate();
-
-  // Thay đổi nút tạo automation để chuyển hướng
-  const openAdd = () => {
-    navigate('/automation/flow/new');
-  };
-
-  // Khi bấm Edit, chuyển hướng sang FlowEditorPage với id
-  const openEdit = (a) => {
-    navigate(`/automation/flow/${a.flow_id}`);
-  };
-
+  const openAdd = () => navigate('/automation/flow/new');
+  const openEdit = (a) => navigate(`/automation/flow/${a.id}`);
   const closeModal = () => setModal({ open: false, mode: 'view', automation: null });
 
   const handleSave = (automationData) => {
-    if (modal.mode === 'edit' && !automationData.id) {
-      // Create new
-      const newAutomation = {
-        ...automationData,
-        id: Math.max(...automations.map(a => a.id)) + 1,
-        createdAt: new Date().toISOString(),
-        stats: { sent: 0, opened: 0, clicked: 0, bounced: 0 }
-      };
-      setAutomations(prev => [newAutomation, ...prev]);
-      closeModal();
-      toast.success('Thêm automation thành công!');
-    } else if (modal.mode === 'edit') {
-      // Update existing
-      setAutomations(prev => prev.map(a => a.id === automationData.id ? { ...a, ...automationData } : a));
-      setModal(prev => ({
-        ...prev,
-        mode: 'view',
-        automation: { ...automationData }
-      }));
-      toast.success('Cập nhật automation thành công!');
+    setAutomations((prev) =>
+      prev.map((x) => (x.id === automationData.id ? { ...x, ...automationData } : x))
+    );
+    toast.success('Cập nhật automation thành công!');
+    closeModal();
+  };
+
+  const handleDelete = async (id) => {
+    const prev = automations;
+    setAutomations((list) => list.filter((a) => a.id !== id)); // optimistic
+    try {
+      await deleteFlow(id);
+      toast.success('Xóa automation thành công!');
+    } catch (e) {
+      setAutomations(prev); // rollback
+      toast.error('Xóa thất bại!');
     }
   };
 
-  const handleDelete = (id) => {
-    // deletion executed after ConfirmDialog confirm
-    setAutomations(prev => prev.filter(a => a.id !== id));
-    closeModal();
-    toast.success('Xóa automation thành công!');
+  const handleStatusChange = async (id, nextUiStatus) => {
+    const nextApiStatus = (nextUiStatus || '').toLowerCase();
+    const prev = automations;
+    setAutomations((arr) => arr.map((i) => (i.id === id ? { ...i, status: nextUiStatus } : i)));
+    try {
+      await updateFlowStatus(id, nextApiStatus);
+      toast.success(nextUiStatus === 'ACTIVE' ? 'Đã kích hoạt flow' : 'Đã tạm dừng flow');
+    } catch (e) {
+      setAutomations(prev); // rollback
+      toast.error('Đổi trạng thái thất bại!');
+    }
   };
-
-  const handleStatusChange = (id, newStatus) => {
-    setAutomations(prev => prev.map(a =>
-      a.id === id ? { ...a, status: newStatus } : a
-    ));
-  };
-
-  // Pagination handlers
-  const handleNext = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  const handlePrev = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  const handlePageChange = (page) => setCurrentPage(page);
 
   // Stats
   const stats = {
     total: automations.length,
-    active: automations.filter(a => a.status === 'ACTIVE').length,
-    paused: automations.filter(a => a.status === 'INACTIVE').length,
-    draft: automations.filter(a => a.status === 'DRAFT').length
+    active: automations.filter((a) => a.status === 'ACTIVE').length,
+    paused: automations.filter((a) => a.status === 'INACTIVE').length,
+    draft: automations.filter((a) => a.status === 'DRAFT').length,
   };
 
   const statusOptions = [
     { value: 'all', label: 'Tất cả trạng thái' },
     { value: 'ACTIVE', label: 'Đang chạy' },
     { value: 'DRAFT', label: 'Bản nháp' },
-    { value: 'INACTIVE', label: 'Ngưng hoạt động' }
+    { value: 'INACTIVE', label: 'Ngưng hoạt động' },
   ];
-
 
   const getStatusBadge = (status) => {
     let color = 'bg-gray-100 text-gray-700';
     let text = status ? status : 'UNDEFINED';
-    if (status === 'ACTIVE') {
-      color = 'bg-green-100 text-green-700';
-    } else if (status === 'DRAFT') {
-      color = 'bg-gray-100 text-gray-700';
-    } else if (status === 'INACTIVE') {
-      color = 'bg-red-100 text-red-700';
-    }
+    if (status === 'ACTIVE') color = 'bg-green-100 text-green-700';
+    else if (status === 'DRAFT') color = 'bg-gray-100 text-gray-700';
+    else if (status === 'INACTIVE') color = 'bg-red-100 text-red-700';
     return (
       <span className={`inline-block px-1 py-1 rounded-full w-[80px] text-center text-xs font-medium ${color}`}>
         {text}
@@ -130,9 +154,12 @@ export default function AutomationPage() {
     );
   };
 
+  if (loading) return <div className="p-6">Đang tải…</div>;
+  if (error) return <div className="p-6 text-red-600">Lỗi: {error}</div>;
+
   return (
-    <div className="flex flex-col  min-h-screen">
-      {/* Sticky header: title + view toggles + search + status filter + actions */}
+    <div className="flex flex-col min-h-screen">
+      {/* Sticky header */}
       <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between mb-6">
           {/* Header */}
@@ -168,7 +195,7 @@ export default function AutomationPage() {
                 placeholder="Tìm kiếm automation..."
                 className="h-10 pl-9 pr-3 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 placeholder:text-gray-400 border-gray-200 bg-white"
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             {/* Status Filter */}
@@ -217,17 +244,18 @@ export default function AutomationPage() {
           </div>
         </div>
       </div>
+
       {/* Scrollable automations list */}
       <div className="flex-1 overflow-auto pt-4 px-6">
         {/* Automations view */}
         {viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
-            {currentAutomations.map(automation => (
+            {currentAutomations.map((automation) => (
               <AutomationCard
                 key={automation.id}
                 automation={automation}
                 onView={openView}
-                onEdit={openEdit} //Hàm edit chỗ này sẽ chuyển trang nha
+                onEdit={openEdit} // bấm Edit → navigate sang trang editor
                 onDelete={handleDelete}
                 onStatusChange={handleStatusChange}
               />
@@ -239,13 +267,15 @@ export default function AutomationPage() {
               <table className="w-full min-w-[1100px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['Tên Flow', 'Loại', 'Tags', 'Người tạo', 'Triggers', 'Actions', 'Tạo lúc', 'Trạng thái', 'Kích hoạt', 'Tác vụ'].map(h => (
-                      <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{h}</th>
+                    {['Tên Flow', 'Loại', 'Tags', 'Người tạo', 'Triggers', 'Actions', 'Tạo lúc', 'Trạng thái', 'Kích hoạt', 'Tác vụ'].map((h) => (
+                      <th key={h} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentAutomations.map(a => (
+                  {currentAutomations.map((a) => (
                     <tr
                       key={a.id}
                       onMouseEnter={() => setHoveredRow(a.id)}
@@ -256,18 +286,16 @@ export default function AutomationPage() {
                         <div className="font-medium text-gray-900 truncate max-w-[220px]">{a.name}</div>
                         <div className="text-xs text-gray-500 truncate max-w-[220px]">{a.description || ''}</div>
                       </td>
-                      <td className="text-center text-sm text-gray-800">{a.type}</td>
+                      <td className="text-center text-sm text-gray-800">{a.type || 'Flow'}</td>
                       <td className="text-center text-xs">{(a.tags || []).join(', ')}</td>
                       <td className="text-center text-xs">{a.created_by}</td>
                       <td className="text-center text-xs">{a.triggers?.length || 0}</td>
                       <td className="text-center text-xs">{a.actions?.length || 0}</td>
                       <td className="text-center text-sm">{a.created_at ? formatDate(a.created_at) : '-'}</td>
-                      <td className="text-center text-sm">
-                        {getStatusBadge(a.status)}
-                      </td>
+                      <td className="text-center text-sm">{getStatusBadge(a.status)}</td>
                       <td className="text-center text-sm">
                         <Button
-                          variant={a.status === 'active' ? 'actionUpdate' : 'actionCreate'}
+                          variant={a.status === 'ACTIVE' ? 'actionUpdate' : 'actionCreate'}
                           size="sm"
                           onClick={() =>
                             handleStatusChange(a.id, a.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
@@ -277,30 +305,42 @@ export default function AutomationPage() {
                           {a.status === 'ACTIVE' ? (
                             <>
                               <Pause className="w-4 h-4" />
-                              <span className=" font-medium">Tạm dừng</span>
+                              <span className="font-medium">Tạm dừng</span>
                             </>
                           ) : (
                             <>
-                              <Play className="w-4 h-4 " />
-                              <span className=" font-medium">Kích hoạt</span>
+                              <Play className="w-4 h-4" />
+                              <span className="font-medium">Kích hoạt</span>
                             </>
                           )}
                         </Button>
                       </td>
-
-
                       <td className="text-center w-44">
-                        <div className={`flex justify-center gap-1 transition-opacity duration-200 ${hoveredRow === a.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                          <Button variant="actionRead" size="icon" onClick={() => openView(a)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(a)}><Edit className="w-4 h-4" /></Button>
+                        <div
+                          className={`flex justify-center gap-1 transition-opacity duration-200 ${hoveredRow === a.id ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                            }`}
+                        >
+                          <Button variant="actionRead" size="icon" onClick={() => openView(a)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(a)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
                           <ConfirmDialog
                             title="Xác nhận xóa"
-                            description={<>Bạn có chắc chắn muốn xóa automation <span className="font-semibold">{a.name}</span>?</>}
+                            description={
+                              <>
+                                Bạn có chắc chắn muốn xóa automation{' '}
+                                <span className="font-semibold">{a.name}</span>?
+                              </>
+                            }
                             confirmText="Xóa"
                             cancelText="Hủy"
                             onConfirm={() => handleDelete(a.id)}
                           >
-                            <Button variant="actionDelete" size="icon"><Trash2 className="w-4 h-4" /></Button>
+                            <Button variant="actionDelete" size="icon">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </ConfirmDialog>
                         </div>
                       </td>
@@ -315,9 +355,9 @@ export default function AutomationPage() {
         <AppPagination
           totalPages={totalPages}
           currentPage={currentPage}
-          handlePageChange={handlePageChange}
-          handleNext={handleNext}
-          handlePrev={handlePrev}
+          handlePageChange={setCurrentPage}
+          handleNext={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+          handlePrev={() => setCurrentPage((p) => Math.max(p - 1, 1))}
         />
 
         <AppDialog
@@ -325,7 +365,7 @@ export default function AutomationPage() {
           onClose={closeModal}
           title={{
             view: `Chi tiết Automation - ${modal.automation?.name || ''}`,
-            edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation mới'
+            edit: modal.automation ? `Chỉnh sửa Automation - ${modal.automation.name}` : 'Tạo Automation mới',
           }}
           mode={modal.mode}
           FormComponent={(props) => (
@@ -334,13 +374,13 @@ export default function AutomationPage() {
               mode={modal.mode}
               data={modal.automation}
               onSave={handleSave}
-              onDelete={handleDelete}
+              onDelete={() => handleDelete(modal.automation?.id)}
               onClose={closeModal}
             />
           )}
           data={modal.automation}
           onSave={handleSave}
-          onDelete={handleDelete}
+          onDelete={() => handleDelete(modal.automation?.id)}
           maxWidth="sm:max-w-2xl"
         />
       </div>
