@@ -7,21 +7,51 @@ import AppDialog from '@/components/dialogs/AppDialog';
 import MarketingForm from '@/pages/marketing/components/MarketingForm';
 import AppPagination from '@/components/pagination/AppPagination';
 import ImportExportDropdown from '@/components/common/ImportExportDropdown';
-import { mockCampaigns } from '@/lib/data';
 import DropdownOptions from '@/components/common/DropdownOptions';
+import { getAll } from '@/services/campaign';
+import MarketingDetail from '@/pages/marketing/components/MarketingDetail';
 
 export default function MarketingPage() {
-  const [campaigns, setCampaigns] = useState(mockCampaigns);
+  const [campaigns, setCampaigns] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [modal, setModal] = useState({ open: false, mode: 'view', campaign: null });
   const [currentPage, setCurrentPage] = useState(1);
   const campaignsPerPage = 6;
-
+  const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+  const mapApiCampaignToUI = (c) => ({
+    id: c.campaign_id,
+    name: c.name,
+    type: capitalize(c.channel || 'Email'),
+    budget: c.budget ?? 0,
+    startDate: c.start_date ? c.start_date.slice(0, 10) : '',
+    endDate: c.end_date ? c.end_date.slice(0, 10) : '',
+    targetAudience: c.target_filter?.note || '',
+    dataSource: c.data_source || 'Customers',
+    status: capitalize(c.status || 'Draft'),
+    assignee: '',
+    assigneeId: c.owner_employee_id || null,
+    expectedKPI: c.expected_kpi ? JSON.stringify(c.expected_kpi) : '',
+    products: Array.isArray(c.products) ? c.products : [],
+    performance: null,
+    __raw: c,
+  });
   // view mode (card | list)
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
-
+  useEffect(() => {
+    (async () => {
+      try {
+        // truyền filter nếu muốn: { page: 1, limit: 20, status: 'active' }
+        const { items } = await getAll();
+        const mapped = items.map(mapApiCampaignToUI);
+        setCampaigns(mapped);
+      } catch (e) {
+        console.error('Load campaigns failed:', e);
+        alert('Không tải được danh sách chiến dịch');
+      }
+    })();
+  }, []);
   // Field mapping for CSV export/import
   const campaignFieldMapping = {
     name: 'Tên chiến dịch',
@@ -45,7 +75,7 @@ export default function MarketingPage() {
   ];
 
   // Filtered campaigns
-  const filtered = campaigns.filter(c => {
+  const filtered = (campaigns ?? []).filter(c => {
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term || (c.name || '').toLowerCase().includes(term) || (c.type || '').toLowerCase().includes(term);
     const matchesType = selectedType === 'all' || c.type === selectedType;
@@ -60,7 +90,8 @@ export default function MarketingPage() {
   const currentCampaigns = filtered.slice(indexOfFirst, indexOfLast);
 
   // Handlers
-  const openView = (c) => setModal({ open: true, mode: 'view', campaign: c });
+  const openView = (c) =>
+    setModal({ open: true, mode: 'detail', campaign: c.__raw || c });
   const openEdit = (c) => setModal({ open: true, mode: 'edit', campaign: c });
   const openAdd = () => setModal({ open: true, mode: 'edit', campaign: null });
   const closeModal = () => setModal({ open: false, mode: 'view', campaign: null });
@@ -68,8 +99,8 @@ export default function MarketingPage() {
   const handleSave = (campaignData) => {
     if (modal.mode === 'edit' && !campaignData.id) {
       // Create new
-      const newCampaign = { 
-        ...campaignData, 
+      const newCampaign = {
+        ...campaignData,
         id: Math.max(...campaigns.map(c => c.id)) + 1,
         performance: null
       };
@@ -78,7 +109,7 @@ export default function MarketingPage() {
     } else if (modal.mode === 'edit') {
       // Update existing
       setCampaigns(prev => prev.map(c => c.id === campaignData.id ? { ...c, ...campaignData } : c));
-      
+
       // Cập nhật dữ liệu trong modal và chuyển về view mode
       setModal(prev => ({
         ...prev,
@@ -184,7 +215,7 @@ export default function MarketingPage() {
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('card')}
               size="icon"
-              className = "rounded-none rounded-tl-md rounded-bl-md"
+              className="rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
@@ -192,7 +223,7 @@ export default function MarketingPage() {
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
               size="icon"
-              className = "rounded-none rounded-tr-md rounded-br-md"
+              className="rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
             </Button>
@@ -303,18 +334,19 @@ export default function MarketingPage() {
           open={modal.open}
           onClose={closeModal}
           title={{
+            detail: `Chi tiết chiến dịch - ${modal.campaign?.name || ''}`,
             view: `Chi tiết chiến dịch - ${modal.campaign?.name || ''}`,
             edit: modal.campaign ? `Chỉnh sửa chiến dịch - ${modal.campaign.name}` : 'Thêm chiến dịch mới'
           }}
           mode={modal.mode}
-          FormComponent={MarketingForm}
+          FormComponent={modal.mode === 'detail' ? MarketingDetail : MarketingForm}
           data={modal.campaign}
           onSave={handleSave}
           onDelete={handleDelete}
+          onEdit={openEdit}
           maxWidth="sm:max-w-4xl"
         />
       </div>
     </div>
   );
 }
-// ...existing code...

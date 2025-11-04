@@ -81,7 +81,7 @@ class LeadService {
 
         // Trường mới:
         priority: priority || 'medium',
-        product_interest: product_interest || null,
+        product_interest: leadData.product_interest || null,
         // tên deal = tên chiến dịch (nếu có campaign)
         deal_name: campaign?.name || null,
 
@@ -90,6 +90,7 @@ class LeadService {
         predicted_value: 0,
         predicted_value_currency: 'VND',
         last_predicted_at: null,
+        note: leadData.note,
       };
 
       // 4) Gọi AI service để dự đoán (best-effort, không chặn luồng nếu lỗi)
@@ -107,6 +108,7 @@ class LeadService {
           campaign_channel: campaign?.channel || null,
           campaign_name: campaign?.name || null,
           assigned_to: payload.assigned_to,
+          note: payload.note,
         };
 
         const aiResp = await aiClient.scoreLead(features);

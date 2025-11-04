@@ -10,6 +10,14 @@ class CreateRequestLeadDTO {
         this.campaign_id = req.campaign_id || null;
         this.tags = Array.isArray(req.tags) ? req.tags : [];
         this.assigned_to = req.assigned_to || null;
+        this.notes = (req.notes ?? req.note ?? '').toString().trim() || null;
+        this.product_interest =
+            (req.product_interest ??
+                req.favorite_product ??
+                req.favourite_product ??
+                req.productName ??
+                '').toString().trim() || null;
+
     }
     static from(body = {}) {
         return new CreateRequestLeadDTO(body);
