@@ -46,7 +46,7 @@ const navItems = [
   },
   {
     name: "Deals",
-    icon: <BadgeDollarSign   className="w-5 h-5" />,
+    icon: <BadgeDollarSign className="w-5 h-5" />,
     subItems: [
       { name: "Pipeline", path: "/kanban", pro: false },
       { name: "Leads", path: "/leads", pro: false },
@@ -66,7 +66,7 @@ const navItems = [
     icon: <Megaphone className="w-5 h-5" />,
     subItems: [
       { name: "Chiến dịch", path: "/marketing", pro: false },
-      { name: "Automation", path: "/automation", pro: false }
+      { name: "Automation", path: "/automations", pro: false }
     ],
   },
   {
@@ -88,7 +88,7 @@ const navItems = [
 const othersItems = [
 
   {
-    icon: <UserRoundPen  className="w-5 h-5" />,
+    icon: <UserRoundPen className="w-5 h-5" />,
     name: "Cá nhân",
     path: "/profile",
   },
@@ -186,8 +186,8 @@ export function AppSidebar() {
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDown
                   className={`w-4 h-4 transition-transform duration-200 ${openSubmenu?.type === menuType && openSubmenu?.index === index
-                      ? "rotate-180"
-                      : ""
+                    ? "rotate-180"
+                    : ""
                     }`}
                 />
               )}
@@ -279,9 +279,9 @@ export function AppSidebar() {
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <div className="flex items-end justify-center space-x-3">
-              <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-7 w-7" />
-               <div className="text-brand font-bold text-md">CChain</div>
-            </div>
+                <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-7 w-7" />
+                <div className="text-brand font-bold text-md">CChain</div>
+              </div>
             </>
           ) : (
             <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-brand">

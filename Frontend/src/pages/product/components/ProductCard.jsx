@@ -20,7 +20,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
         <img
           src={product.image || '/images/products/product_temp.png'}
           alt={product.name}
-          className="w-full h-20 object-cover"
+          className="w-full h-60 object-cover"
           onError={(e) => {
             e.target.src = '/images/products/product_temp.png'
           }}

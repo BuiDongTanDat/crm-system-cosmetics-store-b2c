@@ -434,51 +434,73 @@ class LeadService {
     }
   }
   // chuyển lead thành khách hàng tự động khi có đơn hàng được chuyển đổi 
+  // LeadService.js
   async autoConvertLead(leadId, { orderId = null, by = null, customerPatch = {} } = {}) {
     try {
       const result = await sequelize.transaction(async (t) => {
-        // 1) Khóa bản ghi lead để tránh race condition
-        const lead = await this.repo.findById(leadId);
+        const lead = await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 
-        // Nếu đã có customer_id thì coi như đã convert
+        // Đã liên kết customer rồi thì trả về
         if (lead.customer_id) {
-          return { lead, customer: await customerRepository.findById(lead.customer_id) };
+          const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          return { lead, customer: existingCustomer };
         }
 
-        // 2) Tìm Customer trùng (email/phone) hoặc tạo mới
-        const customer = await customerRepository.findOrCreateSmart(
+        // Tạo/tìm customer trong CÙNG transaction
+        const createdOrFound = await customerRepository.findOrCreateSmart(
           {
-            name: lead.name || lead.full_name || 'Unnamed Customer',
+            full_name: lead.name || 'Guest',
             email: lead.email || null,
             phone: lead.phone || null,
             source: lead.source || 'lead',
             assigned_to: lead.assigned_to || null,
-            ...customerPatch, // cho phép override thêm field
+            ...customerPatch,
           },
           { transaction: t }
         );
 
-        // 3) Cập nhật Lead → set customer_id + đổi status & ghi lịch sử (transactional)
+        // Chuẩn hoá instance (phòng trường hợp repo trả [instance, created])
+        const customerInstance = Array.isArray(createdOrFound) ? createdOrFound[0] : createdOrFound;
+
+        // Lấy ID an toàn từ nhiều kiểu trả về
+        const customerId =
+          customerInstance?.customer_id ??
+          customerInstance?.id ??
+          customerInstance?.dataValues?.customer_id ??
+          customerInstance?.dataValues?.id;
+
+        if (!customerId) {
+          throw new AppError('Customer id not returned from repository', {
+            status: 500,
+            code: 'CUSTOMER_ID_MISSING',
+          });
+        }
+
         const reason = orderId ? `Auto-convert by order ${orderId}` : 'Auto-convert';
+
+        // Cập nhật lead trong cùng transaction
         await this.repo.updateById(
           leadId,
-          { customer_id: customer.customer_id, status: 'converted', conversion_prob: 1 },
-          { changed_by: by, reason, meta: { order_id: orderId } }
+          { customer_id: customerId, status: 'converted', conversion_prob: 1 },
+          { transaction: t, changed_by: by, reason, meta: { order_id: orderId } }
         );
 
-        // 4) Ghi interaction để audit timeline
-        await this.repo.addInteraction(leadId, {
-          type: 'order_converted',
-          channel: 'system',
-          properties: { order_id: orderId },
-          score_delta: 0,
-          created_by: by || null,
-        });
+        // (tuỳ chọn) ghi interaction trong cùng transaction
+        await this.repo.addInteraction?.(
+          leadId,
+          {
+            type: 'order_converted',
+            channel: 'system',
+            properties: { order_id: orderId },
+            score_delta: 0,
+            created_by: by || null,
+          },
+          { transaction: t }
+        );
 
-        // lấy lại lead mới nhất
-        const updatedLead = await this.repo.findById(leadId);
-        return { lead: updatedLead, customer };
+        const updatedLead = await this.repo.findById(leadId, { transaction: t });
+        return { lead: updatedLead, customer: customerInstance };
       });
 
       return ok(result);
@@ -486,6 +508,7 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'AUTO_CONVERT_LEAD_FAILED' }));
     }
   }
+
   async getPipelineMetrics() {
     const rows = await this.repo.getLeadsGroupedByStatus();
 

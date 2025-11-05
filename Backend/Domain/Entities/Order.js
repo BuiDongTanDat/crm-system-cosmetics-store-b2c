@@ -8,14 +8,12 @@ class Order extends Model {
         this.updated_at = new Date();
     }
 
-    // helper để thêm item (không tạo bản ghi DB tự động, chỉ thao tác instance)
     addItem(item) {
         if (!Array.isArray(this.items)) this.items = [];
         this.items.push(item);
     }
 
     toJSON() {
-        // ...existing fields...
         return {
             order_id: this.order_id,
             customer_id: this.customer_id,
@@ -41,7 +39,11 @@ Order.init(
             defaultValue: DataTypes.UUIDV4,
             primaryKey: true,
         },
-        customer_id: { type: DataTypes.UUID, allowNull: false },
+        lead_id: {
+            type: DataTypes.UUID,
+            allowNull: true,
+        },
+        customer_id: { type: DataTypes.UUID, allowNull: true },
         order_date: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
         total_amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
         currency: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'VND' },
@@ -68,7 +70,7 @@ Order.init(
                 'completed'
             ),
             allowNull: false,
-            defaultValue: 'paid',
+            defaultValue: 'draft_cart',
         },
         channel: { type: DataTypes.STRING, allowNull: true },
         ai_suggested_crosssell: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
@@ -84,6 +86,7 @@ Order.init(
         underscored: true,
         indexes: [
             { fields: ['customer_id'] },
+            { fields: ['lead_id'] },
             { fields: ['status'] },
             { fields: ['order_date'] },
         ],

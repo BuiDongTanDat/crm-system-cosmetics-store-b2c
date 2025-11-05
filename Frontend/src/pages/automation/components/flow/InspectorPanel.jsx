@@ -7,7 +7,8 @@ export default function InspectorPanel({
   currentTrigger,
   currentAction,
   toggleTrigger,
-  updateEmailConfig
+  updateEmailConfig,
+  onGenEmailAI,
 }) {
   return (
     <div className="rounded-2xl border bg-white">
@@ -22,6 +23,7 @@ export default function InspectorPanel({
         currentTrigger={currentTrigger}
         currentAction={currentAction}
         updateEmailConfig={updateEmailConfig}
+        onGenEmailAI={onGenEmailAI} // NEW
       />
     </div>
   );

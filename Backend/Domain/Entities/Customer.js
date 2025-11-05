@@ -82,7 +82,7 @@ Customer.init(
     email: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true, 
+      unique: true,
       validate: {
         isEmail: true,
       },
@@ -120,7 +120,7 @@ Customer.init(
     modelName: 'Customer',
     tableName: 'customers',
     timestamps: true,
-    underscored: true, // -> created_at, updated_at
+    underscored: true,
     indexes: [
       { fields: ['full_name'] },
       { fields: ['email'] },

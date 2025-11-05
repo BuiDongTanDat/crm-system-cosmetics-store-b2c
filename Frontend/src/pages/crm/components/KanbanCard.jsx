@@ -16,7 +16,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
   const title = card?.title || 'Chiến dịch A';
   const customer = card?.customer || 'Khách lẻ';
   const value = Number.isFinite(card?.value) ? card.value : 0;
-  const currency = card?.currency || 'VND';
+  const currency = card?.predicted_value_currency || '';
   const assignee = card?.assignee || 'Chưa phân công';
   const lastActivity = card?.lastActivity || card?.createdDate;
   const priority = card?.priority || 'medium';

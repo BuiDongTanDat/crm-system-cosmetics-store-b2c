@@ -89,8 +89,8 @@ export default function AutomationPage() {
 
   // Handlers
   const openView = (a) => setModal({ open: true, mode: 'view', automation: a });
-  const openAdd = () => navigate('/automation/flow/new');
-  const openEdit = (a) => navigate(`/automation/flow/${a.id}`);
+  const openAdd = () => navigate('/automations/flow/new');
+  const openEdit = (a) => navigate(`/automations/flow/${a.id}`);
   const closeModal = () => setModal({ open: false, mode: 'view', automation: null });
 
   const handleSave = (automationData) => {
