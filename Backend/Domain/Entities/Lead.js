@@ -19,12 +19,6 @@ Lead.init(
     customer_id: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: 'customers',
-        key: 'customer_id',
-      },
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE',
     },
     name: {
       type: DataTypes.STRING,

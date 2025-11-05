@@ -17,7 +17,7 @@ export const getPipelineColumns = () =>
     });
 export const updateLeadStatus = (Id, status) =>
     request(
-        `/leads/pipeline/${Id}/status`, {
+        `/leads/pipeline/${Id}/status`, {   
         method: 'PATCH',
         body: { status },
     });

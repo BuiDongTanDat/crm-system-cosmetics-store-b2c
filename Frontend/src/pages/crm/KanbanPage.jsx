@@ -5,8 +5,16 @@ import KanbanColumn from '@/pages/crm/components/KanbanColumn';
 import AppDialog from '@/components/dialogs/AppDialog';
 import DealForm from '@/pages/crm/components/DealForm';
 import CountUp from 'react-countup';
+import OrderForm from '@/pages/order/components/OrderForm';
 import { formatCurrency } from '@/utils/helper';
 import { toast } from 'sonner';
+import {
+  createOrder,
+  updateOrder,
+  updateOrderStatus,
+  getOrder,
+} from '@/services/orders';
+// import { createOrder, saveOrderDraft, sendCheckoutLink } from '@/services/orders';
 import {
   getPipelineSummary,
   getPipelineColumns,
@@ -28,7 +36,7 @@ const UI2BE = Object.entries(BE2UI).reduce((acc, [be, ui]) => {
   acc[ui] = be;
   return acc;
 }, {});
-
+const STAGES_OPEN_ORDER = new Set(['converted', 'qualified']);
 export default function KanbanPage() {
   // State chính
   const [cards, setCards] = useState([]);
@@ -42,8 +50,9 @@ export default function KanbanPage() {
   const [boardScrollLeft, setBoardScrollLeft] = useState(0);
   const [animatedColumns, setAnimatedColumns] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [orderModal, setOrderModal] = useState({ open: false, lead: null, preset: null });
 
-  // 🟢 Thêm state riêng cho metrics
+  // Thêm state riêng cho metrics
   const [stats, setStats] = useState({
     totalDeals: 0,
     totalValue: 0,
@@ -261,7 +270,52 @@ export default function KanbanPage() {
   const handleCardEdit = (card) => setModal({ open: true, mode: 'edit', deal: card });
   const handleCreateDeal = () => setModal({ open: true, mode: 'edit', deal: null });
   const closeModal = () => setModal({ open: false, mode: 'view', deal: null });
+  // ---------- Order Form Handlers ----------
+  const openOrderForLead = (leadCard) => {
+    if (orderModal.open) return;
+    setOrderModal({
+      open: true,
+      lead: leadCard,
+      preset: {
+        customer_name: leadCard.customer,
+        channel: (leadCard.source || 'inbound').toLowerCase(),
+        notes: `Deal ${leadCard.title} — tạo từ pipeline`,
+        status: 'pending',
+      },
+    });
+  };
 
+  const closeOrderModal = () => setOrderModal({ open: false, lead: null, preset: null });
+
+  const handleOrderSave = async (payload) => {
+    if (payload.order_id) {
+      await updateOrder(payload.order_id, payload);
+    } else {
+      await createOrder(payload);
+    }
+    toast.success('Đã lưu đơn hàng!');
+    closeOrderModal();
+  };
+
+  const handleOrderSaveDraft = async (payload) => {
+    const draft = { ...payload, status: 'pending' };
+    if (draft.order_id) {
+      await updateOrder(draft.order_id, draft);
+    } else {
+      await createOrder(draft);
+    }
+    toast.info('Đã lưu giỏ hàng (nháp).');
+  };
+
+  const handleSendToCustomer = async (payload) => {
+    if (payload.order_id) {
+      await updateOrderStatus(payload.order_id, { status: 'processing' });
+    } else {
+      await createOrder({ ...payload, status: 'processing' });
+    }
+    toast.success('Đã gửi link xác nhận cho khách!');
+    closeOrderModal();
+  };
   const handleSave = (dealData) => {
     if (dealData.id) {
       setCards((prev) =>
@@ -282,8 +336,9 @@ export default function KanbanPage() {
       toast.success('Thêm deal thành công!');
     }
     closeModal();
+    
   };
-
+  
   const handleCardDelete = (id) => {
     setCards((prev) => prev.filter((c) => c.id !== id));
     closeModal();
@@ -292,7 +347,6 @@ export default function KanbanPage() {
 
   // ---------- Drag & Drop ----------
   const getCardsByStage = (stageId, list = cards) => sortCardsInColumn(list.filter((c) => c.stage === stageId));
-
   const handleDrop = async (cardId, newStageUI) => {
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
@@ -300,8 +354,6 @@ export default function KanbanPage() {
     if (oldStageUI === newStageUI) return;
 
     const prevCards = cards;
-
-    // 🔹 Optimistic update trước
     setCards((prev) =>
       prev.map((c) =>
         c.id === cardId
@@ -309,11 +361,13 @@ export default function KanbanPage() {
           : c
       )
     );
-
     try {
       const beStatus = UI2BE[newStageUI] || 'NEW';
       await apiUpdateLeadStatus(cardId, beStatus);
-
+      if (STAGES_OPEN_ORDER.has(newStageUI) && !orderModal.open) {
+        openOrderForLead({ ...card, stage: newStageUI });
+      }
+      await refreshPipeline();
       // 🔹 Sau khi API thành công → reload cột & summary để đảm bảo đồng bộ
       const [colRes, sumRes] = await Promise.all([
         getPipelineColumns(),
@@ -467,6 +521,39 @@ export default function KanbanPage() {
         onDelete={handleCardDelete}
         maxWidth="sm:max-w-3xl"
       />
+      <AppDialog
+        open={orderModal.open}
+        onClose={closeOrderModal}
+        title="Tạo đơn hàng"
+        mode="edit"
+        FormComponent={(props) => (
+          <OrderForm
+            mode="edit"
+            data={orderModal.preset}
+            onSave={handleOrderSave}
+            onSaveDraft={handleOrderSaveDraft}
+            onSendToCustomer={handleSendToCustomer}
+            paymentLabels={{
+              credit_card: 'Thẻ',
+              paypal: 'PayPal',
+              bank_transfer: 'Chuyển khoản',
+              cash_on_delivery: 'COD',
+            }}
+            statusLabels={{
+              paid: 'Đã thanh toán',
+              pending: 'Chờ xử lý',
+              cancelled: 'Đã hủy',
+              refunded: 'Đã hoàn tiền',
+              failed: 'Thanh toán thất bại',
+              processing: 'Đang xử lý',
+              shipped: 'Đã giao hàng',
+              completed: 'Hoàn tất',
+            }}
+          />
+        )}
+        maxWidth="sm:max-w-3xl"
+      />
+
     </div>
   );
 }

@@ -18,5 +18,8 @@ router.put('/:id', OrderController.update);
 router.patch('/:id/status', OrderController.updateStatus);
 
 router.delete('/:id', OrderController.delete);
-
+router.get('/by-customer', OrderController.listByCustomer);
+router.get('/by-lead/:lead_id', OrderController.getByLeadId);
+router.post('/:id/checkout-link', OrderController.sendCheckoutLink);
+router.post('/:id/items', OrderController.addItem);
 module.exports = router;

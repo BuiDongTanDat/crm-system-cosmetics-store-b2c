@@ -5,12 +5,20 @@ import AppDialog from "@/components/dialogs/AppDialog";
 import CustomerForm from "@/pages/customer/components/CustomerForm";
 import AppPagination from "@/components/pagination/AppPagination";
 import ImportExportDropdown from "@/components/common/ImportExportDropdown";
-import { mockCustomers, CustomerTypes, CustomerSources } from "@/lib/data";
+import { CustomerTypes, CustomerSources } from "@/lib/data";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 
+// Import API client (chỉnh path cho đúng dự án của bạn)
+import { getCustomers } from "@/services/customers";
+// hoặc: import { getCustomers } from "@/utils/api/customers";
+
 export default function CustomerListPage() {
-    const [customers, setCustomers] = useState(mockCustomers);
+    // TỪ: const [customers, setCustomers] = useState(mockCustomers);
+    const [customers, setCustomers] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState("");
+
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: 'view', customer: null });
     const [hoveredRow, setHoveredRow] = useState(null);
@@ -20,11 +28,61 @@ export default function CustomerListPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const customersPerPage = 8;
 
-    const filteredCustomers = customers.filter(customer =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.industry.toLowerCase().includes(searchTerm.toLowerCase())
+    // Map dữ liệu từ API -> UI
+    const mapApiToUi = (item) => ({
+        id: item.customer_id,                             // "5b7c9cb4-..."
+        name: item.full_name ?? '—',                      // "Lead Mẫu 5"
+        type: item.customer_type ?? CustomerTypes.standard,
+        birthDate: item.birth_date ?? '',
+        gender: item.gender ?? '',
+        industry: item.industry ?? '',                    // backend có thể chưa trả => fallback ''
+        email: item.email ?? '',
+        phone: item.phone ?? '',
+        address: item.address ?? '',
+        socialMedia: item.social_channels ?? {},          // {}
+        source: item.source ?? CustomerSources.website,   // "order_checkout"
+        notes: item.notes ?? '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        status: item.status ?? 'Active',                  // nếu API chưa có, mặc định Active
+    });
+
+    // 🚀 Gọi API lấy danh sách
+    useEffect(() => {
+        let ignore = false;
+        async function fetchCustomers() {
+            try {
+                setLoading(true);
+                setLoadError("");
+                const res = await getCustomers(); // kỳ vọng { ok, data, error }
+                if (!ignore) {
+                    if (res?.ok) {
+                        const list = Array.isArray(res.data) ? res.data.map(mapApiToUi) : [];
+                        setCustomers(list);
+                    } else {
+                        setLoadError(res?.error || "Không thể tải danh sách khách hàng");
+                        toast.error(res?.error || "Không thể tải danh sách khách hàng");
+                    }
+                }
+            } catch (e) {
+                if (!ignore) {
+                    setLoadError("Lỗi kết nối máy chủ");
+                    toast.error("Lỗi kết nối máy chủ");
+                }
+            } finally {
+                if (!ignore) setLoading(false);
+            }
+        }
+        fetchCustomers();
+        return () => { ignore = true; };
+    }, []);
+
+    const safeIncludes = (val) => (val || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+    const filteredCustomers = customers.filter((customer) =>
+        safeIncludes(customer.name) ||
+        safeIncludes(customer.email) ||
+        safeIncludes(customer.type) ||
+        safeIncludes(customer.industry)
     );
 
     // Pagination calculations
@@ -40,71 +98,41 @@ export default function CustomerListPage() {
     const handlePageChange = (page) => setCurrentPage(page);
 
     // Handlers
-    const handleView = (customer) => {
-        setModal({ open: true, mode: 'view', customer });
-    };
+    const handleView = (customer) => setModal({ open: true, mode: 'view', customer });
+    const handleEdit = (customer) => setModal({ open: true, mode: 'edit', customer });
+    const handleCreate = () => setModal({ open: true, mode: 'edit', customer: null });
+    const closeModal = () => setModal({ open: false, mode: 'view', customer: null, showHistory: false });
 
-    const handleEdit = (customer) => {
-        setModal({ open: true, mode: 'edit', customer });
-    };
+    const handleViewHistory = (customer) => setModal({ open: true, mode: 'view', customer, showHistory: true });
+    const handleBackFromHistory = () => setModal(prev => ({ ...prev, showHistory: false }));
 
-    const handleCreate = () => {
-        setModal({ open: true, mode: 'edit', customer: null });
-    };
-
-    const closeModal = () => {
-        setModal({ open: false, mode: 'view', customer: null, showHistory: false });
-    };
-
-    const handleViewHistory = (customer) => {
-        setModal({ open: true, mode: 'view', customer, showHistory: true });
-    };
-
-    const handleBackFromHistory = () => {
-        // Reset showHistory in modal state to change title back
-        setModal(prev => ({
-            ...prev,
-            showHistory: false
-        }));
-    };
-
+    // (Giữ nguyên logic create/update local; nếu muốn nối API create/update, mình có thể bổ sung sau)
     const handleSave = (customerData) => {
         if (customerData.id) {
-            // Cập nhật khách hàng hiện có
             setCustomers(prev =>
                 prev.map(customer =>
                     customer.id === customerData.id ? { ...customer, ...customerData } : customer
                 )
             );
-
-            // Cập nhật modal và chuyển về view mode
-            setModal(prev => ({
-                ...prev,
-                mode: 'view', // Chuyển về view mode
-                customer: { ...customerData }
-            }));
+            setModal(prev => ({ ...prev, mode: 'view', customer: { ...customerData } }));
             toast.success('Cập nhật khách hàng thành công!');
         } else {
-            // Tạo mới khách hàng
             const newCustomer = {
                 ...customerData,
-                id: Math.max(...customers.map(c => c.id)) + 1
+                id: crypto.randomUUID?.() ?? String(Date.now())
             };
             setCustomers(prev => [...prev, newCustomer]);
-
-            // Đóng modal sau khi thêm mới
             closeModal();
             toast.success('Thêm khách hàng thành công!');
         }
-
-        console.log("Customer saved:", customerData);
     };
 
     const handleImportSuccess = (importedData) => {
         try {
+            const nextBaseId = customers.length;
             const processedCustomers = importedData.map((item, index) => ({
-                id: Math.max(...customers.map(c => c.id), 0) + index + 1,
-                name: item['Tên khách hàng'] || item.name || 'Untitled',
+                id: item.customer_id || item.id || `${nextBaseId + index + 1}`,
+                name: item['Tên khách hàng'] || item.name || item.full_name || 'Untitled',
                 type: item['Loại khách hàng'] || item.type || CustomerTypes.standard,
                 birthDate: item['Ngày sinh'] || item.birthDate || '',
                 gender: item['Giới tính'] || item.gender || 'Nam',
@@ -132,7 +160,6 @@ export default function CustomerListPage() {
     };
 
     const handleDelete = (id) => {
-        // thực thi xóa (đã được xác nhận bởi ConfirmDialog nơi gọi)
         setCustomers(prev => prev.filter(customer => customer.id !== id));
         closeModal();
         toast.success('Xóa khách hàng thành công!');
@@ -173,25 +200,23 @@ export default function CustomerListPage() {
     };
 
     const handleShowHistoryChange = (showHistory) => {
-        setModal(prev => ({
-            ...prev,
-            showHistory
-        }));
+        setModal(prev => ({ ...prev, showHistory }));
     };
 
     return (
-        <div className=" flex flex-col">
+        <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="sticky top-[70px] z-20 flex  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md "
+                className="sticky top-[70px] z-20 flex gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md "
                 style={{ backdropFilter: 'blur' }}
             >
                 <div className="flex justify-between w-full">
                     {/* Header */}
                     <div className="flex items-center gap-3">
                         <h1 className="text-xl font-bold text-gray-900">
-                            Quản lý Khách hàng ({filteredCustomers.length})
+                            {loading ? "Đang tải khách hàng..." : `Quản lý Khách hàng (${filteredCustomers.length})`}
                         </h1>
+                        {loadError && <span className="text-sm text-red-600"> • {loadError}</span>}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -241,19 +266,8 @@ export default function CustomerListPage() {
                         <table className="w-full min-w-[1000px]">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    {[
-                                        "Khách hàng",
-                                        "Email",
-                                        "SĐT",
-                                        "Ngành nghề",
-                                        "Nguồn KH",
-                                        "Trạng thái",
-                                        ""
-                                    ].map((header) => (
-                                        <th
-                                            key={header}
-                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                    {["Khách hàng", "Email", "SĐT", "Ngành nghề", "Nguồn KH", "Trạng thái", ""].map((header) => (
+                                        <th key={header} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             {header}
                                         </th>
                                     ))}
@@ -272,16 +286,16 @@ export default function CustomerListPage() {
                                             <span className={getTypeBadge(customer.type)}>{customer.type}</span>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{customer.email}</div>
+                                            <div className="text-sm text-gray-900">{customer.email || '—'}</div>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap text-center">
-                                            <div className="text-sm text-gray-900">{customer.phone}</div>
+                                            <div className="text-sm text-gray-900">{customer.phone || '—'}</div>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap text-center">
-                                            <div className="text-sm text-gray-900">{customer.industry}</div>
+                                            <div className="text-sm text-gray-900">{customer.industry || '—'}</div>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap text-center">
-                                            <div className="text-sm text-gray-900">{customer.source}</div>
+                                            <div className="text-sm text-gray-900">{customer.source || '—'}</div>
                                         </td>
                                         <td className="px-6 py-2 whitespace-nowrap text-center w-32">
                                             <span className={getStatusBadge(customer.status)}>
@@ -295,7 +309,7 @@ export default function CustomerListPage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-                                                <Button 
+                                                <Button
                                                     variant="actionRead"
                                                     size="icon"
                                                     onClick={() => handleViewHistory(customer)}
@@ -331,11 +345,7 @@ export default function CustomerListPage() {
                                                     cancelText="Hủy"
                                                     onConfirm={() => handleDelete(customer.id)}
                                                 >
-                                                    <Button
-                                                        variant="actionDelete"
-                                                        size="icon"
-                                                        className="h-8 w-8"
-                                                    >
+                                                    <Button variant="actionDelete" size="icon" className="h-8 w-8">
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
                                                 </ConfirmDialog>
@@ -343,6 +353,13 @@ export default function CustomerListPage() {
                                         </td>
                                     </tr>
                                 ))}
+
+                                {/* Trạng thái rỗng */}
+                                {!loading && !loadError && currentCustomers.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có khách hàng</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

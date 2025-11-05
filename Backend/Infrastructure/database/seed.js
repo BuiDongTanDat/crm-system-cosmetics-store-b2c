@@ -18,7 +18,7 @@ const Lead = require('../../Domain/Entities/Lead');
 // Nếu có Product model thì import thêm để lấy products cho product_interest
 const Product = require('../../Domain/Entities/Product'); // <- nếu chưa có file này, hãy bỏ phần dùng Product ở seedLeads
 
-const csvFilePath = path.join(__dirname, 'product.csv');
+const csvFilePath = path.join(__dirname, 'product_e.csv');
 
 const userService = new UserService();
 const productService = ProductService;
