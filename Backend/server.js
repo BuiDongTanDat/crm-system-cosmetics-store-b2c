@@ -12,13 +12,13 @@ const userRoutes = require('./API/routes/userRoutes');
 const roleRoutes = require('./API/routes/roleRoutes');
 const categoryRoutes = require('./API/routes/categoryRoutes');
 const productRoutes = require('./API/routes/productRoutes');
-
 const DataManager = require('./Infrastructure/database/postgres');
 const CampaignRoute = require('./API/routes/CampaignRoutes')
 const OrderRoutes = require('./API/routes/OrderRoutes');
 // const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
-
+const StreamingRoutes = require('./API/routes/streamingRoutes');
+const YoutubeRoutes = require('./API/routes/youtubeRoutes');
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
 
@@ -55,6 +55,9 @@ app.use('/orders', OrderRoutes);
 // app.use('/order_details', OrderDetailRoutes); // không cần route riêng cho order details
 app.use('/customers', CustomerRoutes);
 app.use('/campaign', CampaignRoute)
+
+app.use('/stream', StreamingRoutes);
+app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
 
 // Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
@@ -160,6 +163,7 @@ async function main() {
       console.log(`Automation mode: ${process.env.AUTOMATION_MODE || 'tick'}`);
       console.log('------------------------------------------');
     });
+
   } catch (err) {
     console.error('[BOOT] Failed to start application:', err);
     process.exit(1);

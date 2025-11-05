@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "googleapis": "^164.1.0",
+    "node-media-server": "^4.1.0"
+  }
+}

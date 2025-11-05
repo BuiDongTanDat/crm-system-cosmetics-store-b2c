@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from '@/utils/helper';
 import DropdownOptions from "@/components/common/DropdownOptions";
 import AppDialog from "@/components/dialogs/AppDialog";
 import MarketingForm from "@/pages/marketing/components/MarketingForm";
+import SelectStreamOptionDialog from "@/pages/stream/components/SelectStreamOptionDialog";
 
 export default function StreamListPage() {
     const navigate = useNavigate();
@@ -20,6 +21,28 @@ export default function StreamListPage() {
     const openEditModal = (campaign) => setModal({ open: true, mode: "edit", campaign });
     const openAddModal = () => setModal({ open: true, mode: "edit", campaign: null });
     const closeViewModal = () => setModal({ open: false, mode: "view", campaign: null });
+
+    // Thêm state cho dialog chọn kiểu stream
+    const [selectDialog, setSelectDialog] = useState({ open: false, campaign: null });
+
+    const openSelectStreamDialog = (campaign) => setSelectDialog({ open: true, campaign });
+    const closeSelectStreamDialog = () => setSelectDialog({ open: false, campaign: null });
+
+    // onSelect từ dialog: điều hướng tới trang tương ứng và truyền campaign trong state
+    const handleSelectStreamOption = (optionKey) => {
+        const cam = selectDialog.campaign;
+        if (!cam) { closeSelectStreamDialog(); return; }
+        if (optionKey === 'video') {
+            // changed route segment 'video' -> 'vid'
+            navigate(`/streams/youtube/vid/${cam.id}`, { state: { campaign: cam } });
+        } else if (optionKey === 'cam') {
+            navigate(`/streams/youtube/cam/${cam.id}`, { state: { campaign: cam } });
+        } else {
+            // fallback to original single route (kept for safety)
+            navigate(`/streams/youtube/${cam.id}`, { state: { campaign: cam } });
+        }
+        closeSelectStreamDialog();
+    };
 
     // Helpers for badges (kept similar to MarketingPage)
     const getStatusBadge = (status) => {
@@ -191,7 +214,8 @@ export default function StreamListPage() {
                                                 <Button variant="actionRead" size="icon" onClick={() => openEditModal(c)}>
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                <Button variant="actionUpdate" size="icon" onClick={() => handleNavigateToStream(c)}>
+                                                {/* Sửa: mở dialog chọn kiểu stream */}
+                                                <Button variant="actionUpdate" size="icon" onClick={() => openSelectStreamDialog(c)}>
                                                     <TvMinimalPlay className="w-4 h-4" />
                                                 </Button>
                                             </div>
@@ -218,6 +242,15 @@ export default function StreamListPage() {
                 onDelete={handleDelete}
                 setMode={(m) => setModal(prev => ({ ...prev, mode: m }))}
                 maxWidth="sm:max-w-4xl"
+            />
+
+            {/* Select stream option dialog */}
+            <SelectStreamOptionDialog
+                open={selectDialog.open}
+                onClose={closeSelectStreamDialog}
+                onSelect={handleSelectStreamOption}
+                title="Chọn hình thức stream"
+                description="Chọn phát từ file video đã upload hoặc phát trực tiếp từ webcam"
             />
         </div >
     );

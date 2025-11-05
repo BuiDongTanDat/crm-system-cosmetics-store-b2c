@@ -34,7 +34,8 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ProfilePage from './pages/auth/ProfilePage';
 import StreamListPage from './pages/stream/StreamListPage';
-import YoutubeStreamPage from './pages/stream/YoutubeStreamPage';
+import YoutubeStreamCam from './pages/stream/YoutubeStreamCam';
+import YoutubeStreamVideo from './pages/stream/YoutubeStreamVideo';
 
 
 function App() {
@@ -177,15 +178,23 @@ function App() {
                   path="/automation/flow/:id"
                   element={privateElement(<FlowEditorPage />)}
                 />
+
+
                 {/* Streaming routes */}
                 <Route
                   path="/streams"
                   element={privateElement(<StreamListPage />)}
                 />
                 <Route
-                  path="/streams/youtube/:id"
-                  element={privateElement(<YoutubeStreamPage />)}
+                  path="/streams/youtube/cam/:id"
+                  element={privateElement(<YoutubeStreamCam />)}
                 />
+                <Route
+                  path="/streams/youtube/vid/:id"
+                  element={privateElement(<YoutubeStreamVideo />)}
+                />
+
+
 
                 {/* Reports routes */}
                 <Route

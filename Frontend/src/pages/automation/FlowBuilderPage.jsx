@@ -280,12 +280,13 @@ export default function FlowBuilderPage() {
       <div className="flex items-center justify-between w-full ">
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="actionNormal"
+            size="icon"
             
             onClick={() => navigate("/automation")}
             className="mr-2"
           >
-            <ChevronLeft className="w-4 h-4"/> Quay lại
+            <ChevronLeft className="w-4 h-4"/> 
           </Button>
           <span className="text-2xl font-bold text-gray-900">
             {automation?.name || "Tên automation"}
