@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field  # bỏ conlist
+from fastapi import APIRouter, HTTPException, Body
+from pydantic import BaseModel, Field  
 from typing import Any, Dict, List, Optional
 from app.services.llm_service import LLMService
 from app.services.analyzer import HeuristicAnalyzer
@@ -54,7 +54,21 @@ class GenEmailOut(BaseModel):
 class ProbResponse(BaseModel):
     probability: float
     reason: Optional[str] = None
+class ScoreRequest(BaseModel):
+    lead: Dict[str, Any] = Field(default_factory=dict)
+    options: Optional[Dict[str, Any]] = None
 
+class ScoreResponse(BaseModel):
+    fit_score: int
+    score: int
+    priority_suggestion: str
+    predicted_prob: float
+    predicted_value: float
+    predicted_value_currency: str
+    reason: str
+    confidence: float
+    features_used: Dict[str, Any]
+    next_best_action: Optional[str] = None
 # ---------- Services ----------
 llm = LLMService()
 analyzer = HeuristicAnalyzer()
@@ -62,17 +76,14 @@ analyzer = HeuristicAnalyzer()
 
 # ---------- Routes ----------
 @router.post("/leads/score", response_model=ScoreResponse)
-async def score_lead(payload: LeadPayload):
-    lead = payload.lead or {}
-    score, reason = analyzer.score_lead(lead)
+async def score_lead(payload: Dict[str, Any]):
     try:
-        refined = await llm.refine_score(lead, base_score=score, base_reason=reason)
-        if refined:
-            score = refined.get("score", score)
-            reason = refined.get("reason", reason)
-    except Exception:
-        pass
-    return {"score": max(0, min(int(score), 100)), "reason": reason}
+        inner = payload.get("data") or payload
+        lead = inner.get("lead") or {}
+        result = await llm.score_lead(lead)
+        return result  
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI service error: {e}")
 @router.post("/score")
 async def score_lead(data: dict):
     return {"score": 0.8, "reason": "Demo score"}
@@ -124,21 +135,24 @@ async def generate_email(inp: GenEmailIn):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @router.post("/marketing/suggest_campaign", response_model=SuggestCampaignResponse)
-async def suggest_marketing_campaign(payload: SuggestFromCustomersRequest):
+async def suggest_marketing_campaign(
+    payload: Dict[str, Any] = Body(...)
+):
     """
-    🎯 Đề xuất chiến dịch marketing dựa trên dữ liệu khách hàng và sản phẩm.
+    Đề xuất chiến dịch marketing dựa trên dữ liệu khách hàng và sản phẩm.
+    Client gửi: { data: { topic, customer_data, Product_data, options } }
     """
     try:
-        topic = payload.topic
-        customer_data = payload.customer_data
-        product_data = getattr(payload, "product_data", None)
-
-        if not customer_data or not isinstance(customer_data, list):
-            raise HTTPException(status_code=400, detail="customer_data is required and must be a non-empty list")
-
-        campaign = await llm.suggest_marketing_campaign(customer_data, product_data, topic=topic)
+        data = payload.get("data", payload)
+        topic = data.get("topic")
+        customer_data = data.get("customer_data", [])
+        product_data = data.get("Product_data", data.get("product_data", []))
+        options = data.get("options", {})
+        # Gọi LLM sinh chiến dịch (tùy theo implement của bạn)
+        campaign = await llm.suggest_marketing_campaign(
+            customer_data, product_data, topic=topic, options=options
+        )
         return {"ok": True, "campaign": campaign}
-
     except HTTPException:
         raise
     except Exception as e:

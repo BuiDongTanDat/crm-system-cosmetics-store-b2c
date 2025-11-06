@@ -9,7 +9,16 @@ class ProductRepository {
     const product = await Product.findByPk(productId);
     return product || null;
   }
+  async findByIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+    // Nếu PK của Product là 'id'
+    return Product.findAll({
+      where: { product_id: { [Op.in]: ids } },
+    });
 
+    // Nếu PK thực tế là 'product_id' thì dùng:
+    // return Product.findAll({ where: { product_id: { [Op.in]: ids } } });
+  }
   // Lấy tất cả sản phẩm
   async findAll() {
     return await Product.findAll();
@@ -307,10 +316,10 @@ class ProductRepository {
     const header = [
       'Tên sản phẩm',
       'Thương hiệu',
-      'Danh mục', 
+      'Danh mục',
       'Mô tả ngắn',
       'Mô tả chi tiết',
-      'Ảnh', 
+      'Ảnh',
       'Giá hiện tại',
       'Giá gốc',
       'Giảm giá (%)',

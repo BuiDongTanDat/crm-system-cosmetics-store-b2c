@@ -1,7 +1,50 @@
 const OrderService = require('../../Application/Services/OrderService');
+const ORDER_STATUSES = [
+  'draft_cart',
+  'awaiting_customer_confirmation',
+  'paid',
+  'pending',
+  'cancelled',
+  'refunded',
+  'failed',
+  'processing',
+  'shipped',
+  'completed',
+];
 
+// (tuỳ chọn) rule chuyển trạng thái “nhẹ” – bật/tắt tuỳ bạn
+const VALID_TRANSITIONS = {
+  draft_cart: ['awaiting_customer_confirmation', 'cancelled'],
+  awaiting_customer_confirmation: ['paid', 'cancelled'],
+  paid: ['processing', 'refunded', 'failed'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['completed', 'refunded'],
+  completed: [],
+  cancelled: [],
+  refunded: [],
+  failed: [],
+  pending: ['processing', 'cancelled'],
+};
 
 class OrderController {
+  async createQuick(req, res, next) {
+    try {
+      console.log('OrderController.createQuick body =', req.body);
+      const created = await OrderService.createQuickOrder(req.body);
+      return res.status(201).json({
+        success: true,
+        message: 'Tạo đơn hàng nhanh thành công',
+        data: created,
+      });
+    } catch (err) {
+      console.error('Error creating quick order:', err);
+      return res.status(400).json({
+        success: false,
+        code: 'QUICK_ORDER_FAILED',
+        message: err.message || 'Tạo đơn hàng nhanh thất bại',
+      });
+    }
+  }
   // Tạo đơn hàng
   async create(req, res, next) {
     try {
@@ -27,6 +70,17 @@ class OrderController {
       return res.json(order);
     } catch (err) {
       return next(err);
+    }
+  }
+  // trong OrderController.js
+  async getByLeadId(req, res, next) {
+    try {
+      const leadId = req.params.lead_id;
+      const order = await OrderService.getByLeadId(leadId);
+      if (!order) return res.status(404).json({ message: 'Chưa có đơn hàng cho lead này' });
+      res.json(order);
+    } catch (err) {
+      next(err);
     }
   }
 
@@ -66,17 +120,30 @@ class OrderController {
   async updateStatus(req, res, next) {
     try {
       const id = req.params.id;
-      const status =
-        req.body?.status ??
-        req.query?.status ??
-        undefined;
+      const status = req.body?.status ?? req.query?.status;
 
-      if (!status) {
-        return res.status(400).json({ message: 'Thiếu trường status' });
+      if (!status) return res.status(400).json({ message: 'Thiếu trường status' });
+      if (!ORDER_STATUSES.includes(status)) {
+        return res.status(400).json({ message: 'Status không hợp lệ' });
+      }
+
+      // (tuỳ chọn) kiểm soát chuyển trạng thái sai flow
+      try {
+        const current = await OrderService.getOrderById(id);
+        if (!current) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        const allowed = VALID_TRANSITIONS[current.status] || [];
+        if (allowed.length && !allowed.includes(status)) {
+          return res.status(409).json({
+            message: `Không thể chuyển từ ${current.status} -> ${status}`,
+            allowed,
+          });
+        }
+      } catch {
+        // bỏ qua nếu bạn chưa muốn ràng buộc
       }
 
       const updated = await OrderService.updateStatus(id, status);
-      return res.json(updated); // updateStatus trả về OrderResponseDTO
+      return res.json(updated);
     } catch (err) {
       return next(err);
     }
@@ -106,6 +173,25 @@ class OrderController {
 
       const orders = await OrderService.listByCustomer(customerId, opts);
       return res.json(orders);
+    } catch (err) {
+      return next(err);
+    }
+  }
+  async sendCheckoutLink(req, res, next) {
+    try {
+      const { id } = req.params;
+      // TODO: CheckoutService.sendLink(id);
+      return res.json({ success: true, message: 'Đã gửi link xác nhận/checkout cho khách' });
+    } catch (err) {
+      return next(err);
+    }
+  }
+  async addItem(req, res, next) {
+    try {
+      const { id } = req.params;
+      const item = req.body; 
+      const updated = await OrderService.addItem(id, item);
+      return res.json(updated);
     } catch (err) {
       return next(err);
     }

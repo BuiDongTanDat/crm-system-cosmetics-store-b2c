@@ -55,7 +55,7 @@ export default function AppDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        aria-describedby={undefined} 
+        aria-describedby={undefined}
         // CHANGED: set fixed height + flex column so child with h-full can scroll
         className={`${maxWidth} w-full  p-0 overflow-hidden flex flex-col
         animate-in fade-in-80 zoom-in-95 duration-300`}

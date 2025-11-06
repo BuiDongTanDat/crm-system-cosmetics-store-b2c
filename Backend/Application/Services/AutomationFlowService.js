@@ -6,7 +6,7 @@ const { AppError, asAppError, ok, fail } = require('../helpers/errors.js');
 const AutomationFlowRepository = require('../../Infrastructure/Repositories/AutomationFlowRepository.js');
 const AutomationTriggerRepository = require('../../Infrastructure/Repositories/AutomationTriggerRepository.js');
 const AutomationActionRepository = require('../../Infrastructure/Repositories/AutomationActionRepository.js');
-
+const pLimit = require('p-limit').default;
 class AutomationFlowService {
   constructor() {
     this.flows = AutomationFlowRepository;
@@ -223,27 +223,47 @@ class AutomationFlowService {
   async getFlowDetail(flow_id) {
     try {
       // 1) lấy flow
-      const flow = await this.getFlow(flow_id); // giả định có thể trả null hoặc ném lỗi
+      const flow = await this.getFlow(flow_id);
       if (!flow) {
         throw new AppError('Flow not found', { status: 404, code: 'FLOW_NOT_FOUND' });
       }
-
       // 2) lấy triggers & actions song song
       const [triggers, actions] = await Promise.all([
         this.triggers.findByFlow(flow_id),
         this.actions.findByFlow(flow_id),
       ]);
-
-      // 3) trả data chuẩn
       return ok({ flow, triggers, actions });
     } catch (err) {
       return fail(asAppError(err));
     }
   }
-  async getAllflow(){
-    return await this.flows.findAll();
+  async getAllflow() {
+    try {
+      const flows = await this.flows.findAll();
+      const items = Array.isArray(flows) ? flows : (flows?.items || []);
+      if (!items.length) return ok({ items: [] });
+
+      const details = await Promise.all(
+        items.map(async f => {
+          const fid = f.flow_id || f.id;
+          const detail = await this.getFlowDetail(fid);
+          if (detail?.ok && detail.data?.flow) {
+            const { flow, triggers = [], actions = [] } = detail.data;
+            return {
+              ...(typeof flow.toJSON === 'function' ? flow.toJSON() : flow),
+              triggers: triggers.map(t => (t.toJSON ? t.toJSON() : t)),
+              actions: actions.map(a => (a.toJSON ? a.toJSON() : a)),
+            };
+          }
+          return { ...(f.toJSON ? f.toJSON() : f), triggers: [], actions: [] };
+        })
+      );
+      return ok({ items: details });
+    } catch (err) {
+      return fail(asAppError(err));
+    }
   }
-  
+
   async publishFlow(flow_id, dto = {}) {
     try {
       // 1) lấy flow
@@ -553,41 +573,42 @@ class AutomationFlowService {
       };
     }
 
-    // if (at === 'tag_update') {
-    //   return {
-    //     flow_id,
-    //     trigger_id: cfg.trigger_id || null,
-    //     action_type: 'tag_update',
-    //     channel: 'internal',
-    //     content: {
-    //       op: cfg.op || 'add',
-    //       tags: Array.isArray(cfg.tags) ? cfg.tags : (cfg.tags ? [cfg.tags] : []),
-    //     },
-    //     delay_minutes,
-    //     status,
-    //     created_at: new Date(),
-    //     executed_at: null,
-    //   };
-    // }
+    if (at === 'tag_update') {
+      return {
+        flow_id,
+        trigger_id: cfg.trigger_id || null,
+        action_type: 'tag_update',
+        channel: 'internal',
+        content: {
+          op: cfg.op || 'add', // 'add' | 'remove'
+          tags: Array.isArray(cfg.tags) ? cfg.tags : (cfg.tags ? [cfg.tags] : []),
+        },
+        delay_minutes,
+        status,
+        created_at: new Date(),
+        executed_at: null,
+      };
+    }
 
-    // if (at === 'create_task') {
-    //   return {
-    //     flow_id,
-    //     trigger_id: cfg.trigger_id || null,
-    //     action_type: 'create_task',
-    //     channel: 'internal',
-    //     content: {
-    //       assignee: cfg.assignee || null,
-    //       title: cfg.title || 'New Task',
-    //       description: cfg.description || '',
-    //       due_at: cfg.due_at || null,
-    //     },
-    //     delay_minutes,
-    //     status,
-    //     created_at: new Date(),
-    //     executed_at: null,
-    //   };
-    // }
+    if (at === 'create_task') {
+      return {
+        flow_id,
+        trigger_id: cfg.trigger_id || null,
+        action_type: 'create_task',
+        channel: 'internal',
+        content: {
+          assignee: cfg.assignee || null,
+          title: cfg.title || 'Follow-up Lead',
+          description: cfg.description || '',
+          // bạn có thể dùng delay_minutes của action chung
+          due_in_minutes: Number.isFinite(cfg.due_in_minutes) ? cfg.due_in_minutes : null,
+        },
+        delay_minutes,
+        status,
+        created_at: new Date(),
+        executed_at: null,
+      };
+    }
 
     if (at === 'delay') {
       return {

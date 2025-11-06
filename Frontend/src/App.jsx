@@ -60,7 +60,7 @@ function App() {
       />
 
       {/* Toaster đặt ở đây (bên ngoài wrapper có z-index thấp) để không bị overlay đè */}
-      <Toaster richColors  className="z-[99999] pointer-events-none " style={{ zIndex: 999999 }} />
+      <Toaster richColors className="z-[99999] pointer-events-none " style={{ zIndex: 999999 }} />
 
       {/* Content with relative positioning */}
       <div className="relative z-10">
@@ -167,15 +167,15 @@ function App() {
                   element={privateElement(<MarketingPage />)}
                 />
                 <Route
-                  path="/automation"
+                  path="/automations"
                   element={privateElement(<AutomationPage />)}
                 />
                 <Route
-                  path="/automation/flow/new"
+                  path="/automations/flow/new"
                   element={privateElement(<FlowEditorPage />)}
                 />
                 <Route
-                  path="/automation/flow/:id"
+                  path="/automations/flow/:id"
                   element={privateElement(<FlowEditorPage />)}
                 />
 

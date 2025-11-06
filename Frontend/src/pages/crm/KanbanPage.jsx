@@ -5,13 +5,23 @@ import KanbanColumn from '@/pages/crm/components/KanbanColumn';
 import AppDialog from '@/components/dialogs/AppDialog';
 import DealForm from '@/pages/crm/components/DealForm';
 import CountUp from 'react-countup';
+import OrderForm from '@/pages/order/components/OrderForm';
 import { formatCurrency } from '@/utils/helper';
 import { toast } from 'sonner';
+import {
+  createOrder,
+  updateOrder,
+  updateOrderStatus,
+  getOrder,
+} from '@/services/orders';
+// import { createOrder, saveOrderDraft, sendCheckoutLink } from '@/services/orders';
 import {
   getPipelineSummary,
   getPipelineColumns,
   updateLeadStatus as apiUpdateLeadStatus,
+  getPipelineMetrics,
 } from '@/services/leads';
+
 // Map giữa status backend và id cột UI
 const BE2UI = {
   NEW: 'new',
@@ -26,130 +36,103 @@ const UI2BE = Object.entries(BE2UI).reduce((acc, [be, ui]) => {
   acc[ui] = be;
   return acc;
 }, {});
-
+const STAGES_OPEN_ORDER = new Set(['converted', 'qualified']);
 export default function KanbanPage() {
-  // Bỏ dữ liệu mẫu → bắt đầu rỗng
+  // State chính
   const [cards, setCards] = useState([]);
-  const [columns, setColumns] = useState([]); // [{id,title,count}]
+  const [columns, setColumns] = useState([]);
   const [order, setOrder] = useState([]);
-
-  const [summary, setSummary] = useState([]); // [{status,count}]
+  const [summary, setSummary] = useState([]);
   const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingBoard, setIsDraggingBoard] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [boardScrollLeft, setBoardScrollLeft] = useState(0);
-  const [shouldAnimateStats, setShouldAnimateStats] = useState(true);
-  const [prevStats, setPrevStats] = useState({ totalDeals: 0, totalValue: 0, conversionRate: 0, activeDeals: 0 });
   const [animatedColumns, setAnimatedColumns] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [orderModal, setOrderModal] = useState({ open: false, lead: null, preset: null });
+
+  // Thêm state riêng cho metrics
+  const [stats, setStats] = useState({
+    totalDeals: 0,
+    totalValue: 0,
+    conversionRate: 0,
+    activeDeals: 0,
+  });
+  const [prevStats, setPrevStats] = useState(stats);
+  const [shouldAnimateStats, setShouldAnimateStats] = useState(false);
 
   const kanbanBoardRef = useRef(null);
   const scrollIntervalRef = useRef(null);
   const resetTimersRef = useRef({});
-  const isInitialLoadRef = useRef(true);
-  const PRIORITY_WEIGHT = {
-    urgent: 4,
-    high: 3,
-    medium: 2,
-    low: 1,
-  };
+
+  const PRIORITY_WEIGHT = { urgent: 4, high: 3, medium: 2, low: 1 };
   const getPriorityWeight = (p) => PRIORITY_WEIGHT[(p || '').toLowerCase()] || 0;
+
   const sortCardsInColumn = (list) => {
     const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
-
     return [...list].sort((a, b) => {
-      // 1) Priority (desc)
       const pa = getPriorityWeight(a.priority);
       const pb = getPriorityWeight(b.priority);
       if (pb !== pa) return pb - pa;
-
-      // 2) Lead score (desc)
       const sa = num(a.leadScore, -Infinity);
       const sb = num(b.leadScore, -Infinity);
       if (sb !== sa) return sb - sa;
-
-      // 3) Conversion prob (desc)
       const ca = num(a.conversionProb, -Infinity);
       const cb = num(b.conversionProb, -Infinity);
       if (cb !== ca) return cb - ca;
-
-      // 4) Value (desc)
       const va = num(a.value, -Infinity);
       const vb = num(b.value, -Infinity);
       if (vb !== va) return vb - va;
-
-      // 5) Ngày tạo (desc)
       const da = new Date(a.createdDate || 0).getTime();
       const db = new Date(b.createdDate || 0).getTime();
       return db - da;
     });
   };
-  // Null-safe helpers
-  // ---------- Load data từ API ----------
+
+  // ---------- Load pipeline data ----------
   useEffect(() => {
     const load = async () => {
       try {
         const colRes = await getPipelineColumns();
-        // colRes có thể là { ok, data: {...} } hoặc { data: { ok, data } } tùy wrapper
         const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
         const columnsObj = payload.columns ?? {};
         const orderArr = payload.order ?? Object.keys(columnsObj);
 
-        // Map trạng thái BE -> UI (BE đã dùng lowercase: new/contacted/…)
         const normalizeStatus = (s) => {
           const v = (s || '').toLowerCase();
-          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v) ? v : 'new';
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
         };
 
-
-        // Nếu CHƯA có sẵn asNumber trong file, thêm helper ngắn gọn:
-        const asNumber = (x, fallback = 0) => {
-          if (x === null || x === undefined) return fallback;
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
           const n = typeof x === 'string' ? parseFloat(x) : x;
-          return Number.isFinite(n) ? n : fallback;
+          return Number.isFinite(n) ? n : fb;
         };
 
-        const toCard = (lead) => {
-          const statusUI = normalizeStatus(lead?.status);
-
-          return {
-            id: lead?.lead_id,
-
-            // ✅ Tiêu đề: ưu tiên deal_name, nếu null dùng "Chiến dịch A"
-            title: lead?.deal_name || 'Chiến dịch A',
-
-            // ✅ Tên khách hàng (lead)
-            customer: lead?.name || 'Khách lẻ',
-
-            email: lead?.email || '',
-            phone: lead?.phone || '',
-            source: lead?.source || 'Inbound',
-
-            stage: statusUI,
-            status: statusUI,
-
-            createdDate: (lead?.created_at || '').slice(0, 10),
-            lastActivity: (lead?.created_at || '').slice(0, 10),
-
-            // ✅ Giá trị tiền lấy từ predicted_value (+ đơn vị)
-            value: asNumber(lead?.predicted_value, 0),
-            currency: lead?.predicted_value_currency || 'VND',
-
-            // Priority + điểm/ xác suất
-            priority: lead?.priority || 'medium',
-            leadScore: asNumber(lead?.lead_score, 0),
-            conversionProb: lead?.conversion_prob != null ? Number(lead.conversion_prob) : null, // 0..1 hoặc null
-
-            // ✅ Tags + sản phẩm
-            tags: Array.isArray(lead?.tags) ? lead.tags : [],
-            productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
-
-            // ✅ Assignee
-            assignee: lead?.assignee_name || lead?.assigned_to_name || 'Chưa phân công',
-            assigneeId: lead?.assigned_to || null,
-          };
-        };
+        const toCard = (lead) => ({
+          id: lead?.lead_id,
+          title: lead?.deal_name || 'Chiến dịch A',
+          customer: lead?.name || 'Khách lẻ',
+          email: lead?.email || '',
+          phone: lead?.phone || '',
+          source: lead?.source || 'Inbound',
+          stage: normalizeStatus(lead?.status),
+          status: normalizeStatus(lead?.status),
+          createdDate: (lead?.created_at || '').slice(0, 10),
+          lastActivity: (lead?.created_at || '').slice(0, 10),
+          value: asNumber(lead?.predicted_value, 0),
+          currency: lead?.predicted_value_currency || 'VND',
+          priority: lead?.priority || 'medium',
+          leadScore: asNumber(lead?.lead_score, 0),
+          conversionProb: lead?.conversion_prob ?? 0,
+          tags: Array.isArray(lead?.tags) ? lead.tags : [],
+          productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
+          assignee: lead?.assignee_name || 'Chưa phân công',
+          assigneeId: lead?.assigned_to || null,
+        });
 
         const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
 
@@ -175,7 +158,7 @@ export default function KanbanPage() {
           status: id,
           slug: id,
           title: titleMap[id] || id,
-          headerColor: colorMap[id] || 'bg-red-600',
+          headerColor: colorMap[id] || 'bg-gray-600',
           count: (columnsObj[id] || []).length,
         }));
 
@@ -187,11 +170,9 @@ export default function KanbanPage() {
         const sumPayload = sumRes?.data?.data ?? sumRes?.data ?? sumRes ?? {};
         setSummary(sumPayload?.rows ?? []);
       } catch (e) {
-        console.error(e);
         toast.error(e.message || 'Không tải được dữ liệu pipeline');
       } finally {
         setTimeout(() => {
-          isInitialLoadRef.current = false;
           setIsInitialLoad(false);
           setShouldAnimateStats(false);
         }, 300);
@@ -200,49 +181,47 @@ export default function KanbanPage() {
     load();
   }, []);
 
-  // ---------- Stats từ summary ----------
-  const statsFromSummary = (() => {
-    const totalDeals = summary.reduce((s, r) => s + (r.count || 0), 0);
-    const converted = summary.find((r) => r.status === 'CONVERTED')?.count || 0;
-    const lost = (summary.find((r) => r.status === 'LOST')?.count || 0) +
-      (summary.find((r) => r.status === 'CLOSED_LOST')?.count || 0);
-    const activeDeals = totalDeals - converted - lost;
-    const conversionRate = totalDeals ? (converted / totalDeals) * 100 : 0;
-    return { totalDeals, totalValue: 0, conversionRate, activeDeals };
-  })();
-
-  // Giữ animation cho stats
+  // ---------- Load metrics từ API ----------
   useEffect(() => {
-    const s = statsFromSummary;
-    const hasChanged =
-      prevStats.totalDeals !== s.totalDeals ||
-      prevStats.totalValue !== s.totalValue ||
-      prevStats.conversionRate !== s.conversionRate ||
-      prevStats.activeDeals !== s.activeDeals;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getPipelineMetrics();
+        const d = res?.data?.data ?? res?.data ?? res;
+        if (!mounted || !d) return;
+        const newStats = {
+          totalDeals: d.totalDeals ?? 0,
+          totalValue: d.totalValue ?? 0,
+          conversionRate: d.conversionRate ?? 0,
+          activeDeals: d.processingLeads ?? 0,
+        };
+        setStats(newStats);
+        setShouldAnimateStats(true);
+        setTimeout(() => {
+          setPrevStats(newStats);
+          setShouldAnimateStats(false);
+        }, 600);
+      } catch (e) {
+        console.error('Load metrics failed', e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-    if (hasChanged) {
-      setShouldAnimateStats(true);
-      const t = setTimeout(() => {
-        setPrevStats(s);
-        setShouldAnimateStats(false);
-      }, 600);
-      return () => clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary]); // dùng summary làm nguồn sự thật
-
-  // ---------- Tính count per column khi cards đổi (dùng cho hiển thị cột) ----------
+  // ---------- Column count cập nhật theo cards ----------
   useEffect(() => {
     if (!columns?.length) return;
-    const updated = columns.map((c) => ({
-      ...c,
-      count: cards.filter((card) => (card.status || card.stage) === c.id).length,
-    }));
-    setColumns(updated);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setColumns((prev) =>
+      prev.map((c) => ({
+        ...c,
+        count: cards.filter((card) => (card.status || card.stage) === c.id).length,
+      }))
+    );
   }, [cards]);
 
-  // ---------- Auto-scroll & drag-to-scroll (giữ nguyên code của bạn) ----------
+  // ---------- Drag scroll ----------
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging || !kanbanBoardRef.current) return;
@@ -257,28 +236,16 @@ export default function KanbanPage() {
       }
 
       const x = e.clientX;
-      const inside = x >= rect.left && x <= rect.right;
-      if (!inside) return;
-
       if (x - rect.left < threshold && board.scrollLeft > 0) {
         scrollIntervalRef.current = setInterval(() => {
           board.scrollLeft -= speed;
-          if (board.scrollLeft <= 0) {
-            clearInterval(scrollIntervalRef.current);
-            scrollIntervalRef.current = null;
-          }
         }, 16);
       } else if (rect.right - x < threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
         scrollIntervalRef.current = setInterval(() => {
           board.scrollLeft += speed;
-          if (board.scrollLeft >= board.scrollWidth - board.clientWidth) {
-            clearInterval(scrollIntervalRef.current);
-            scrollIntervalRef.current = null;
-          }
         }, 16);
       }
     };
-
     const handleDragEnd = () => {
       setIsDragging(false);
       if (scrollIntervalRef.current) {
@@ -286,7 +253,6 @@ export default function KanbanPage() {
         scrollIntervalRef.current = null;
       }
     };
-
     if (isDragging) {
       document.addEventListener('dragover', handleMouseMove);
       document.addEventListener('dragend', handleDragEnd);
@@ -296,66 +262,65 @@ export default function KanbanPage() {
       document.removeEventListener('dragover', handleMouseMove);
       document.removeEventListener('dragend', handleDragEnd);
       document.removeEventListener('drop', handleDragEnd);
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-        scrollIntervalRef.current = null;
-      }
     };
   }, [isDragging]);
 
-  useEffect(() => {
-    const board = kanbanBoardRef.current;
-    if (!board) return;
-
-    const handleMouseDown = (e) => {
-      const columnHeader = e.target.closest('[data-column-header]');
-      if (!columnHeader) return;
-      setIsDraggingBoard(true);
-      setDragStartX(e.clientX);
-      setBoardScrollLeft(board.scrollLeft);
-      e.preventDefault();
-
-    };
-
-    const handleMouseMove = (e) => {
-      if (!isDraggingBoard) return;
-      e.preventDefault();
-
-      const deltaX = e.clientX - dragStartX;
-      board.scrollLeft = Math.max(0, Math.min(boardScrollLeft - deltaX * 1.2, board.scrollWidth - board.clientWidth));
-    };
-
-    const handleMouseUp = () => setIsDraggingBoard(false);
-
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingBoard, dragStartX, boardScrollLeft]);
-
-  const getCardsByStage = (stageId, list = cards) => {
-    const filtered = list.filter((c) => (c.status || c.stage) === stageId);
-    return sortCardsInColumn(filtered);
-  };
-
-  // ---------- Modal handlers (giữ logic cũ) ----------
+  // ---------- Modal ----------
   const handleCardView = (card) => setModal({ open: true, mode: 'view', deal: card });
   const handleCardEdit = (card) => setModal({ open: true, mode: 'edit', deal: card });
   const handleCreateDeal = () => setModal({ open: true, mode: 'edit', deal: null });
   const closeModal = () => setModal({ open: false, mode: 'view', deal: null });
+  // ---------- Order Form Handlers ----------
+  const openOrderForLead = (leadCard) => {
+    if (orderModal.open) return;
+    setOrderModal({
+      open: true,
+      lead: leadCard,
+      preset: {
+        customer_name: leadCard.customer,
+        channel: (leadCard.source || 'inbound').toLowerCase(),
+        notes: `Deal ${leadCard.title} — tạo từ pipeline`,
+        status: 'pending',
+      },
+    });
+  };
 
-  // Lưu tại chỗ (chưa có API tạo/sửa lead → giữ local)
+  const closeOrderModal = () => setOrderModal({ open: false, lead: null, preset: null });
+
+  const handleOrderSave = async (payload) => {
+    if (payload.order_id) {
+      await updateOrder(payload.order_id, payload);
+    } else {
+      await createOrder(payload);
+    }
+    toast.success('Đã lưu đơn hàng!');
+    closeOrderModal();
+  };
+
+  const handleOrderSaveDraft = async (payload) => {
+    const draft = { ...payload, status: 'pending' };
+    if (draft.order_id) {
+      await updateOrder(draft.order_id, draft);
+    } else {
+      await createOrder(draft);
+    }
+    toast.info('Đã lưu giỏ hàng (nháp).');
+  };
+
+  const handleSendToCustomer = async (payload) => {
+    if (payload.order_id) {
+      await updateOrderStatus(payload.order_id, { status: 'processing' });
+    } else {
+      await createOrder({ ...payload, status: 'processing' });
+    }
+    toast.success('Đã gửi link xác nhận cho khách!');
+    closeOrderModal();
+  };
   const handleSave = (dealData) => {
     if (dealData.id) {
       setCards((prev) =>
         prev.map((c) => (c.id === dealData.id ? { ...c, ...dealData, stage: dealData.status || dealData.stage } : c))
       );
-      setModal((prev) => ({ ...prev, mode: 'view', deal: { ...dealData, stage: dealData.status || dealData.stage } }));
       toast.success('Cập nhật deal thành công!');
     } else {
       const newDeal = {
@@ -363,84 +328,105 @@ export default function KanbanPage() {
         id: Date.now().toString(),
         createdDate: new Date().toISOString().slice(0, 10),
         lastActivity: new Date().toISOString().slice(0, 10),
-        stage: dealData.status || dealData.stage || 'new',
-        status: dealData.status || dealData.stage || 'new',
+        stage: dealData.status || 'new',
+        status: dealData.status || 'new',
         value: dealData.value || 0,
       };
       setCards((prev) => [...prev, newDeal]);
-      closeModal();
       toast.success('Thêm deal thành công!');
     }
+    closeModal();
+    
   };
-
+  
   const handleCardDelete = (id) => {
     setCards((prev) => prev.filter((c) => c.id !== id));
     closeModal();
     toast.success('Xóa deal thành công!');
   };
 
-  // ---------- Drag & Drop đổi trạng thái → PATCH API ----------
+  // ---------- Drag & Drop ----------
+  const getCardsByStage = (stageId, list = cards) => sortCardsInColumn(list.filter((c) => c.stage === stageId));
   const handleDrop = async (cardId, newStageUI) => {
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
     const oldStageUI = card.stage;
     if (oldStageUI === newStageUI) return;
 
-    // Tính animate cột (giữ nguyên như bạn có)
-    const prevOldCount = getCardsByStage(oldStageUI).length;
-    const prevNewCount = getCardsByStage(newStageUI).length;
-    const prevOldTotal = getCardsByStage(oldStageUI).reduce((s, c) => s + (c.value || 0), 0);
-    const prevNewTotal = getCardsByStage(newStageUI).reduce((s, c) => s + (c.value || 0), 0);
-
-    const newOldCount = Math.max(0, prevOldCount - 1);
-    const newNewCount = prevNewCount + 1;
-    const newOldTotal = prevOldTotal - (card.value || 0);
-    const newNewTotal = prevNewTotal + (card.value || 0);
-
-    setAnimatedColumns((prev) => {
-      const next = { ...(prev || {}) };
-      next[oldStageUI] = { startCount: prevOldCount, endCount: newOldCount, startTotal: prevOldTotal, endTotal: newOldTotal };
-      next[newStageUI] = { startCount: prevNewCount, endCount: newNewCount, startTotal: prevNewTotal, endTotal: newNewTotal };
-      return next;
-    });
-
-    [oldStageUI, newStageUI].forEach((colId) => {
-      if (resetTimersRef.current[colId]) clearTimeout(resetTimersRef.current[colId]);
-      resetTimersRef.current[colId] = setTimeout(() => {
-        setAnimatedColumns((prev) => {
-          const next = { ...(prev || {}) };
-          delete next[colId];
-          return next;
-        });
-        delete resetTimersRef.current[colId];
-      }, 900);
-    });
-
-    // Optimistic update UI
     const prevCards = cards;
     setCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, stage: newStageUI, status: newStageUI, lastActivity: new Date().toISOString().slice(0, 10) } : c))
+      prev.map((c) =>
+        c.id === cardId
+          ? { ...c, stage: newStageUI, status: newStageUI, lastActivity: new Date().toISOString().slice(0, 10) }
+          : c
+      )
     );
-
-    // Gọi API PATCH
     try {
-      const beStatus = UI2BE[newStageUI] || 'new';
+      const beStatus = UI2BE[newStageUI] || 'NEW';
       await apiUpdateLeadStatus(cardId, beStatus);
+      if (STAGES_OPEN_ORDER.has(newStageUI) && !orderModal.open) {
+        openOrderForLead({ ...card, stage: newStageUI });
+      }
+      await refreshPipeline();
+      // 🔹 Sau khi API thành công → reload cột & summary để đảm bảo đồng bộ
+      const [colRes, sumRes] = await Promise.all([
+        getPipelineColumns(),
+        getPipelineSummary(),
+      ]);
 
-      const sumRes = await getPipelineSummary();
+      const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
+      const columnsObj = payload.columns ?? {};
+      const orderArr = payload.order ?? Object.keys(columnsObj);
+
+      const normalizeStatus = (s) => {
+        const v = (s || '').toLowerCase();
+        return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+          ? v
+          : 'new';
+      };
+
+      const asNumber = (x, fb = 0) => {
+        if (x === null || x === undefined) return fb;
+        const n = typeof x === 'string' ? parseFloat(x) : x;
+        return Number.isFinite(n) ? n : fb;
+      };
+
+      const toCard = (lead) => ({
+        id: lead?.lead_id,
+        title: lead?.deal_name || 'Chiến dịch A',
+        customer: lead?.name || 'Khách lẻ',
+        email: lead?.email || '',
+        phone: lead?.phone || '',
+        source: lead?.source || 'Inbound',
+        stage: normalizeStatus(lead?.status),
+        status: normalizeStatus(lead?.status),
+        createdDate: (lead?.created_at || '').slice(0, 10),
+        lastActivity: (lead?.created_at || '').slice(0, 10),
+        value: asNumber(lead?.predicted_value, 0),
+        currency: lead?.predicted_value_currency || 'VND',
+        priority: lead?.priority || 'medium',
+        leadScore: asNumber(lead?.lead_score, 0),
+        conversionProb: lead?.conversion_prob ?? 0,
+        tags: Array.isArray(lead?.tags) ? lead.tags : [],
+        productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
+        assignee: lead?.assignee_name || 'Chưa phân công',
+        assigneeId: lead?.assigned_to || null,
+      });
+
+      const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
+      setCards(uiCards);
       setSummary(sumRes?.data?.rows ?? []);
     } catch (err) {
-      setCards(prevCards); // rollback
+      // rollback
+      setCards(prevCards);
       toast.error('Cập nhật trạng thái thất bại!');
     }
 
     setIsDragging(false);
   };
 
-  const handleDragStart = () => setIsDragging(true);
 
-  // ---------- Stats hiển thị ----------
-  const stats = statsFromSummary;
+  const handleDragStart = () => setIsDragging(true);
 
   return (
     <div className="p-0 h-full flex flex-col overflow-hidden">
@@ -448,89 +434,56 @@ export default function KanbanPage() {
       <div className="flex-col items-center justify-between z-20 gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
-          <div className="flex gap-3">
-            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2 mb-2">
-              <Plus className="w-4 h-4" /> Thêm Deal
-            </Button>
-          </div>
+          <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
+            <Plus className="w-4 h-4" /> Thêm Deal
+          </Button>
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-4 gap-3">
-          <div className="bg-white p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <Target className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Tổng số deals</p>
-                {shouldAnimateStats ? (
-                  <CountUp end={stats.totalDeals} start={prevStats.totalDeals} duration={0.5} className="text-lg font-bold text-gray-900" />
-                ) : (
-                  <p className="text-lg font-bold text-gray-900">{stats.totalDeals}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <DollarSign className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Tổng giá trị</p>
-                {shouldAnimateStats ? (
-                  <CountUp end={stats.totalValue} start={prevStats.totalValue} duration={0.6}
-                    formattingFn={(value) => formatCurrency(Math.floor(value))}
-                    className="text-sm font-bold text-gray-900" />
-                ) : (
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Tỷ lệ chuyển đổi</p>
-                {shouldAnimateStats ? (
-                  <CountUp end={stats.conversionRate} start={prevStats.conversionRate} decimals={1} suffix="%" duration={0.6} className="text-lg font-bold text-gray-900" />
-                ) : (
-                  <p className="text-lg font-bold text-gray-900">{stats.conversionRate.toFixed(1)}%</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Deals đang xử lý</p>
-                {shouldAnimateStats ? (
-                  <CountUp end={stats.activeDeals} start={prevStats.activeDeals} duration={0.6} className="text-lg font-bold text-gray-900" />
-                ) : (
-                  <p className="text-lg font-bold text-gray-900">{stats.activeDeals}</p>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+          <StatCard
+            icon={<Target className="w-4 h-4 text-blue-600" />}
+            bg="bg-blue-100"
+            label="Tổng Lead"
+            value={stats.totalDeals}
+            prev={prevStats.totalDeals}
+            animate={shouldAnimateStats}
+            formatter={(v) => v}
+          />
+          <StatCard
+            icon={<DollarSign className="w-4 h-4 text-green-600" />}
+            bg="bg-green-100"
+            label="Tổng giá trị"
+            value={stats.totalValue}
+            prev={prevStats.totalValue}
+            animate={shouldAnimateStats}
+            formatter={(v) => formatCurrency(Math.floor(v))}
+          />
+          <StatCard
+            icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
+            bg="bg-purple-100"
+            label="Tỷ lệ chuyển đổi"
+            value={stats.conversionRate}
+            prev={prevStats.conversionRate}
+            animate={shouldAnimateStats}
+            formatter={(v) => `${v.toFixed(1)}%`}
+          />
+          <StatCard
+            icon={<Users className="w-4 h-4 text-orange-600" />}
+            bg="bg-orange-100"
+            label="Leads đang xử lý"
+            value={stats.activeDeals}
+            prev={prevStats.activeDeals}
+            animate={shouldAnimateStats}
+            formatter={(v) => v}
+          />
         </div>
       </div>
 
-      {/* Kanban Board */}
+      {/* Kanban board */}
       <div
         ref={kanbanBoardRef}
-        data-kanban-board
         className="flex-1 min-h-0 flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 #F1F5F9', scrollbarGutter: 'stable' }}
       >
         {order.map((colId) => {
           const column = columns.find((c) => c.id === colId) || { id: colId, title: colId, count: 0 };
@@ -543,7 +496,7 @@ export default function KanbanPage() {
                 onCardEdit={handleCardEdit}
                 onCardDelete={handleCardDelete}
                 onDrop={handleDrop}
-                onDragStart={() => setIsDragging(true)}
+                onDragStart={handleDragStart}
                 animatedData={animatedColumns[colId]}
                 initialAnimate={isInitialLoad}
                 isDraggingBoard={isDraggingBoard}
@@ -568,6 +521,54 @@ export default function KanbanPage() {
         onDelete={handleCardDelete}
         maxWidth="sm:max-w-3xl"
       />
+      <AppDialog
+        open={orderModal.open}
+        onClose={closeOrderModal}
+        title="Tạo đơn hàng"
+        mode="edit"
+        FormComponent={(props) => (
+          <OrderForm
+            mode="edit"
+            data={orderModal.preset}
+            onSave={handleOrderSave}
+            onSaveDraft={handleOrderSaveDraft}
+            onSendToCustomer={handleSendToCustomer}
+            paymentLabels={{
+              credit_card: 'Thẻ',
+              paypal: 'PayPal',
+              bank_transfer: 'Chuyển khoản',
+              cash_on_delivery: 'COD',
+            }}
+            statusLabels={{
+              paid: 'Đã thanh toán',
+              pending: 'Chờ xử lý',
+              cancelled: 'Đã hủy',
+              refunded: 'Đã hoàn tiền',
+              failed: 'Thanh toán thất bại',
+              processing: 'Đang xử lý',
+              shipped: 'Đã giao hàng',
+              completed: 'Hoàn tất',
+            }}
+          />
+        )}
+        maxWidth="sm:max-w-3xl"
+      />
+
     </div>
   );
 }
+
+//Tách riêng thẻ thống kê
+const StatCard = ({ icon, bg, label, value, prev, animate, formatter }) => (
+  <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+    <div className={`w-10 h-10 ${bg} rounded-full flex items-center justify-center`}>{icon}</div>
+    <div>
+      <p className="text-xs text-gray-600">{label}</p>
+      {animate ? (
+        <CountUp end={value} start={prev} duration={0.6} formattingFn={formatter} className="text-lg font-bold text-gray-900" />
+      ) : (
+        <p className="text-lg font-bold text-gray-900">{formatter(value)}</p>
+      )}
+    </div>
+  </div>
+);

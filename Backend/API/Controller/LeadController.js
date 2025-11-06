@@ -101,9 +101,12 @@ class LeadController {
   static async getAll(req, res) {
     try {
       const result = await LeadService.getAll();
-      res.status(result.ok ? 200 : result.error?.status || 400).json(result);
+      if (result && result.error) {
+        return res.status(result.error.status || 400).json(result);
+      }
+      return res.status(200).json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
   }
 
@@ -218,7 +221,32 @@ class LeadController {
       res.status(500).json({ error: err.message });
     }
   }
+  static async getQualifiedLeads(req, res) {
+    try {
+      const result = await LeadService.getQualifiedLeads();
 
+      if (result.error) {
+        return res.status(result.error.status || 500).json({
+          success: false,
+          code: result.error.code,
+          message: result.error.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lấy danh sách lead qualified thành công',
+        data: result.data,
+      });
+    } catch (err) {
+      console.error('LeadController.getQualifiedLeads error:', err);
+      return res.status(500).json({
+        success: false,
+        code: 'INTERNAL_ERROR',
+        message: err.message || 'Internal server error',
+      });
+    }
+  }
   static async predictBatch(req, res) {
     try {
       const limit = Number(req.query.limit) || 100;

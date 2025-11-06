@@ -17,7 +17,10 @@ class ProductService {
     const products = await ProductRepository.findAll();
     return ProductListResponseDTO.fromEntities(products);
   }
-
+  async getAllproduct() {
+    const products = await ProductRepository.findAll();
+    return products;
+  }
   // Lấy chi tiết sản phẩm theo ID
   async getById(id) {
     const product = await ProductRepository.findById(id);
@@ -29,7 +32,7 @@ class ProductService {
   async create(data) {
     const dto = new CreateProductRequestDTO(data);
     // validate required fields first
-    if (!dto.name || dto.price_current == null ) {
+    if (!dto.name || dto.price_current == null) {
       throw new Error('Các trường bắt buộc: name, price_current');
     }
 
@@ -55,7 +58,7 @@ class ProductService {
 
     const dto = new UpdateProductRequestDTO({ ...data, product_id });
     // pass single DTO object to repository.save
-    
+
     const updated = await ProductRepository.save(dto);
     return new ProductResponseDTO(updated);
   }
@@ -78,8 +81,8 @@ class ProductService {
 
   // Xuất sản phẩm ra CSV
   async exportToCSV() {
-    return  await ProductRepository.exportToCSV();
-   
+    return await ProductRepository.exportToCSV();
+
   }
 }
 

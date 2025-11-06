@@ -1,33 +1,70 @@
 import React from "react";
 import EmailEditor from "./EmailEditor";
 
-//Redner nội dung của bảng điều khiển 
-export default function InspectorBody({ selected, currentTrigger, currentAction, updateEmailConfig }) {
+/**
+ * Props:
+ * - selected: { type: 'trigger'|'action', key: string } | null
+ * - currentTrigger
+ * - currentAction
+ * - updateEmailConfig(patch)
+ * - onGenEmailAI()   // optional
+ */
+export default function InspectorBody({
+  selected,
+  currentTrigger,
+  currentAction,
+  updateEmailConfig,
+  onGenEmailAI,
+}) {
   if (!selected) {
     return (
-      <div className="p-4 text-sm text-gray-600">
-        Chưa có mục nào được chọn.
+      <div className="p-4 text-sm text-gray-500">
+        Chọn một Trigger hoặc Action ở khung bên trái để cấu hình.
       </div>
     );
   }
-  if (selected.type === "action" && currentAction?.key === "email") {
+
+  // ===== Trigger =====
+  if (selected.type === "trigger") {
     return (
-      <EmailEditor
-        value={currentAction.config || {}}
-        onChange={updateEmailConfig}
-      />
-    );
-  }
-  return (
-    <div className="p-4 space-y-6">
-      <div>
-        <h4 className="text-sm font-semibold text-gray-800 mb-2">
-          {selected.type === "trigger" ? "Trigger" : "Hành động"}
-        </h4>
-        <div className="rounded-xl bg-gray-50 border border-dashed border-gray-200 p-4 text-sm text-gray-600">
-          CHưa có cấu hình cho mục này.
+      <div className="p-4 space-y-3">
+        <div className="text-sm">
+          <span className="font-medium text-gray-900">Trigger:</span>{" "}
+          {currentTrigger?.label || currentTrigger?.key}
+        </div>
+        <div className="text-xs text-gray-500">
+          (UI điều kiện trigger chưa được triển khai)
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ===== Action =====
+  if (selected.type === "action") {
+    const actionKey = (currentAction?.key || currentAction?.action_type || "").toLowerCase();
+
+    // Hợp nhất cả hai khóa "email" và "send_email"
+    const isEmail = actionKey === "send_email" || actionKey === "email";
+
+    if (isEmail) {
+      return (
+        <div className="p-0">
+          <EmailEditor
+            value={currentAction?.config || {}}
+            onChange={(val) => updateEmailConfig?.(val)}
+            onGenAI={onGenEmailAI}
+          />
+        </div>
+      );
+    }
+
+    // Các action khác chưa có UI riêng
+    return (
+      <div className="p-4 text-sm text-gray-500 border rounded-xl m-4">
+        Chưa có cấu hình cho hành động: <b>{currentAction?.label || actionKey}</b>.
+      </div>
+    );
+  }
+
+  return null;
 }

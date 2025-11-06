@@ -18,9 +18,12 @@ class OrderRepository {
 	async findById(orderId) {
 		return this.Order.findOne({ where: { order_id: orderId } });
 	}
+	async findbyleadId(leadId) {
+		return this.Order.findOne({ where: { lead_id: leadId } });
+	}
 
 	//  Lấy tất cả orders 
-	async findAll(){
+	async findAll() {
 		return this.Order.findAll();
 	}
 

@@ -79,51 +79,59 @@ class LeadService {
         assigned_to: assigned_to || null,
         created_at: new Date(),
 
-        // 🔹 Trường mới:
+        // Trường mới:
         priority: priority || 'medium',
-        product_interest: product_interest || null,
+        product_interest: leadData.product_interest || null,
         // tên deal = tên chiến dịch (nếu có campaign)
         deal_name: campaign?.name || null,
 
-        // 🔮 chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
+        // chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
         predicted_prob: null,
         predicted_value: 0,
         predicted_value_currency: 'VND',
         last_predicted_at: null,
+        note: leadData.note,
       };
 
       // 4) Gọi AI service để dự đoán (best-effort, không chặn luồng nếu lỗi)
       try {
         const features = {
-          // Bạn có thể thêm nhiều feature hơn tùy mô hình của bạn
           name: payload.name,
           email: payload.email,
           phone: payload.phone,
-          source: payload.source,
+          source: payload.source,           // nên normalize về lowercase: 'inbound'
           lead_score: payload.lead_score,
           tags: payload.tags,
           campaign_id: payload.campaign_id,
           priority: payload.priority,
           product_interest: payload.product_interest,
-          // Thêm thông tin campaign nếu có
           campaign_channel: campaign?.channel || null,
           campaign_name: campaign?.name || null,
           assigned_to: payload.assigned_to,
+          note: payload.note,
         };
 
-        const aiResp = await aiService.scoreLead(features);
+        const aiResp = await aiClient.scoreLead(features);
         if (aiResp) {
-          const { predicted_prob, predicted_value, predicted_value_currency } = aiResp;
+          const {
+            score,
+            reason,
+            predicted_prob,
+            predicted_value,
+            predicted_value_currency
+          } = aiResp;
 
-          if (predicted_prob !== undefined && !isNaN(predicted_prob)) {
-            payload.predicted_prob = predicted_prob;
+          if (Number.isFinite(score)) {
+            payload.lead_score = Number(score);
+            payload.ai_reason = reason || null;
           }
-          if (predicted_value !== undefined && !isNaN(predicted_value)) {
-            payload.predicted_value = predicted_value;
+          if (Number.isFinite(predicted_prob) && predicted_prob >= 0 && predicted_prob <= 1) {
+            payload.conversion_prob = Number(predicted_prob);
           }
-          if (predicted_value_currency) {
-            payload.predicted_value_currency = predicted_value_currency;
-          }
+          payload.predicted_prob = Number.isFinite(predicted_prob) ? Number(predicted_prob) : null;
+          payload.predicted_value = Number.isFinite(predicted_value) ? Number(predicted_value) : 0;
+          if (predicted_value_currency) payload.predicted_value_currency = predicted_value_currency;
+
           payload.last_predicted_at = new Date();
         }
       } catch (aiErr) {
@@ -145,19 +153,17 @@ class LeadService {
             campaign_name: campaign?.name || null,
             product_interest: payload.product_interest || null,
             note: 'Tương tác đầu tiên từ chiến dịch marketing',
-            // đưa thêm kết quả AI vào interaction để trace
             ai_predicted_prob: payload.predicted_prob,
             ai_predicted_value: payload.predicted_value,
             ai_currency: payload.predicted_value_currency,
           },
           score_delta: 5,
-          created_by: assigned_to || null, // hoặc 'system'
+          created_by: assigned_to || null,
         }, { transaction: t });
 
         return lead;
       });
 
-      // 6) Publish sự kiện (kèm predicted fields & trường mới)
       try {
         await Rabbit.publish('lead_created', {
           lead_id: result.lead_id,
@@ -238,6 +244,25 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'UPDATE_LEAD_STATUS_FAILED' }));
     }
   }
+  async getQualifiedLeads() {
+    try {
+      // gọi trực tiếp repo, không phân trang
+      const leads = await this.repo.findAll({ where: { status: 'qualified' } });
+
+      if (!leads || leads.length === 0) {
+        throw new AppError('Không có lead nào ở trạng thái qualified', {
+          status: 404,
+          code: 'QUALIFIED_LEADS_NOT_FOUND',
+        });
+      }
+
+      return ok(leads);
+    } catch (err) {
+      return fail(
+        asAppError(err, { status: err?.status || 500, code: 'GET_QUALIFIED_LEADS_FAILED' })
+      );
+    }
+  }
   // Thêm mới: gom leads theo cột (stage) cho UI Kanban
   async getPipelineColumns() {
     try {
@@ -273,31 +298,31 @@ class LeadService {
     }
   }
 
-  async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
-    try {
-      const to = String(toStatus || '').trim().toLowerCase();
+  // async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
+  //   try {
+  //     const to = String(toStatus || '').trim().toLowerCase();
 
-      const lead = await this.repo.findById(leadId);
-      if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
+  //     const lead = await this.repo.findById(leadId);
+  //     if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
 
-      const from = String(lead.status || '').toLowerCase();
-      if (from === to) return ok({ message: 'Status unchanged', data: lead });
+  //     const from = String(lead.status || '').toLowerCase();
+  //     if (from === to) return ok({ message: 'Status unchanged', data: lead });
 
-      // state machine guard
-      if (!stateMachine.canTransition(from, to)) {
-        return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
-      }
+  //     // state machine guard
+  //     if (!stateMachine.canTransition(from, to)) {
+  //       return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
+  //     }
 
-      const updated = await this.repo.logStatusChange(leadId, to, {
-        reason, changed_by: changedBy, meta
-      }); // repo sẽ transaction + lock + ghi LeadStatusHistory
-      if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
+  //     const updated = await this.repo.logStatusChange(leadId, to, {
+  //       reason, changed_by: changedBy, meta
+  //     }); // repo sẽ transaction + lock + ghi LeadStatusHistory
+  //     if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
 
-      return ok(updated);
-    } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
-    }
-  }
+  //     return ok(updated);
+  //   } catch (err) {
+  //     return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
+  //   }
+  // }
 
   async getPipelineSummary() {
     try {
@@ -409,51 +434,73 @@ class LeadService {
     }
   }
   // chuyển lead thành khách hàng tự động khi có đơn hàng được chuyển đổi 
+  // LeadService.js
   async autoConvertLead(leadId, { orderId = null, by = null, customerPatch = {} } = {}) {
     try {
       const result = await sequelize.transaction(async (t) => {
-        // 1) Khóa bản ghi lead để tránh race condition
-        const lead = await this.repo.findById(leadId);
+        const lead = await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 
-        // Nếu đã có customer_id thì coi như đã convert
+        // Đã liên kết customer rồi thì trả về
         if (lead.customer_id) {
-          return { lead, customer: await customerRepository.findById(lead.customer_id) };
+          const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          return { lead, customer: existingCustomer };
         }
 
-        // 2) Tìm Customer trùng (email/phone) hoặc tạo mới
-        const customer = await customerRepository.findOrCreateSmart(
+        // Tạo/tìm customer trong CÙNG transaction
+        const createdOrFound = await customerRepository.findOrCreateSmart(
           {
-            name: lead.name || lead.full_name || 'Unnamed Customer',
+            full_name: lead.name || 'Guest',
             email: lead.email || null,
             phone: lead.phone || null,
             source: lead.source || 'lead',
             assigned_to: lead.assigned_to || null,
-            ...customerPatch, // cho phép override thêm field
+            ...customerPatch,
           },
           { transaction: t }
         );
 
-        // 3) Cập nhật Lead → set customer_id + đổi status & ghi lịch sử (transactional)
+        // Chuẩn hoá instance (phòng trường hợp repo trả [instance, created])
+        const customerInstance = Array.isArray(createdOrFound) ? createdOrFound[0] : createdOrFound;
+
+        // Lấy ID an toàn từ nhiều kiểu trả về
+        const customerId =
+          customerInstance?.customer_id ??
+          customerInstance?.id ??
+          customerInstance?.dataValues?.customer_id ??
+          customerInstance?.dataValues?.id;
+
+        if (!customerId) {
+          throw new AppError('Customer id not returned from repository', {
+            status: 500,
+            code: 'CUSTOMER_ID_MISSING',
+          });
+        }
+
         const reason = orderId ? `Auto-convert by order ${orderId}` : 'Auto-convert';
+
+        // Cập nhật lead trong cùng transaction
         await this.repo.updateById(
           leadId,
-          { customer_id: customer.customer_id, status: 'converted', conversion_prob: 1 },
-          { changed_by: by, reason, meta: { order_id: orderId } }
+          { customer_id: customerId, status: 'converted', conversion_prob: 1 },
+          { transaction: t, changed_by: by, reason, meta: { order_id: orderId } }
         );
 
-        // 4) Ghi interaction để audit timeline
-        await this.repo.addInteraction(leadId, {
-          type: 'order_converted',
-          channel: 'system',
-          properties: { order_id: orderId },
-          score_delta: 0,
-          created_by: by || null,
-        });
+        // (tuỳ chọn) ghi interaction trong cùng transaction
+        await this.repo.addInteraction?.(
+          leadId,
+          {
+            type: 'order_converted',
+            channel: 'system',
+            properties: { order_id: orderId },
+            score_delta: 0,
+            created_by: by || null,
+          },
+          { transaction: t }
+        );
 
-        // lấy lại lead mới nhất
-        const updatedLead = await this.repo.findById(leadId);
-        return { lead: updatedLead, customer };
+        const updatedLead = await this.repo.findById(leadId, { transaction: t });
+        return { lead: updatedLead, customer: customerInstance };
       });
 
       return ok(result);
@@ -461,6 +508,7 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'AUTO_CONVERT_LEAD_FAILED' }));
     }
   }
+
   async getPipelineMetrics() {
     const rows = await this.repo.getLeadsGroupedByStatus();
 

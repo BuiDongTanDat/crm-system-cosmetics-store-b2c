@@ -9,7 +9,7 @@ const AutomationActionController = require('../Controller/AutomationActionContro
 const AutomationController = require('../Controller/AutomationController');
 // FLOW
 router.post('/flows', AutomationFlowController.create);
-router.get('/flows', AutomationFlowController.list);
+router.get('/flows', AutomationFlowController.getAllflow);
 router.patch('/flows/:flow_id', AutomationFlowController.update);
 router.delete('/flows/:flow_id', AutomationFlowController.remove);
 router.post('/flows/:flow_id/enable', AutomationFlowController.enable);

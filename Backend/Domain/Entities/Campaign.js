@@ -3,12 +3,12 @@ const { DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
-class Campaign extends Model {}
+class Campaign extends Model { }
 
 Campaign.init({
   campaign_id: {
     type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4, 
+    defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
   name: {
@@ -38,6 +38,11 @@ Campaign.init({
   data_source: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  products: {
+    type: DataTypes.JSONB,
+    defaultValue: [],
+    comment: 'Danh sách sản phẩm (ID hoặc tên)',
   },
   status: {
     type: DataTypes.STRING,

@@ -19,12 +19,6 @@ Lead.init(
     customer_id: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: 'customers',
-        key: 'customer_id',
-      },
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE',
     },
     name: {
       type: DataTypes.STRING,
@@ -121,6 +115,11 @@ Lead.init(
       validate: {
         isIn: [['low', 'medium', 'high', 'urgent']],
       },
+    },
+    notes: {
+      type: DataTypes.TEXT,   // Postgres TEXT không giới hạn
+      allowNull: true,
+      comment: 'Ghi chú từ form liên hệ / tư vấn',
     },
   },
   {

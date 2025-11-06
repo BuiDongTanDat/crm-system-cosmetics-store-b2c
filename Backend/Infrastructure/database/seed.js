@@ -2,20 +2,30 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
+
 const UserService = require('../../Application/Services/UserService');
 const ProductService = require('../../Application/Services/ProductService');
 const CategoryService = require('../../Application/Services/CategoryService');
 const CampaignService = require('../../Application/Services/CampaignService');
 const LeadService = require('../../Application/Services/LeadService');
+
+const AutomationFlowService = require('../../Application/Services/AutomationFlowService');
+const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository');
+
 const Category = require('../../Domain/Entities/Category');
 const Campaign = require('../../Domain/Entities/Campaign');
 const Lead = require('../../Domain/Entities/Lead');
-const csvFilePath = path.join(__dirname, 'product.csv');
+// Nếu có Product model thì import thêm để lấy products cho product_interest
+const Product = require('../../Domain/Entities/Product'); // <- nếu chưa có file này, hãy bỏ phần dùng Product ở seedLeads
+
+const csvFilePath = path.join(__dirname, 'product_e.csv');
+
 const userService = new UserService();
-const categoryService = new CategoryService();
+const productService = ProductService;
+// LeadService trong code của bạn thường export instance, nên dùng trực tiếp
+
 async function seedRolesAndUsers() {
     console.log('Seeding admin user qua service...');
-
     try {
         await userService.createUser({
             full_name: 'Admin User',
@@ -30,6 +40,7 @@ async function seedRolesAndUsers() {
         console.warn('Skip admin seed:', err.message);
     }
 }
+
 async function seedCategories() {
     const existing = await Category.count();
     if (existing > 0) {
@@ -37,7 +48,6 @@ async function seedCategories() {
         return;
     }
 
-    // Danh sách danh mục + mô tả
     const categories = [
         { name: 'Trang Điểm Môi', description: 'Các sản phẩm dùng cho môi như son, dưỡng môi, tẩy tế bào chết môi.' },
         { name: 'Mặt Nạ', description: 'Sản phẩm chăm sóc da mặt như mặt nạ giấy, mặt nạ đất sét, mặt nạ ngủ.' },
@@ -58,7 +68,6 @@ async function seedCategories() {
 
     console.log(` Seeding ${categories.length} categories with descriptions...`);
 
-    // Tạo song song bằng Promise.all
     await Promise.all(
         categories.map(async ({ name, description }) => {
             try {
@@ -76,14 +85,21 @@ async function seedCategories() {
 
     console.log('All categories seeded successfully!');
 }
+
 async function seedProductsFromCSV() {
-    await ProductService.importFromCSV(csvFilePath); // <-- thêm await
+    try {
+        await productService.importFromCSV(csvFilePath);
+        console.log('Products imported from CSV.');
+    } catch (e) {
+        console.warn('Skip product CSV import:', e.message);
+    }
 }
+
 async function seedCampaign() {
     const count = await Campaign.count();
     if (count > 0) {
         console.log('Campaigns already exist, skip seeding.');
-        return;
+        return await Campaign.findOne(); // trả về 1 cái để dùng tiếp
     }
 
     console.log(' Seeding campaign...');
@@ -102,6 +118,7 @@ async function seedCampaign() {
     console.log(' Created campaign:', campaign.name);
     return campaign;
 }
+
 async function seedLeads(campaignId) {
     const count = await Lead.count();
     if (count > 0) {
@@ -109,13 +126,11 @@ async function seedLeads(campaignId) {
         return;
     }
 
-    // Lấy sản phẩm từ DB (ưu tiên status ACTIVE nếu có cột status)
+    // Lấy sản phẩm từ DB để prefill product_interest (nếu có)
     let products = [];
     try {
         products = await Product.findAll({
             attributes: ['product_id', 'name'],
-            // nếu không có cột status, có thể bỏ where
-            // where: { status: 'ACTIVE' },
             order: [['created_at', 'DESC']],
         });
     } catch (e) {
@@ -132,7 +147,6 @@ async function seedLeads(campaignId) {
     const statuses = ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'];
     const priorities = ['low', 'medium', 'high', 'urgent'];
 
-    // Tạo mảng leads; product_interest lấy round-robin từ products
     const leads = statuses.map((status, index) => {
         const product = products.length ? products[index % products.length] : null;
 
@@ -144,22 +158,20 @@ async function seedLeads(campaignId) {
             tags: ['Chiến dịch 20/10', 'tháng 10'],
             campaign_id: campaignId,
             status,
-
-            // trường mới
             priority: priorities[index % priorities.length],
             product_interest: product ? product.name : null,
-
-            // dữ liệu cho AI
             lead_score: Math.floor(Math.random() * 100),
-            conversion_prob: parseFloat((Math.random() * 0.8 + 0.1).toFixed(2)), // 0.10 - 0.90
+            conversion_prob: parseFloat((Math.random() * 0.8 + 0.1).toFixed(2)),
         };
     });
 
     for (const lead of leads) {
         try {
-            await LeadService.createLead(lead); // createLead sẽ tự gọi AI + set deal_name theo campaign
-            console.log(` Created lead: ${lead.name} (${lead.status})`
-                + (lead.product_interest ? ` — product_interest: ${lead.product_interest}` : ''));
+            await LeadService.createLead(lead);
+            console.log(
+                ` Created lead: ${lead.name} (${lead.status})` +
+                (lead.product_interest ? ` — product_interest: ${lead.product_interest}` : '')
+            );
         } catch (err) {
             console.warn(` Skip lead ${lead.name}: ${err.message}`);
         }
@@ -167,12 +179,135 @@ async function seedLeads(campaignId) {
 
     console.log('All leads seeded successfully!');
 }
+
+/**
+ * Seed Automation Flow: Welcome + Tag New Lead + Follow-up 24h
+ * - Tạo flow (nếu chưa tồn tại theo name)
+ * - Upsert trigger+actions
+ * - Publish flow
+ */
+async function seedWelcomeFlow() {
+    // idempotent theo name
+    let existed = null;
+    try {
+        const all = await flowsRepo.findAll?.();
+        existed = (all || []).find(f => (f.name || '').toLowerCase() === 'welcome flow');
+    } catch (_) { }
+
+    let flowId = null;
+
+    if (!existed) {
+        const created = await AutomationFlowService.createFlow({
+            name: 'Welcome Flow',
+            description: 'Gửi chào mừng',
+            tags: 'start new',
+            enabled: true,
+            status: 'draft'
+        });
+        if (!created?.ok) {
+            console.warn('[Seed][Automation] createFlow failed:', created?.error?.message);
+            return;
+        }
+        flowId = created.data.flow_id;
+    } else {
+        flowId = existed.flow_id || existed.id;
+        console.log(`[Seed][Automation] Flow existed: Welcome Flow (${flowId}), will update editor...`);
+    }
+
+    // Upsert trigger + actions
+    const save = await AutomationFlowService.saveEditor(flowId, {
+        isNewRecord: true,
+        flow_meta: {
+            name: 'Welcome Series Flow',
+            description: 'Gửi email chào mừng khi user đăng ký',
+            tags: ['welcome', 'automation', 'email']
+        },
+        upserts: {
+            triggers: [
+                {
+                    trigger_id: null,
+                    event_type: 'lead_created',
+                    is_active: true,
+                    conditions: {
+                        source: 'Inbound', // sửa chính tả
+                        country: 'VN'
+                    }
+                }
+            ],
+            actions: [
+                {
+                    action_id: null,
+                    trigger_id: null,
+                    action_type: 'send_email',
+                    channel: 'email',
+                    content: {
+                        subject: 'Khuyến mãi: Set quà tặng đang giảm giá!',
+                        body: "```json\n{\n  \"subject\": \"Dịp 20/10: Khám Phá Set Quà Tặng 'Rạng Rỡ Nét Đẹp Việt'!\",\n  \"body\": \"Chào Khách hàng mới của tôi,\\n\\nNgày Phụ nữ Việt Nam 20/10 đang đến rất gần...\\n\\n[Link đến trang sản phẩm/chiến dịch]\\n\\nTrân trọng,\\n[Tên thương hiệu của bạn]\"\n}\n```"
+                    },
+                    delay_minutes: 5,
+                    order_index: 0,
+                    status: 'pending'
+                },
+                {
+                    action_id: null,
+                    trigger_id: null,
+                    action_type: 'tag_update',
+                    channel: 'internal',
+                    content: {
+                        op: 'add',
+                        tags: ['New Lead']
+                    },
+                    delay_minutes: 0,
+                    order_index: 1,
+                    status: 'pending'
+                },
+                {
+                    action_id: null,
+                    trigger_id: null,
+                    action_type: 'schedule',
+                    channel: 'internal',
+                    content: {
+                        delay_minutes: 1440,
+                        next_action: {
+                            type: 'create_task',
+                            content: {
+                                title: 'Follow-up lead mới sau 24h',
+                                description: 'Nhắc gọi/Zalo lead đã nhận email chào mừng.',
+                                due_in_minutes: 60
+                            }
+                        }
+                    },
+                    delay_minutes: 1440,
+                    order_index: 2,
+                    status: 'pending'
+                }
+            ]
+        },
+        deletes: { trigger_ids: [], action_ids: [] }
+    });
+
+    if (!save?.ok) {
+        console.warn('[Seed][Automation] saveEditor failed:', save?.error?.message);
+        return;
+    }
+
+    // Publish (active) flow
+    const pub = await AutomationFlowService.publishFlow(flowId, { simulate: false });
+    if (!pub?.ok) {
+        console.warn('[Seed][Automation] publishFlow failed:', pub?.error?.message);
+    } else {
+        console.log('[Seed][Automation] Welcome Flow published.');
+    }
+}
+
 async function seedDatabase() {
     await seedRolesAndUsers();
     await seedCategories();
     await seedProductsFromCSV();
     const campaign = await seedCampaign();
     if (campaign) await seedLeads(campaign.campaign_id);
+
+    await seedWelcomeFlow();
 }
 
 module.exports = { seedDatabase };

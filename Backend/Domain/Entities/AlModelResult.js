@@ -3,13 +3,11 @@ const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
 class AIModelResult extends Model {
-  // ✅ Method cập nhật kết quả model
   updateResult(newResult, newScore = null) {
     this.result = newResult;
     if (newScore !== null) this.score = newScore;
   }
 
-  // ✅ Chuẩn hóa output JSON
   toJSON() {
     return {
       model_result_id: this.model_result_id,
@@ -63,7 +61,7 @@ AIModelResult.init(
     modelName: 'AIModelResult',
     tableName: 'ai_model_results',
     timestamps: false,
-    underscored: true, 
+    underscored: true,
   }
 );
 

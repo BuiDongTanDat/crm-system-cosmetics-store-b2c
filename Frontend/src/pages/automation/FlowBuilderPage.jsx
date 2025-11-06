@@ -15,52 +15,144 @@ import {
   ChevronLeft,
   Save,
 } from "lucide-react";
-import { mockAutomations } from "@/lib/data"; // hoặc fetch từ API
 import { Button } from '@/components/ui/button';
 import DropdownOptions from '@/components/common/DropdownOptions';
 import Toggle from "./components/flow/Toggle";
 import { Block } from "./components/flow/Block";
-import EmailEditor from "./components/flow/EmailEditor";
 import InspectorPanel from "./components/flow/InspectorPanel";
 
+// ==== SERVICES ====
+import {
+  createFlow,
+  getFlowEditor,
+  saveFlowEditor,
+  generateEmailContent,
+} from "@/services/automation";
+// ---- NORMALIZERS ----
+
+const toTagsArray = (tags) => {
+  if (Array.isArray(tags)) return tags;
+  if (typeof tags === "string") {
+    return tags.split(",").map(t => t.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeEditor = (res, idFallback) => {
+  // Lấy payload gốc của service (tuỳ service có unwrap hay không)
+  const root =
+    res?.data?.data ||
+    res?.data ||
+    res?.item ||
+    res ||
+    {};
+
+  // Meta của flow nằm trong root.flow (chuẩn theo API),
+  // còn vài API khác có thể trả flow_meta/meta ngay level này → fallback.
+  const flowMeta =
+    root.flow ||
+    root.flow_meta ||
+    root.meta ||
+    {};
+
+  return {
+    flow_id: flowMeta.flow_id || root.flow_id || idFallback || "",
+    name: flowMeta.name || "",
+    description: flowMeta.description || "",
+    status: (flowMeta.status || "DRAFT"),
+    tags: toTagsArray(flowMeta.tags),
+    enabled: typeof flowMeta.enabled === "boolean" ? flowMeta.enabled : true,
+
+    // triggers/actions: ưu tiên mảng tách riêng, rồi mới fallback vào trong meta
+    triggers: Array.isArray(root.triggers) ? root.triggers : (flowMeta.triggers || []),
+    actions: Array.isArray(root.actions) ? root.actions : (flowMeta.actions || []),
+
+    created_by: flowMeta.created_by || "",
+    created_at: flowMeta.created_at || "",
+    updated_at: flowMeta.updated_at || "",
+  };
+};
+
+// helper pick id từ nhiều shape
+const pickFlowId = (res) =>
+  res?.flow_id ||
+  res?.data?.flow_id ||
+  res?.data?.id ||
+  res?.id ||
+  res?.data?.data?.flow_id ||
+  res?.data?.items?.[0]?.flow_id ||
+  null;
+// NEW: chuẩn hóa list triggers gửi lên server
+const toUpsertTriggers = (list) =>
+  list.map(t => ({
+    trigger_id: t.trigger_id ?? null,              // giữ id cũ để UPDATE, null = CREATE
+    event_type: t.event_type || t.key,
+    is_active: t.is_active ?? t.enabled ?? true,
+    conditions: t.conditions || {},
+  }));
+
+// NEW: chuẩn hóa list actions gửi lên server
+const toUpsertActions = (list) =>
+  list.map((a, idx) => {
+    const action_type = a.action_type || a.key;
+    const channel = a.channel || (action_type === "send_email" ? "email" : undefined);
+    return {
+      action_id: a.action_id ?? null,          // giữ id cũ để UPDATE, null = CREATE
+      trigger_id: a.trigger_id ?? null,
+      action_type,
+      channel,
+      content: a.content || a.config || {},  // object/chuỗi thuần
+      delay_minutes: Number(a.delay_minutes || 0),
+      order_index: Number(a.order_index ?? idx),
+      status: a.status || "pending",
+    };
+  });
+
+// NEW: tính danh sách id bị xóa (diff giữa snapshot và hiện tại)
+const calcDeletes = (initial, current) => {
+  const initT = new Set(initial.triggers.map(t => t.trigger_id).filter(Boolean));
+  const initA = new Set(initial.actions.map(a => a.action_id).filter(Boolean));
+  const nowT = new Set(current.triggers.map(t => t.trigger_id).filter(Boolean));
+  const nowA = new Set(current.actions.map(a => a.action_id).filter(Boolean));
+  return {
+    trigger_ids: [...initT].filter(id => !nowT.has(id)),
+    action_ids: [...initA].filter(id => !nowA.has(id)),
+  };
+};
 
 export default function FlowBuilderPage() {
-  const { id } = useParams(); // id = 'new' hoặc flow_id
+  const { id } = useParams(); // "new" | flow_id
   const navigate = useNavigate();
+
   const [automation, setAutomation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(true);
+
   const [activeTab, setActiveTab] = useState("info"); // "info" | "setup"
-
-  // Giả lập fetch automation theo id
-  useEffect(() => {
-    setLoading(true);
-    if (id === "new") {
-      setAutomation({
-        flow_id: "",
-        name: "",
-        description: "",
-        status: "DRAFT",
-        tags: [],
-        enabled: true,
-        triggers: [],
-        actions: [],
-        created_by: "",
-        created_at: "",
-        updated_at: ""
-      });
-      setLoading(false);
-    } else {
-      // Tìm automation theo flow_id
-      const found = mockAutomations.find(a => a.flow_id === id);
-      setAutomation(found || null);
-      setLoading(false);
-    }
-  }, [id]);
-
   const [triggers, setTriggers] = useState([]);
   const [actions, setActions] = useState([]);
+  // NEW: lưu snapshot ban đầu để tính phần xóa
+  const [initialServer, setInitialServer] = useState({ triggers: [], actions: [] });
+  // catalog
+  const CATALOG_TRIGGERS = [
+    { key: "signup", label: "Đăng ký mới (Tất cả kênh)", icon: UserPlus },
+    { key: "tag_added", label: "Được gắn Tag", icon: Tags },
+    { key: "tag_removed", label: "Bị xóa Tag", icon: Tags },
+    { key: "seq_join", label: "Đăng ký Sequence", icon: UserPlus },
+    { key: "seq_cancel", label: "Hủy đăng ký Sequence", icon: UserPlus },
+    { key: "field_changed", label: "Trường tuỳ chỉnh thay đổi", icon: Settings },
+    { key: "lead_created", label: "Lead được tạo", icon: UserPlus },
+  ];
+  const CATALOG_ACTIONS = [
+    { key: "msg", label: "Gửi tin Messenger", icon: Bell },
+    { key: "sms", label: "Gửi SMS", icon: Bell },
+    { key: "send_email", label: "Gửi Email", icon: Mail },
+    { key: "goto_flow", label: "Bắt đầu một Flow khác", icon: MoveRight },
+    { key: "condition", label: "Điều kiện", icon: Settings },
+    { key: "zns", label: "Gửi tin Zalo ZNS", icon: Bell },
+    { key: "time", label: "Chờ trong giây lát", icon: Clock },
+  ];
 
-  // Hàm này giúp mapping event_type/action_type sang icon nếu có tương ứng
   const getTriggerIcon = (event_type) => {
     const found = CATALOG_TRIGGERS.find(t => t.key === event_type);
     return found ? found.icon : UserPlus;
@@ -70,260 +162,360 @@ export default function FlowBuilderPage() {
     return found ? found.icon : Bell;
   };
 
-  // Khi automation thay đổi, đồng bộ triggers/actions và bổ sung icon
+  // ===== Load data (prefill khi Chỉnh sửa) =====
   useEffect(() => {
-    if (automation) {
-      setTriggers(
-        Array.isArray(automation.triggers)
-          ? automation.triggers.map(t => ({
-              ...t,
-              key: t.event_type || t.key,
-              icon: getTriggerIcon(t.event_type || t.key),
-              label:
-                CATALOG_TRIGGERS.find(i => i.key === (t.event_type || t.key))?.label ||
-                t.event_type ||
-                t.key ||
-                "Trigger"
-            }))
-          : []
-      );
-      setActions(
-        Array.isArray(automation.actions)
-          ? automation.actions.map(a => ({
-              ...a,
-              key: a.action_type || a.key,
-              icon: getActionIcon(a.action_type || a.key),
-              label:
-                CATALOG_ACTIONS.find(i => i.key === (a.action_type || a.key))?.label ||
-                a.action_type ||
-                a.key ||
-                "Action",
-              config: a.content || a.config // giữ cấu hình cho email editor
-            }))
-          : []
-      );
-    }
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        if (id === "new") {
+          if (!alive) return;
+          setAutomation({
+            flow_id: "",
+            name: "",
+            description: "",
+            status: "DRAFT",
+            tags: [],
+            enabled: true,
+            triggers: [],
+            actions: [],
+            created_by: "",
+            created_at: "",
+            updated_at: "",
+          });
+        } else {
+          const res = await getFlowEditor(id);
+          const data = normalizeEditor(res, id);
+          if (!alive) return;
+          setAutomation(data);
+
+          // NEW: lưu snapshot để sau này tính deletes
+          setInitialServer({
+            triggers: Array.isArray(data.triggers) ? data.triggers : [],
+            actions: Array.isArray(data.actions) ? data.actions : [],
+          });
+
+        }
+      } catch (e) {
+        console.error(e);
+        if (alive) setAutomation(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  // đồng bộ UI list khi automation đổi
+  useEffect(() => {
+    if (!automation) return;
+    setTriggers(
+      Array.isArray(automation.triggers)
+        ? automation.triggers.map(t => ({
+          ...t,
+          key: t.event_type || t.key,
+          icon: getTriggerIcon(t.event_type || t.key),
+          label: CATALOG_TRIGGERS.find(i => i.key === (t.event_type || t.key))?.label
+            || t.event_type || t.key || "Trigger",
+          enabled: t.is_active ?? t.enabled ?? true,
+        }))
+        : []
+    );
+    setActions(
+      Array.isArray(automation.actions)
+        ? automation.actions.map((a, idx) => ({
+          ...a,
+          key: a.action_type || a.key,
+          icon: getActionIcon(a.action_type || a.key),
+          label: CATALOG_ACTIONS.find(i => i.key === (a.action_type || a.key))?.label
+            || a.action_type || a.key || "Action",
+          config: a.content || a.config || {},
+          order_index: a.order_index ?? idx,
+          delay_minutes: a.delay_minutes ?? 0,
+        }))
+        : []
+    );
   }, [automation]);
 
-  // Handlers
-  const handleNameChange = (e) => {
-    setAutomation((prev) => ({ ...prev, name: e.target.value }));
-    setSaved(false);
-  };
-  const handleDescChange = (e) => {
-    setAutomation((prev) => ({ ...prev, description: e.target.value }));
-    setSaved(false);
-  };
-
-  const handleSave = (data) => {
-    // TODO: Gọi API lưu hoặc cập nhật automation
-    alert("Đã lưu automation!");
-    navigate("/automation");
-  };
-
-  const handleDelete = () => {
-    // TODO: Gọi API xoá automation
-    alert("Đã xoá automation!");
-    navigate("/automation");
-  };
-
-  const [saved, setSaved] = useState(true);
-
-  const CATALOG_TRIGGERS = [
-    { key: "signup", label: "Đăng ký mới (Tất cả kênh)", icon: UserPlus },
-    { key: "tag_added", label: "Được gắn Tag", icon: Tags },
-    { key: "tag_removed", label: "Bị xóa Tag", icon: Tags },
-    { key: "seq_join", label: "Đăng ký Sequence", icon: UserPlus },
-    { key: "seq_cancel", label: "Hủy đăng ký Sequence", icon: UserPlus },
-    { key: "field_changed", label: "Trường tuỳ chỉnh thay đổi", icon: Settings },
-  ];
-  const CATALOG_ACTIONS = [
-    { key: "msg", label: "Gửi tin Messenger", icon: Bell },
-    { key: "sms", label: "Gửi SMS", icon: Bell },
-    { key: "email", label: "Gửi Email", icon: Mail },
-    { key: "goto_flow", label: "Bắt đầu một Flow khác", icon: MoveRight },
-    { key: "condition", label: "Điều kiện", icon: Settings },
-    { key: "zns", label: "Gửi tin Zalo ZNS", icon: Bell },
-    { key: "time", label: "Chờ trong giây lát", icon: Clock },
-  ];
-
+  // UI states
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
   const [showActionPicker, setShowActionPicker] = useState(false);
   const [qTrigger, setQTrigger] = useState("");
   const [qAction, setQAction] = useState("");
+  const [selected, setSelected] = useState(null); // {type, key}
 
-  const [selected, setSelected] = useState(null); // { type: 'trigger'|'action', key: string } | null
-
-  // Lọc trigger/action theo từ khoá tìm kiếm
   const filteredTriggerCatalog = useMemo(() => {
     const q = qTrigger.trim().toLowerCase();
-    return !q
-      ? CATALOG_TRIGGERS
-      : CATALOG_TRIGGERS.filter((i) => i.label.toLowerCase().includes(q));
+    return q ? CATALOG_TRIGGERS.filter(i => i.label.toLowerCase().includes(q)) : CATALOG_TRIGGERS;
   }, [qTrigger]);
+
   const filteredActionCatalog = useMemo(() => {
     const q = qAction.trim().toLowerCase();
-    return !q
-      ? CATALOG_ACTIONS
-      : CATALOG_ACTIONS.filter((i) => i.label.toLowerCase().includes(q));
+    return q ? CATALOG_ACTIONS.filter(i => i.label.toLowerCase().includes(q)) : CATALOG_ACTIONS;
   }, [qAction]);
+
   const currentTrigger = useMemo(
-    () =>
-      selected?.type === "trigger"
-        ? triggers.find((t) => t.key === selected.key) || null
-        : null,
+    () => selected?.type === "trigger" ? (triggers.find(t => t.key === selected.key) || null) : null,
     [triggers, selected]
   );
   const currentAction = useMemo(
-    () =>
-      selected?.type === "action"
-        ? actions.find((a) => a.key === selected.key) || null
-        : null,
+    () => selected?.type === "action" ? (actions.find(a => a.key === selected.key) || null) : null,
     [actions, selected]
   );
 
-  const toggleTrigger = (itemKey) => {
-    setTriggers((prev) =>
-      prev.map((t) => (t.key === itemKey ? { ...t, enabled: !t.enabled } : t))
-    );
+  // Common handlers
+  const handleFieldChange = (field, value) => {
+    setAutomation(prev => ({ ...prev, [field]: value }));
     setSaved(false);
   };
 
-  // Chỗ này call API tạo flow nha
-  const publish = () => {
-    setSaved(true);
-    alert("Đã xuất bản!");
+  // Tabs guard
+  const goSetupGuard = () => {
+    if (!automation?.flow_id) return;
+    setActiveTab("setup");
   };
 
-  // Add
+  // ====== ACTIONS ======
+  const toggleTrigger = (itemKey) => {
+    setTriggers(prev => prev.map(t => t.key === itemKey ? { ...t, enabled: !t.enabled } : t));
+    setSaved(false);
+  };
+
   const addTrigger = (item) => {
-    setTriggers((prev) => [...prev, { ...item, enabled: true }]);
+    setTriggers(prev => [...prev, { ...item, enabled: true }]);
     setSelected({ type: "trigger", key: item.key });
     setShowTriggerPicker(false);
     setQTrigger("");
     setSaved(false);
   };
+
+  const deleteTrigger = (itemKey) => {
+    setTriggers(prev => prev.filter(t => t.key !== itemKey));
+    if (selected?.type === "trigger" && selected.key === itemKey) setSelected(null);
+    setSaved(false);
+  };
+
   const addAction = (item) => {
     const base = { ...item };
-    if (item.key === "email") base.config = { subject: "" }; // default cho Email
-    setActions((prev) => [...prev, base]);
+    if (item.key === "send_email") base.config = { subject: "", body: "" };
+    setActions(prev => [...prev, { ...base, order_index: prev.length, delay_minutes: 0 }]);
     setSelected({ type: "action", key: item.key });
     setShowActionPicker(false);
     setQAction("");
     setSaved(false);
   };
 
-  // Delete
-  const deleteTrigger = (itemKey) => {
-    setTriggers((prev) => prev.filter((t) => t.key !== itemKey));
-    if (selected?.type === "trigger" && selected.key === itemKey) setSelected(null);
-    setSaved(false);
-  };
   const deleteAction = (itemKey) => {
-    setActions((prev) => prev.filter((a) => a.key !== itemKey));
+    setActions(prev => prev.filter(a => a.key !== itemKey));
     if (selected?.type === "action" && selected.key === itemKey) setSelected(null);
     setSaved(false);
   };
 
-  // Update email config
+  // update email config (subject/body)
   const updateEmailConfig = (patch) => {
     if (!currentAction) return;
-    setActions((prev) =>
-      prev.map((a) =>
-        a.key === currentAction.key
-          ? { ...a, config: { ...a.config, ...patch } }
-          : a
-      )
+    setActions(prev =>
+      prev.map(a => a.key === currentAction.key ? { ...a, config: { ...(a.config || {}), ...patch } } : a)
     );
     setSaved(false);
   };
 
-  // Handler cho các trường thông tin chung
-  const handleFieldChange = (field, value) => {
-    setAutomation((prev) => ({ ...prev, [field]: value }));
-    setSaved(false);
+  // ====== API handlers ======
+
+  // 1) Tạo flow rồi chuyển sang tab "Thiết lập"
+  const handleCreateFlowThenSetup = async () => {
+    try {
+      const body = {
+        name: (automation?.name || '').trim(),
+        description: (automation?.description || '').trim(),
+        tags: Array.isArray(automation?.tags) ? automation.tags : [],
+      };
+      if (!body.name) {
+        alert("Nhập tên automation trước khi tạo");
+        return;
+      }
+      const res = await createFlow(body);
+      const newId = pickFlowId(res);
+      if (!newId) {
+        alert("Không lấy được flow_id sau khi tạo");
+        return;
+      }
+      setAutomation(prev => ({ ...prev, flow_id: newId, updated_at: new Date().toISOString() }));
+      setActiveTab("setup");
+      setSaved(false);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Tạo flow thất bại");
+    }
   };
 
-  // Trạng thái options cho dropdown
-  const statusOptions = [
-    { value: 'ACTIVE', label: 'Đang chạy' },
-    { value: 'DRAFT', label: 'Bản nháp' },
-    { value: 'INACTIVE', label: 'Ngưng hoạt động' }
-  ];
+  // 2) Lưu thông tin chung (meta)
+  const handleSaveInfo = async () => {
+    if (!automation?.flow_id) {
+      alert("Chưa có flow_id — hãy tạo flow trước");
+      return;
+    }
+    try {
+      const payload = {
+        flow_meta: {
+          name: automation?.name || "New Flow",
+          description: automation?.description || "",
+          tags: Array.isArray(automation?.tags) ? automation.tags : [],
+        },
+        upserts: { triggers: [], actions: [] },
+        deletes: { trigger_ids: [], action_ids: [] },
+      };
+      await saveFlowEditor(automation.flow_id, payload);
+      setSaved(true);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Lưu thông tin chung thất bại");
+    }
+  };
 
-  // Ref cho picker
+  // 3) Lưu tab thiết lập (triggers + actions)
+  const handleSaveSetup = async () => {
+    if (!automation?.flow_id) {
+      alert("Chưa có flow_id — hãy tạo flow trước");
+      return;
+    }
+    try {
+      // giữ id cũ để UPDATE, null = CREATE
+      const upsertTriggers = toUpsertTriggers(triggers);
+      const upsertActions = toUpsertActions(actions);
+
+      // các id bị xóa
+      const deletes = calcDeletes(initialServer, { triggers, actions });
+
+      const payload = {
+        flow_meta: {
+          name: automation?.name || "New Flow",
+          description: automation?.description || "",
+          tags: Array.isArray(automation?.tags) ? automation.tags : [],
+        },
+        upserts: { triggers: upsertTriggers, actions: upsertActions },
+        deletes, // <— QUAN TRỌNG
+      };
+
+      await saveFlowEditor(automation.flow_id, payload);
+
+      // cập nhật snapshot mới sau khi lưu thành công
+      setInitialServer({ triggers, actions });
+
+      setSaved(true);
+      alert("Đã lưu thiết lập");
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Lưu thiết lập thất bại");
+    }
+  };
+
+
+  // 4) Gen AI cho action Email hiện chọn
+  const handleGenEmailAI = async () => {
+    if (!selected || selected.type !== "action") {
+      alert("Hãy chọn hành động Gửi Email");
+      return;
+    }
+    const act = actions.find(a => a.key === selected.key);
+    if (!act || act.key !== "send_email") {
+      alert("Chỉ hỗ trợ Gen AI cho hành động Gửi Email");
+      return;
+    }
+    try {
+      const res = await generateEmailContent({
+        input: {
+          name: automation?.lead_name || "",
+          product: automation?.product || "",
+          campaign: automation?.campaign || "",
+          tone: automation?.tone || "chuyên nghiệp",
+        },
+        options: { purpose: automation?.purpose || "promotion" },
+      });
+      const subject = res?.data?.subject || res?.subject || res?.result?.subject || "Ưu đãi dành cho bạn";
+      const body = res?.data?.body || res?.body || res?.result?.body || "";
+      setActions(prev => prev.map(a =>
+        a.key === "send_email" ? { ...a, config: { ...(a.config || {}), subject, body } } : a
+      ));
+      setSaved(false);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Gen AI thất bại");
+    }
+  };
+
+  // refs + close pickers
   const triggerPickerRef = useRef(null);
   const actionPickerRef = useRef(null);
-
-  // Đóng picker khi click ra ngoài
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (showTriggerPicker && triggerPickerRef.current && !triggerPickerRef.current.contains(event.target)) {
+    function handleClickOutside(ev) {
+      if (showTriggerPicker && triggerPickerRef.current && !triggerPickerRef.current.contains(ev.target)) {
         setShowTriggerPicker(false);
       }
-      if (showActionPicker && actionPickerRef.current && !actionPickerRef.current.contains(event.target)) {
+      if (showActionPicker && actionPickerRef.current && !actionPickerRef.current.contains(ev.target)) {
         setShowActionPicker(false);
       }
     }
     if (showTriggerPicker || showActionPicker) {
       document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showTriggerPicker, showActionPicker]);
+
+  // options dropdown
+  const statusOptions = [
+    { value: 'ACTIVE', label: 'Đang chạy' },
+    { value: 'DRAFT', label: 'Bản nháp' },
+    { value: 'INACTIVE', label: 'Ngưng hoạt động' },
+  ];
 
   return (
     <div className="min-h-screen">
       {/* Sticky header */}
-      <div className=" flex-col sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2 flex items-center  border-b">
-      <div className="flex items-center justify-between w-full ">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="actionNormal"
-            size="icon"
-            
-            onClick={() => navigate("/automation")}
-            className="mr-2"
-          >
-            <ChevronLeft className="w-4 h-4"/> 
-          </Button>
-          <span className="text-2xl font-bold text-gray-900">
-            {automation?.name || "Tên automation"}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-sm">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-gray-700">{saved ? "Đã lưu" : "Có thay đổi"}</span>
+      <div className="flex-col sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2 flex items-center border-b">
+        <div className="flex items-center justify-between w-full ">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate("/automations")} className="mr-2">
+              <ChevronLeft className="w-4 h-4" /> Quay lại
+            </Button>
+            <span className="text-2xl font-bold text-gray-900">
+              {automation?.name || "Tên automation"}
+            </span>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-gray-700">{saved ? "Đã lưu" : "Có thay đổi"}</span>
+            </div>
+            <Button
+              variant="actionCreate"
+              onClick={handleSaveSetup}
+              disabled={!automation?.flow_id}
+              title={!automation?.flow_id ? "Tạo flow trước" : "Lưu thiết lập"}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Lưu thiết lập
+            </Button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-0 pt-4 flex items-start w-full gap-2">
           <Button
-            variant="actionCreate"
-            onClick={publish} //
+            variant={activeTab === "info" ? "actionCreate" : "actionNormal"}
+            onClick={() => setActiveTab("info")}
           >
-            <Save className="w-4 h-4 mr-2" />
-            Xuất bản
+            Thông tin chung
+          </Button>
+          <Button
+            variant={activeTab === "setup" ? "actionCreate" : "actionNormal"}
+            disabled={!automation?.flow_id}
+            onClick={goSetupGuard}
+          >
+            Thiết lập Trigger & Action
           </Button>
         </div>
-        </div>
-        {/* Tabs */}
-      <div className="px-0 pt-4 flex items-start w-full gap-2">
-        <Button
-          variant= {activeTab === "info" ? "actionCreate" : "actionNormal"}
-          onClick={() => setActiveTab("info")}
-        >
-          Thông tin chung
-        </Button>
-        <Button
-          variant= {activeTab === "setup" ? "actionCreate" : "actionNormal"}
-          onClick={() => setActiveTab("setup")}
-        >
-          Thiết lập Trigger & Action
-        </Button>
       </div>
-      </div>
-
-      
 
       {/* Tab content */}
       <div className="px-6 py-6">
@@ -374,13 +566,13 @@ export default function FlowBuilderPage() {
                 <input
                   type="text"
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  value={automation?.tags?.join(", ") || ""}
-                  onChange={e => handleFieldChange("tags", e.target.value.split(",").map(t => t.trim()))}
+                  value={Array.isArray(automation?.tags) ? automation.tags.join(", ") : ""}
+                  onChange={e => handleFieldChange("tags", e.target.value.split(",").map(t => t.trim()).filter(Boolean))}
                   placeholder="tag1, tag2, ..."
                 />
               </div>
               <div className="flex items-center gap-2 pt-6">
-                <label className="text-sm font-medium text-gray-700">{automation?.enabled}</label>
+                <label className="text-sm font-medium text-gray-700">Kích hoạt</label>
                 <Toggle
                   checked={!!automation?.enabled}
                   onChange={v => handleFieldChange("enabled", v)}
@@ -396,6 +588,24 @@ export default function FlowBuilderPage() {
                 />
               </div>
             </div>
+
+            {/* Info actions */}
+            <div className="mt-4 flex gap-2">
+              {!automation?.flow_id ? (
+                <Button variant="actionUpdate" onClick={handleCreateFlowThenSetup}>
+                  <Save className="w-4 h-4 mr-2" /> Tạo flow & sang thiết lập
+                </Button>
+              ) : (
+                <>
+                  <Button variant="actionUpdate" onClick={handleSaveInfo}>
+                    <Save className="w-4 h-4 mr-2" /> Lưu thông tin
+                  </Button>
+                  <Button variant="outline" onClick={goSetupGuard}>
+                    Đi tới Thiết lập
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         ) : (
           // Tab setup
@@ -408,7 +618,7 @@ export default function FlowBuilderPage() {
                 footer={
                   <Button
                     variant="actionUpdate"
-                    onClick={() => setShowTriggerPicker((v) => !v)}
+                    onClick={() => setShowTriggerPicker(v => !v)}
                     className="w-full"
                   >
                     <Plus className="inline w-4 h-4 mr-2" /> Thêm Trigger
@@ -429,10 +639,7 @@ export default function FlowBuilderPage() {
                     onClick={() => setSelected({ type: "trigger", key: t.key })}
                     right={
                       <div className="flex items-center gap-2">
-                        <Toggle
-                          checked={!!t.enabled}
-                          onChange={() => toggleTrigger(t.key)}
-                        />
+                        <Toggle checked={!!t.enabled} onChange={() => toggleTrigger(t.key)} />
                         <Button
                           variant="actionDelete"
                           size="icon"
@@ -473,12 +680,8 @@ export default function FlowBuilderPage() {
                           >
                             <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
                             <div className="min-w-0 text-left">
-                              <div className="text-sm font-medium text-gray-900 truncate">
-                                {it.label}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Kích hoạt khi điều kiện phù hợp
-                              </div>
+                              <div className="text-sm font-medium text-gray-900 truncate">{it.label}</div>
+                              <div className="text-xs text-gray-500">Kích hoạt khi điều kiện phù hợp</div>
                             </div>
                           </button>
                         ))}
@@ -494,9 +697,8 @@ export default function FlowBuilderPage() {
                 footer={
                   <Button
                     variant="actionUpdate"
-                    onClick={() => setShowActionPicker((v) => !v)}
+                    onClick={() => setShowActionPicker(v => !v)}
                     className="w-full"
-                    
                   >
                     <Plus className="inline w-4 h-4 mr-2" /> Thêm hành động
                   </Button>
@@ -533,9 +735,6 @@ export default function FlowBuilderPage() {
                 {/* Action picker */}
                 {showActionPicker && (
                   <div ref={actionPickerRef} className="absolute left-full top-56 ml-3 w-[360px] bg-white rounded-2xl border shadow-lg p-3 z-10">
-                    {/* <div className="px-2 pb-2 border-b">
-                      <div className="text-sm font-semibold">Chọn hành động tiếp theo</div>
-                    </div> */}
                     <div className="mt-3">
                       <div className="flex items-center gap-2 px-2 h-10 rounded-lg border bg-gray-50">
                         <input
@@ -551,17 +750,13 @@ export default function FlowBuilderPage() {
                             key={it.key}
                             onClick={() => addAction(it)}
                             className="w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
-                            >
+                          >
                             <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
                             <div className="min-w-0 text-left">
-                                <div className="text-sm font-medium text-gray-900 truncate">
-                                {it.label}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                Thực thi sau khi Trigger thoả
-                                </div>
+                              <div className="text-sm font-medium text-gray-900 truncate">{it.label}</div>
+                              <div className="text-xs text-gray-500">Thực thi sau khi Trigger thoả</div>
                             </div>
-                            </button>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -570,7 +765,7 @@ export default function FlowBuilderPage() {
               </Section>
             </div>
 
-            {/* Middle - Inspector (chiếm hết phần còn lại) */}
+            {/* Inspector */}
             <div className="lg:col-span-8">
               <InspectorPanel
                 selected={selected}
@@ -578,6 +773,7 @@ export default function FlowBuilderPage() {
                 currentAction={currentAction}
                 toggleTrigger={toggleTrigger}
                 updateEmailConfig={updateEmailConfig}
+                onGenEmailAI={handleGenEmailAI}
               />
             </div>
           </div>
@@ -587,7 +783,7 @@ export default function FlowBuilderPage() {
   );
 }
 
-// Thêm Section helper component
+// Section helper
 const Section = ({ title, subtitle, footer, children }) => (
   <div className="bg-white rounded-2xl border p-4 space-y-3">
     <div>

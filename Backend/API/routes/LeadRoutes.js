@@ -8,6 +8,7 @@ router.post('/import', upload.single('file'), LeadController.importLeads);
 // CRUD
 router.post('/', LeadController.create);
 router.get('/', LeadController.getAll);
+router.get('/qualified', LeadController.getQualifiedLeads);
 router.get('/:id', LeadController.getById);
 router.get('/detail/:id', LeadController.getLeadDetails);
 router.patch('/:id', LeadController.update);
@@ -16,6 +17,7 @@ router.patch('/:id', LeadController.update);
 router.patch('/:id/status', LeadController.changeStatus);
 router.get('/:id/status-history', LeadController.listStatusHistory);
 router.get('/pipeline/metrics', LeadController.getPipelineMetrics);
+
 // Interactions
 router.post('/:id/interactions', LeadController.addInteraction);
 router.get('/:id/interactions', LeadController.listInteractions);

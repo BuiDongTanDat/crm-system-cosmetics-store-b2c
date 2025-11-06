@@ -1,45 +1,164 @@
 const OrderRepo = require('../../Infrastructure/Repositories/OrderRepository');
 const OrderDetailService = require('./OrderDetailService');
+const LeadService = require('./LeadService');
 const { OrderRequestDTO, OrderResponseDTO } = require('../DTOs/OrderDTO');
-
+const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
 class OrderService {
 
-	
+	async createQuickOrder(payload = {}) {
+		const hasIdentity = !!(payload.customer_id || payload.lead_id || payload.phone || payload.email);
+		if (!hasIdentity) {
+			throw new Error('MISSING_CONTACT: Thiếu customer_id/lead_id hoặc phone/email của khách');
+		}
+		let items = Array.isArray(payload.items) ? payload.items : [];
+
+		if (!items.length && payload.default_product_id) {
+			items = [{ product_id: payload.default_product_id, quantity: 1 }];
+		}
+		if (!items.length && payload.bundle_id) {
+			if (!BundleService?.expand) {
+				throw new Error('NO_ITEMS: Thiếu items; BundleService.expand chưa sẵn sàng');
+			}
+			items = await BundleService.expand(payload.bundle_id); // -> [{product_id, quantity}, ...]
+		}
+		if (!items.length) {
+			throw new Error('NO_ITEMS: Thiếu danh sách sản phẩm');
+		}
+		// --- 2) Enrich giá + kiểm tồn nếu có service (khuyến nghị) ---
+		let enriched = items;
+		if (PricingInventoryService?.enrichAndValidate) {
+			// expect trả về [{ product_id, quantity, unit_price, discount?, total_price, price_original? }]
+			enriched = await PricingInventoryService.enrichAndValidate(items);
+		} else {
+			// Fallback: đảm bảo có unit_price/total_price từ client
+			enriched = items.map((it) => {
+				const unit = Number(it.unit_price ?? it.price ?? 0);
+				if (!unit) throw new Error(`PRICE_NOT_FOUND: Không xác định được giá cho sản phẩm ${it.product_id}`);
+				const qty = Number(it.quantity || 1);
+				const total = Number(it.total_price ?? (qty * unit));
+				return {
+					product_id: it.product_id,
+					product_name: it.product_name || null,
+					quantity: qty,
+					unit_price: unit,
+					discount: Number(it.discount || 0),        // 0..1
+					price_original: it.price_original ?? null, // optional
+					total_price: total
+				};
+			});
+		}
+
+		// --- 3) Tính tổng tiền ---
+		const totalAmount = enriched.reduce((s, it) => s + Number(it.total_price || 0), 0);
+		if (!totalAmount || totalAmount <= 0) {
+			throw new Error('Thiếu tổng tiền sau khi tính items');
+		}
+		const quickPayload = {
+			// Nhận diện – để createOrder tự JIT convert/ghép customer:
+			customer_id: payload.customer_id || null,
+			lead_id: payload.lead_id || null,
+			full_name: payload.full_name || payload.name || null,
+			phone: payload.phone || null,
+			email: payload.email || null,
+			created_by: payload.created_by || null,
+
+			// Order content
+			items: enriched,
+			total_amount: totalAmount,
+			payment_method: payload.payment_method || 'cash_on_delivery',
+			status: payload.status || 'draft_cart',
+			channel: payload.channel || 'quick_order',
+			notes: payload.notes || '',
+			order_date: new Date().toISOString(),
+
+			// giữ nguyên các field khác nếu bạn muốn
+			currency: payload.currency || 'VND',
+		};
+
+		// gọi hàm createOrder có sẵn để hưởng transaction/DTO/log
+		const created = await this.createOrder(quickPayload);
+		return created; // OrderResponseDTO
+	}
 	// Tạo order (payload có thể chứa items)
 	async createOrder(payload) {
+		const {
+			lead_id,
+			full_name,
+			name,
+			phone,
+			email,
+			created_by,
+		} = (payload || {});
+
+		if (!payload?.customer_id) {
+			let resolvedCustomer = null;
+
+			if (lead_id) {
+				const { ok, data, error } = await LeadService.autoConvertLead(lead_id, {
+					orderId: null,
+					by: created_by || null,
+					customerPatch: { source: 'order_checkout' },
+				});
+				if (!ok) {
+					throw new Error(`Convert lead thất bại: ${error?.message || error?.code || 'AUTO_CONVERT_FAILED'}`);
+				}
+				resolvedCustomer = data?.customer;
+				payload.customer_id = resolvedCustomer?.customer_id;
+			} else {
+				// Bổ sung validate email/phone – nếu trùng thì gán customer_id đó
+				let exist = null;
+
+				if (email) exist = await customerRepository.findByEmail(email);
+				if (!exist && phone) exist = await customerRepository.findByPhone(phone);
+
+				if (exist) {
+					// Nếu đã có khách hàng trùng email hoặc phone
+					payload.customer_id = exist.customer_id;
+					resolvedCustomer = exist;
+				} else {
+					const candidate = {
+						name: full_name || name || 'Guest',
+						phone: phone || null,
+						email: email || null,
+						source: 'guest_checkout',
+					};
+					resolvedCustomer = await customerRepository.findOrCreateSmart(candidate);
+					payload.customer_id = resolvedCustomer?.customer_id;
+				}
+			}
+		}
+
 
 		const dto = new OrderRequestDTO(payload);
 		if (!dto.customer_id) throw new Error('Thiếu mã khách hàng');
 
-		//Chuẩn hóa item, dùng bên OrderDetailService (DTO này chưa có order id nha)
 		const items = Array.isArray(dto.items)
 			? dto.items.map(i => OrderDetailService._normalizeDetail(i))
 			: [];
 
-		//Nếu chưa có total_amount hoặc = 0 thì tính lại
 		if (!dto.total_amount || Number(dto.total_amount) === 0) {
 			throw new Error('Thiếu tổng tiền (total_amount)');
 		}
 
-		// CHuẩn bị các trường bên Order
 		const orderPayload = {
+			lead_id: dto.lead_id,
 			customer_id: dto.customer_id,
 			order_date: dto.order_date,
 			total_amount: dto.total_amount,
 			currency: dto.currency,
 			payment_method: dto.payment_method,
-			status: dto.status,
+			status: dto.status || 'draft_cart',
 			channel: dto.channel,
 			notes: dto.notes,
 		};
 
-		//Tạo order trước rồi lấy order_id để tạo details
 		let createdOrder;
 		let createDetails = [];
 		const transaction = await OrderRepo.sequelize.transaction();
+
 		try {
 			createdOrder = await OrderRepo.create(orderPayload, transaction);
-			//Tạo details nếu có (Lúc này gắn thêm cái  order_id mới tạo vào DTO)
+
 			if (items.length > 0) {
 				const detailsWithOrderId = items.map(i => ({
 					...i,
@@ -50,11 +169,11 @@ class OrderService {
 
 			await transaction.commit();
 			return OrderResponseDTO.fromEntity(createdOrder, createDetails);
+
 		} catch (err) {
 			await transaction.rollback();
 			throw new Error(`Tạo đơn hàng thất bại: ${err.message}`);
 		}
-
 	}
 
 	// Lấy order theo id
@@ -135,7 +254,11 @@ class OrderService {
 			throw new Error(`Cập nhật đơn hàng thất bại: ${err.message}`);
 		}
 	}
-
+	async getByLeadId(leadId) {
+		if (!leadId) throw new Error('Thiếu lead_id');// tuỳ bạn: trả đơn mới nhất của lead
+		const order = await OrderRepo.findByLeadIdLatest(leadId);
+		return order ? OrderResponseDTO.fromEntity(order) : null;
+	}
 	// Cập nhật trạng thái nhanh
 	async updateStatus(orderId, newStatus) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
@@ -188,6 +311,29 @@ class OrderService {
 			return results;
 		} catch (err) {
 			throw new Error(`Lấy danh sách đơn hàng theo khách hàng thất bại: ${err.message}`);
+		}
+	}
+	async addItem(orderId, item) {
+		if (!orderId) throw new Error('Thiếu order_id');
+		const o = await OrderRepo.findById(orderId);
+		if (!o) throw new Error('Order không tồn tại');
+		if (o.status !== 'draft_cart') throw new Error('Chỉ thêm sản phẩm khi ở trạng thái draft_cart');
+
+		const norm = OrderDetailService._normalizeDetail(item);
+		const t = await OrderRepo.sequelize.transaction();
+		try {
+			await OrderDetailService.createMany([{ ...norm, order_id: orderId }], { transaction: t });
+			// Tính lại total nhanh:
+			const details = await OrderDetailService.getByOrderId(orderId, { transaction: t });
+			const total = details.reduce((s, d) => s + Number(d.line_total || d.total_price || 0), 0);
+			await OrderRepo.update(orderId, { total_amount: total }, { transaction: t });
+			await t.commit();
+			const updatedOrder = await OrderRepo.findById(orderId);
+			const updatedDetails = await OrderDetailService.getByOrderId(orderId);
+			return OrderResponseDTO.fromEntity(updatedOrder, updatedDetails);
+		} catch (err) {
+			await t.rollback();
+			throw err;
 		}
 	}
 }

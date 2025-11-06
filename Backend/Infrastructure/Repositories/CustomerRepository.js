@@ -14,8 +14,9 @@ class CustomerRepository {
     return existing;
   }
 
-  async findById(customerId) {
-    return await Customer.findByPk(customerId) || null;
+  async findById(customerId, options = {}) {
+    const { transaction } = options;
+    return await Customer.findByPk(customerId, { transaction }) || null;
   }
 
   async findAll() {
@@ -77,24 +78,12 @@ class CustomerRepository {
     await customer.save();
     return customer;
   }
-  async findOrCreateSmart(payload, { transaction: t } = {}) {
-    const { email, phone } = payload || {};
+  async findOrCreateSmart(payload, { transaction } = {}) {
     let exist = null;
-    if (email) exist = await Customer.findOne({ where: { email }, transaction: t, lock: t ? t.LOCK.UPDATE : undefined });
-    if (!exist && phone) exist = await Customer.findOne({ where: { phone }, transaction: t, lock: t ? t.LOCK.UPDATE : undefined });
-
-    if (exist) {
-      const patch = {};
-      if (!exist.name && payload.name) patch.name = payload.name;
-      if (!exist.source && payload.source) patch.source = payload.source;
-      if (!exist.assigned_to && payload.assigned_to) patch.assigned_to = payload.assigned_to;
-      if (Array.isArray(payload.tags) && payload.tags.length && (!Array.isArray(exist.tags) || !exist.tags.length)) {
-        patch.tags = payload.tags;
-      }
-      if (Object.keys(patch).length) await exist.update(patch, { transaction: t });
-      return exist;
-    }
-    return Customer.create(payload, { transaction: t });
+    if (payload.email) exist = await Customer.findOne({ where: { email: payload.email }, transaction });
+    if (!exist && payload.phone) exist = await Customer.findOne({ where: { phone: payload.phone }, transaction });
+    if (exist) return exist;
+    return await Customer.create(payload, { transaction }); // trả instance, không phải [inst, created]
   }
 }
 

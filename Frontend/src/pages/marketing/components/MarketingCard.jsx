@@ -1,6 +1,45 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
+import { formatCurrency, formatDate } from "@/utils/helper";
+const formatPercent = (v) => {
+    const n = Number(v);
+    if (Number.isNaN(n)) return String(v);
+    // nếu nhập 0.25 coi như 25%, nếu nhập 25 coi như 25%
+    const percent = n <= 1 && n >= 0 ? n * 100 : n;
+    return `${percent.toFixed(1)}%`;
+};
+
+const KPI_LABELS = {
+    leads: 'Leads',
+    cpl: 'CPL',
+    reach: 'Tiếp cận',
+    revenue: 'Doanh thu',
+    open_rate: 'Open rate',
+    click_rate: 'Click rate',
+    roi: 'ROI',
+};
+
+const KPI_FORMATTER = (key, val, { formatCurrency }) => {
+    if (key === 'cpl' || key === 'revenue') return formatCurrency(val);
+    if (key === 'open_rate' || key === 'click_rate' || key === 'roi') return formatPercent(val);
+    const n = Number(val);
+    return Number.isNaN(n) ? String(val) : n.toLocaleString('vi-VN');
+};
+
+const getKPIObject = (expectedKPI) => {
+    if (!expectedKPI) return null;
+    if (typeof expectedKPI === 'object') return expectedKPI;
+    if (typeof expectedKPI === 'string') {
+        try {
+            const obj = JSON.parse(expectedKPI);
+            return obj && typeof obj === 'object' ? obj : null;
+        } catch {
+            return null;
+        }
+    }
+    return null;
+};
 
 export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge }) {
     const [hoveredCard, setHoveredCard] = useState(false);
@@ -62,7 +101,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white">
-                            {campaign.assignee ? campaign.assignee.charAt(0) : '-'}
+                            {(campaign.assignee?.[0] || '?').toUpperCase()}
                         </span>
                         <div>
                             <p className="text-xs text-gray-500">Phụ trách</p>
@@ -85,10 +124,33 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                     </div>
                 )}
 
-                {/* KPI - will be covered by action buttons on hover */}
                 <div className={`transition-opacity duration-200 ${hoveredCard ? 'opacity-0' : 'opacity-100'}`}>
-                    <p className="text-xs text-gray-500">KPI kỳ vọng</p>
-                    <p className="text-sm text-gray-700">{campaign.expectedKPI}</p>
+                    <p className="text-xs text-gray-500 mb-1">KPI kỳ vọng</p>
+                    {(() => {
+                        const kpiObj = getKPIObject(campaign.expectedKPI);
+                        if (!kpiObj || Object.keys(kpiObj).length === 0) {
+                            // fallback: nếu là string mô tả chứ không phải JSON
+                            return (
+                                <p className="text-sm text-gray-700 line-clamp-2">
+                                    {typeof campaign.expectedKPI === 'string' ? campaign.expectedKPI : '—'}
+                                </p>
+                            );
+                        }
+                        return (
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(kpiObj).map(([key, val]) => (
+                                    <span
+                                        key={key}
+                                        className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
+                                        title={`${key}: ${val}`}
+                                    >
+                                        {KPI_LABELS[key] || key}:{" "}
+                                        <strong>{KPI_FORMATTER(key, val, { formatCurrency })}</strong>
+                                    </span>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
