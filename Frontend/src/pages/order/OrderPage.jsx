@@ -521,6 +521,17 @@ export default function OrderPage() {
                     paymentLabels={PAYMENT_LABELS}
                     statusLabels={STATUS_LABELS}
                     maxWidth="sm:max-w-5xl"
+                    //  pass custom setMode so that when the form sets mode="view"
+                    // while creating a NEW order (modal.order === null), we CLOSE the dialog.
+                    setMode={(m) =>
+                        setModal((prev) => {
+                            if (m === "view" && prev.order == null) {
+                                // close modal when cancelling a new order form
+                                return { open: false, mode: "view", order: null };
+                            }
+                            return { ...prev, mode: m };
+                        })
+                    }
                 />
             </div>
         </div>

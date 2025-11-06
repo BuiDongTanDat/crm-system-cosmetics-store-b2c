@@ -6,6 +6,7 @@ import { request } from "@/utils/api";
 import { getCategories } from "@/services/categories";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
+import { Input } from '@/components/ui/input'; // <-- added import
 
 export function ProductForm({
   mode = "view",
@@ -268,7 +269,8 @@ export function ProductForm({
                   />
                 ) : (
                   // Disable manual editing for price_current (auto-calculated)
-                  <input
+                  <Input
+                    variant="normal"
                     disabled={key === "price_current" ? true : (mode === "view")}
                     value={form[key] || ""}
                     onChange={handleChange(key)}

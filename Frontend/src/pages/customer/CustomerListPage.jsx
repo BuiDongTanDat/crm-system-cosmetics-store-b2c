@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Eye, Edit, Trash2, Filter, History } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 // Import API client (chỉnh path cho đúng dự án của bạn)
 import { getCustomers } from "@/services/customers";
+import { Input } from "@/components/ui/input";
 // hoặc: import { getCustomers } from "@/utils/api/customers";
 
 export default function CustomerListPage() {

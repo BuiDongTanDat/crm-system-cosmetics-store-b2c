@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
-import { ChevronDown, Edit, Save, Trash2 } from "lucide-react";
+import DropdownOptions from "@/components/common/DropdownOptions";
+import { Input } from "@/components/ui/input";
+import { Edit, Save, Trash2 } from "lucide-react";
 import { mockEmployees } from "@/lib/data";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
@@ -146,35 +142,35 @@ export function DealForm({
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Tiêu đề deal</label>
-              <input
+              <Input
                 disabled={mode === "view"}
                 value={form.title}
                 onChange={handleChange("title")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 placeholder="Nhập tiêu đề deal"
+                variant="normal"
               />
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   value={form.customer}
                   onChange={handleChange("customer")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="Nhập tên khách hàng"
+                  variant="normal"
                 />
               </div>
               <div className="w-32">
                 <label className="block text-sm font-medium mb-1">Giá trị (VNĐ)</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="number"
                   value={form.value}
                   onChange={handleChange("value")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="0"
+                  variant="normal"
                 />
               </div>
             </div>
@@ -182,24 +178,24 @@ export function DealForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Email</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="email"
                   value={form.email}
                   onChange={handleChange("email")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="email@example.com"
+                  variant="normal"
                 />
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Số điện thoại</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="tel"
                   value={form.phone}
                   onChange={handleChange("phone")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="0901234567"
+                  variant="normal"
                 />
               </div>
             </div>
@@ -207,124 +203,55 @@ export function DealForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Nguồn</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.source}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {sourceOptions.map((source) => (
-                      <DropdownMenuItem
-                        key={source}
-                        onSelect={() => setForm((f) => ({ ...f, source }))}
-                      >
-                        {source}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={sourceOptions.map(s => ({ value: s, label: s }))}
+                  value={form.source}
+                  onChange={(val) => setForm(f => ({ ...f, source: val }))}
+                  disabled={mode === "view"}
+                  placeholder="Chọn nguồn"
+                  width="w-full"
+                />
               </div>
 
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">
-                        {statusOptions.find(s => s.value === form.status)?.label}
-                      </span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {statusOptions.map((status) => (
-                      <DropdownMenuItem
-                        key={status.value}
-                        onSelect={() => handleStatusChange(status.value)}
-                      >
-                        {status.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={statusOptions.map(s => ({ value: s.value, label: s.label }))}
+                  value={form.status}
+                  onChange={(val) => handleStatusChange(val)}
+                  disabled={mode === "view"}
+                  placeholder="Chọn trạng thái"
+                  width="w-full"
+                />
               </div>
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Độ ưu tiên</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">
-                        {priorityOptions.find(p => p.value === form.priority)?.label}
-                      </span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {priorityOptions.map((priority) => (
-                      <DropdownMenuItem
-                        key={priority.value}
-                        onSelect={() => setForm((f) => ({ ...f, priority: priority.value }))}
-                      >
-                        {priority.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={priorityOptions.map(p => ({ value: p.value, label: p.label }))}
+                  value={form.priority}
+                  onChange={(val) => setForm(f => ({ ...f, priority: val }))}
+                  disabled={mode === "view"}
+                  placeholder="Chọn độ ưu tiên"
+                  width="w-full"
+                />
               </div>
 
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Người phụ trách</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${
-                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                      }`}
-                    >
-                      <span className="text-sm">{form.assignee || "Chọn người phụ trách"}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
-                  >
-                    {mockEmployees.map((employee) => (
-                      <DropdownMenuItem
-                        key={employee.id}
-                        onSelect={() => setForm((f) => ({ 
-                          ...f, 
-                          assigneeId: employee.id,
-                          assignee: employee.name 
-                        }))}
-                      >
-                        {employee.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={mockEmployees.map(emp => ({ value: emp.id, label: emp.name }))}
+                  value={form.assigneeId || ""}
+                  onChange={(val) => {
+                    const emp = mockEmployees.find(e => e.id === val);
+                    setForm(f => ({ ...f, assigneeId: val, assignee: emp?.name || "" }));
+                  }}
+                  disabled={mode === "view"}
+                  placeholder="Chọn người phụ trách"
+                  width="w-full"
+                />
               </div>
             </div>
 

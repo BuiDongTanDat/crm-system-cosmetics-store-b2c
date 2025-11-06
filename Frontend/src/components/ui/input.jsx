@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
   // base
-  "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+  "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted/30",
   {
     variants: {
       variant: {

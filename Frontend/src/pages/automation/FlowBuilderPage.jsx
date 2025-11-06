@@ -475,8 +475,8 @@ export default function FlowBuilderPage() {
       <div className="flex-col sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2 flex items-center border-b">
         <div className="flex items-center justify-between w-full ">
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate("/automations")} className="mr-2">
-              <ChevronLeft className="w-4 h-4" /> Quay lại
+            <Button variant="actionNormal" onClick={() => navigate("/automations")} className="mr-2">
+              <ChevronLeft className="w-4 h-4" />
             </Button>
             <span className="text-2xl font-bold text-gray-900">
               {automation?.name || "Tên automation"}

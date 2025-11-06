@@ -15,10 +15,75 @@ export default function KanbanColumn({
   animatedData = null, // { startCount, endCount, startTotal, endTotal }
   initialAnimate = false, // animate from 0 on initial load
   isDraggingBoard = false,
+  isCardDragging = false, // new prop from parent: đang kéo card hay không
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showAll, setShowAll] = useState(false); // 👈 toggle hiển thị thêm
   const containerRef = useRef(null);
+  const headerRef = useRef(null);
+  const draggingState = useRef({ active: false, startX: 0, startScroll: 0, boardEl: null });
+
+  // tìm phần tử scrollable ngang (board) từ node hiện tại
+  const findHorizontalScrollParent = (node) => {
+    let el = node;
+    while (el) {
+      try {
+        const style = window.getComputedStyle(el);
+        const overflowX = style && style.overflowX;
+        if ((overflowX === "auto" || overflowX === "scroll" || el.scrollWidth > el.clientWidth) && el.scrollWidth > el.clientWidth) {
+          return el;
+        }
+      } catch (e) {}
+      el = el.parentElement;
+    }
+    return null;
+  };
+
+  const stopHeaderDrag = () => {
+    if (!draggingState.current.active) return;
+    draggingState.current.active = false;
+    document.body.style.userSelect = "";
+    window.removeEventListener("mousemove", onHeaderMouseMove);
+    window.removeEventListener("mouseup", onHeaderMouseUp);
+    window.removeEventListener("touchmove", onHeaderTouchMove);
+    window.removeEventListener("touchend", onHeaderTouchEnd);
+  };
+
+  const onHeaderMouseMove = (e) => {
+    if (!draggingState.current.active) return;
+    const dx = e.clientX - draggingState.current.startX;
+    const board = draggingState.current.boardEl;
+    if (board) board.scrollLeft = Math.max(0, Math.min(board.scrollWidth - board.clientWidth, draggingState.current.startScroll - dx));
+  };
+  const onHeaderMouseUp = () => stopHeaderDrag();
+
+  const onHeaderTouchMove = (e) => {
+    if (!draggingState.current.active) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - draggingState.current.startX;
+    const board = draggingState.current.boardEl;
+    if (board) board.scrollLeft = Math.max(0, Math.min(board.scrollWidth - board.clientWidth, draggingState.current.startScroll - dx));
+  };
+  const onHeaderTouchEnd = () => stopHeaderDrag();
+
+  const startHeaderDrag = (clientX, originNode) => {
+    if (isCardDragging) return; // không bắt drag header khi đang kéo card
+    const board = findHorizontalScrollParent(originNode);
+    if (!board) return;
+    draggingState.current = { active: true, startX: clientX, startScroll: board.scrollLeft, boardEl: board };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onHeaderMouseMove);
+    window.addEventListener("mouseup", onHeaderMouseUp);
+    window.addEventListener("touchmove", onHeaderTouchMove, { passive: false });
+    window.addEventListener("touchend", onHeaderTouchEnd);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopHeaderDrag();
+    };
+  }, []);
 
   // 1️⃣ Sắp xếp khác nhau theo loại cột
   const sortCards = (cards) => {
@@ -100,9 +165,19 @@ export default function KanbanColumn({
     <div className="flex flex-col h-full bg-gray-50 rounded-lg shadow-sm border border-gray-200">
       {/* Header */}
       <div
+        ref={headerRef}
         data-column-header
         className={`${column.headerColor} text-white p-2 rounded-t-lg flex-shrink-0 ${isDraggingBoard ? "cursor-grabbing" : "cursor-grab"
           } select-none`}
+        onMouseDown={(e) => {
+          if (e.button && e.button !== 0) return;
+          startHeaderDrag(e.clientX, e.target);
+        }}
+        onTouchStart={(e) => {
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+          startHeaderDrag(t.clientX, e.target);
+        }}
       >
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-xs uppercase tracking-wide">{column.title}</h3>

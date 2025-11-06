@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import DropdownOptions from "@/components/common/DropdownOptions";
 import { suggest_marketing_campaign, created } from '@/services/campaign';
-import { ChevronDown, Edit, Save, Trash2, TrendingUp, Sparkles, Loader2 } from "lucide-react";
+import { Edit, Save, Trash2, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { CampaignTypeList, CampaignStatusList, mockEmployees } from "@/lib/data";
+import { Input } from "@/components/ui/input";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 /**
  * UPDATED: MarketingForm
@@ -190,7 +188,7 @@ export function MarketingForm({
 
   const handleSubmit = async () => {
     if (!form.name || form.budget === "") {
-      alert("Vui lòng nhập tên chiến dịch và ngân sách");
+      toast.error("Vui lòng nhập tên chiến dịch và ngân sách");
       return;
     }
 
@@ -233,12 +231,12 @@ export function MarketingForm({
     try {
       const campaign = await created(payload);
       console.log("Tạo campaign thành công:", campaign);
-      alert("Tạo campaign thành công!");
+      toast.success("Tạo campaign thành công!");
       onSave?.(campaign);
       setMode?.("view");
     } catch (err) {
       console.error("Tạo campaign lỗi:", err);
-      alert("Lỗi khi tạo campaign!");
+      toast.error("Lỗi khi tạo campaign!");
     }
 
     // If updating, go back to view mode
@@ -248,7 +246,7 @@ export function MarketingForm({
   const handleChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
   const handlePerformanceChange = (field) => (e) => setPerformance((prev) => ({ ...prev, [field]: e.target.value }));
 
-  // ✅ NEW: handlers cho targetFilter
+  // NEW: handlers cho targetFilter
   const handleTFChange = (field) => (e) =>
     setForm((prev) => ({ ...prev, targetFilter: { ...prev.targetFilter, [field]: e.target.value } }));
 
@@ -316,14 +314,14 @@ export function MarketingForm({
       {/* Header AI bar */}
       <div className="border-b bg-white p-3 flex items-center gap-2">
         <div className="flex-1 flex items-center gap-2">
-          <input
+          <Input
+            variant="normal"
             placeholder="Nhập mô tả cho AI (ví dụ: chiến dịch 20/10 cho cửa hàng mỹ phẩm, ngân sách 15tr, kênh IG)"
-            className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             disabled={aiLoading}
           />
-          <Button type="button" variant="secondary" onClick={fetchAISuggestion} disabled={aiLoading}>
+          <Button  variant="actionAI" onClick={fetchAISuggestion} disabled={aiLoading}>
             {aiLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
             Gợi ý bằng AI
           </Button>
@@ -338,11 +336,11 @@ export function MarketingForm({
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Tên chiến dịch</label>
-              <input
+              <Input
+                variant="normal"
                 disabled={mode === "view"}
                 value={form.name}
                 onChange={handleChange("name")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 placeholder="Nhập tên chiến dịch"
               />
             </div>
@@ -350,145 +348,125 @@ export function MarketingForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Kênh / Loại chiến dịch</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{form.type}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {CampaignTypeList.map((type) => (
-                      <DropdownMenuItem key={type} onSelect={() => setForm((f) => ({ ...f, type }))}>
-                        {type}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={CampaignTypeList.map((t) => ({ value: t, label: t }))}
+                  value={form.type}
+                  onChange={(val) => setForm((f) => ({ ...f, type: val }))}
+                  disabled={mode === "view"}
+                  width="w-full"
+                />
               </div>
 
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{form.status}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {CampaignStatusList.map((status) => (
-                      <DropdownMenuItem key={status} onSelect={() => setForm((f) => ({ ...f, status }))}>
-                        {status}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={CampaignStatusList.map((s) => ({ value: s, label: s }))}
+                  value={form.status}
+                  onChange={(val) => setForm((f) => ({ ...f, status: val }))}
+                  disabled={mode === "view"}
+                  width="w-full"
+                />
               </div>
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Ngân sách (VNĐ)</label>
-                <input
+                <Input
+                  variant="normal"
                   disabled={mode === "view"}
                   type="number"
                   value={form.budget}
                   onChange={handleChange("budget")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="0"
                 />
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Đối tượng mục tiêu (ghi chú)</label>
-                <input
+                <Input
+                  variant="normal"
                   disabled={mode === "view"}
                   value={form.targetAudience}
                   onChange={handleChange("targetAudience")}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="Mô tả đối tượng (ghi chú)"
                 />
               </div>
             </div>
 
-            {/* ✅ NEW: Target Filter block */}
+            {/* NEW: Target Filter block */}
             <div className="border rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold">Bộ lọc đối tượng (target_filter)</h4>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="flex gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="flex gap-2 md:col-span-2">
                   <div className="flex-1">
                     <label className="block text-sm font-medium mb-1">Tuổi tối thiểu</label>
-                    <input
+                    <Input
+                      variant="normal"
                       disabled={mode === "view"}
                       type="number"
                       value={form.targetFilter.ageMin}
                       onChange={(e) => handleTFChange("ageMin")({ target: { value: clampInt(e.target.value) } })}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="18"
                     />
                   </div>
                   <div className="flex-1">
                     <label className="block text-sm font-medium mb-1">Tuổi tối đa</label>
-                    <input
+                    <Input
+                      variant="normal"
                       disabled={mode === "view"}
                       type="number"
                       value={form.targetFilter.ageMax}
                       onChange={(e) => handleTFChange("ageMax")({ target: { value: clampInt(e.target.value) } })}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="40"
                     />
                   </div>
                 </div>
 
-                <div>
+                <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">Giới tính (comma)</label>
-                  <input
+                  <Input
+                    variant="normal"
                     disabled={mode === "view"}
                     value={form.targetFilter.genders.join(", ")}
                     onChange={handleTFArrayChange("genders")}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
                     placeholder="female, male"
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">Khu vực (comma)</label>
-                  <input
+                  <Input
+                    variant="normal"
                     disabled={mode === "view"}
                     value={form.targetFilter.locations.join(", ")}
                     onChange={handleTFArrayChange("locations")}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
                     placeholder="HCMC, HN"
                   />
                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Sở thích (comma)</label>
-                  <input
+                  <textarea
                     disabled={mode === "view"}
                     value={form.targetFilter.interests.join(", ")}
                     onChange={handleTFArrayChange("interests")}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
+                    rows={2}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
                     placeholder="skincare, makeup"
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Ghi chú target</label>
-                  <input
+                  <textarea
                     disabled={mode === "view"}
                     value={form.targetFilter.note}
                     onChange={handleTFChange("note")}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
+                    rows={2}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
                     placeholder="Ghi chú thêm cho target"
                   />
                 </div>
@@ -498,7 +476,8 @@ export function MarketingForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Ngày bắt đầu</label>
-                <input
+                <Input
+                  variant="normal"
                   disabled={mode === "view"}
                   type="date"
                   value={form.startDate}
@@ -508,65 +487,39 @@ export function MarketingForm({
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Ngày kết thúc</label>
-                <input
+                <Input
+                  variant="normal"
                   disabled={mode === "view"}
                   type="date"
                   value={form.endDate}
                   onChange={handleChange("endDate")}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-50"
-                />
+                  />
               </div>
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Nguồn dữ liệu</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{form.dataSource}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {["Leads", "Customers", "Products", "AI_GENERATED", "MANUAL"].map((source) => (
-                      <DropdownMenuItem key={source} onSelect={() => setForm((f) => ({ ...f, dataSource: source }))}>
-                        {source}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={["Leads", "Customers", "Products", "AI_GENERATED", "MANUAL"].map((s) => ({ value: s, label: s }))}
+                  value={form.dataSource}
+                  onChange={(val) => setForm((f) => ({ ...f, dataSource: val }))}
+                  disabled={mode === "view"}
+                  width="w-full"
+                />
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Người phụ trách</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{form.assignee || "Chọn người phụ trách"}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {mockEmployees.map((employee) => (
-                      <DropdownMenuItem
-                        key={employee.id}
-                        onSelect={() => setForm((f) => ({
-                          ...f,
-                          assigneeId: employee.id,
-                          assignee: employee.name,
-                        }))}
-                      >
-                        {employee.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={mockEmployees.map((emp) => ({ value: emp.id, label: emp.name }))}
+                  value={form.assigneeId}
+                  onChange={(val) => {
+                    const emp = mockEmployees.find((e) => e.id == val);
+                    setForm((f) => ({ ...f, assigneeId: val, assignee: emp?.name || f.assignee }));
+                  }}
+                  disabled={mode === "view"}
+                  width="w-full"
+                />
               </div>
             </div>
 
@@ -619,21 +572,24 @@ export function MarketingForm({
               <div className="space-y-2">
                 {products.map((p, idx) => (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                    <input
+                    <Input
+                      variant="normal"
                       className="col-span-4 px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="Tên sản phẩm"
                       value={p.name || ""}
                       disabled={mode === "view"}
                       onChange={(e) => updateProduct(idx, "name", e.target.value)}
                     />
-                    <input
+                    <Input
+                      variant="normal"
                       className="col-span-3 px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="Danh mục"
                       value={p.category || ""}
                       disabled={mode === "view"}
                       onChange={(e) => updateProduct(idx, "category", e.target.value)}
                     />
-                    <input
+                    <Input
+                      variant="normal"
                       type="number"
                       className="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="Giá hiện tại"
@@ -641,7 +597,8 @@ export function MarketingForm({
                       disabled={mode === "view"}
                       onChange={(e) => updateProduct(idx, "price_current", e.target.value)}
                     />
-                    <input
+                    <Input
+                      variant="normal"
                       className="col-span-10 md:col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg"
                       placeholder="Mã/ID"
                       value={p.product_id || ""}
@@ -654,7 +611,8 @@ export function MarketingForm({
                       </Button>
                     )}
                     <div className="col-span-12">
-                      <input
+                      <Input
+                        variant="normal"
                         className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg"
                         placeholder="Lý do đề xuất / ghi chú"
                         value={p.reason || ""}
@@ -687,7 +645,8 @@ export function MarketingForm({
               ].map(([key, label, placeholder, type]) => (
                 <div key={key}>
                   <label className="block text-sm font-medium mb-1">{label}</label>
-                  <input
+                  <Input
+                    variant="normal"
                     disabled={mode === "view"}
                     type={type}
                     step={key === "openRate" || key === "clickRate" || key === "roi" ? "0.1" : undefined}
@@ -700,7 +659,8 @@ export function MarketingForm({
               ))}
               <div>
                 <label className="block text-sm font-medium mb-1">Ngày cập nhật cuối</label>
-                <input
+                <Input
+                  variant="normal"
                   disabled={mode === "view"}
                   type="date"
                   value={performance.lastUpdated || new Date().toISOString().split("T")[0]}
@@ -722,10 +682,20 @@ export function MarketingForm({
                 <Edit className="w-4 h-4" />
                 Chỉnh sửa
               </Button>
-              <Button variant="actionDelete" onClick={() => onDelete?.(data?.id || data?.campaign_id)}>
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </Button>
+              <ConfirmDialog
+                title="Xác nhận xóa"
+                description={<>
+                  Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{data?.name}</span>?
+                </>}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={() => onDelete?.(data?.id || data?.campaign_id)}
+              >
+                <Button variant="actionDelete">
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              </ConfirmDialog>
             </>
           ) : (
             <>

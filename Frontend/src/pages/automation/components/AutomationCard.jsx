@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, Pause, Edit, Trash2, Eye, Tags, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { triggerOptions, actionOptions } from '@/lib/data';

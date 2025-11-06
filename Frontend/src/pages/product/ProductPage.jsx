@@ -13,6 +13,7 @@ import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import SuccessDialog from '@/components/dialogs/SuccessDialog';
 import { Input } from '@/components/ui/input';
+import { formatCurrency } from '@/utils/helper';
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
@@ -319,7 +320,7 @@ export default function ProductPage() {
               options={categoryOptions}
               value={selectedCategory}
               onChange={(val) => setSelectedCategory(val)}
-              width="w-40"
+              width="w-49"
               placeholder="Danh mục"
             />
 
@@ -405,10 +406,10 @@ export default function ProductPage() {
                       </td>
                       <td className="text-center text-sm text-gray-800">{p.brand}</td>
                       <td className="text-center font-semibold">
-                        {p.price_current.toLocaleString('vi-VN')}₫
+                        {formatCurrency(p.price_current)}
                       </td>
                       <td className="text-center text-gray-500 line-through">
-                        {p.price_original ? p.price_original.toLocaleString('vi-VN') + '₫' : '-'}
+                        {formatCurrency(p.price_original)}
                       </td>
                       <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
                       <td className="text-center text-sm">{p.inventory_qty}</td>

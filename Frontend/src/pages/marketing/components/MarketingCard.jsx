@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog'; // <-- added import
 const formatPercent = (v) => {
     const n = Number(v);
     if (Number.isNaN(n)) return String(v);
@@ -163,9 +164,21 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                     <Button variant="actionUpdate" size="icon" onClick={() => onEdit(campaign)}>
                         <Edit className="w-4 h-4" />
                     </Button>
-                    <Button variant="actionDelete" size="icon" onClick={() => onDelete(campaign.id)}>
+
+                    {/* Wrap delete with ConfirmDialog */}
+                    <ConfirmDialog
+                      title="Xác nhận xóa"
+                      description={<>
+                        Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{campaign?.name}</span>?
+                      </>}
+                      confirmText="Xóa"
+                      cancelText="Hủy"
+                      onConfirm={() => onDelete(campaign.id)}
+                    >
+                      <Button variant="actionDelete" size="icon">
                         <Trash2 className="w-4 h-4" />
-                    </Button>
+                      </Button>
+                    </ConfirmDialog>
                 </div>
             )}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import DropdownOptions from '@/components/common/DropdownOptions';
+import { Input } from "@/components/ui/input";
 import { Edit, Save, Trash2 } from "lucide-react";
 import { StatusList } from "@/lib/data";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
@@ -100,36 +101,36 @@ export function EmployeeForm({
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Họ tên</label>
-              <input
+              <Input
                 disabled={mode === "view"}
                 value={form.name}
                 onChange={handleChange("name")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 placeholder="Nhập họ tên"
+                variant="normal"
               />
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Email</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="email"
                   value={form.email}
                   onChange={handleChange("email")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="email@example.com"
+                  variant="normal"
                 />
               </div>
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">SĐT</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="tel"
                   value={form.phone}
                   onChange={handleChange("phone")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="0123456"
+                  variant="normal"
                 />
               </div>
             </div>
@@ -168,12 +169,12 @@ export function EmployeeForm({
                 <label className="block text-sm font-medium mb-1">
                   {data ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
                 </label>
-                <input
+                <Input
                   type="password"
                   value={form.password}
                   onChange={handleChange("password")}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   placeholder={data ? "Nhập mật khẩu mới" : "Nhập mật khẩu"}
+                  variant="normal"
                 />
               </div>
             )}

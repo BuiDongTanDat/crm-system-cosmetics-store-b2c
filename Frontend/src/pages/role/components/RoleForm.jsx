@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Edit, Save, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
@@ -80,12 +81,12 @@ export function RoleForm({
                     <div className="w-full gap-6">
                         <div>
                             <label className="block text-sm font-medium mb-1">Tên vai trò</label>
-                            <input
+                            <Input
                                 disabled={mode !== "create"} // chỉ cho nhập khi tạo mới
                                 value={form.role_name}
                                 onChange={handleChange("role_name")}
-                                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                                 placeholder="Nhập tên vai trò"
+                                variant="normal"
                             />
                         </div>
                     </div>

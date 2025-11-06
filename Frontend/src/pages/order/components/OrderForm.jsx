@@ -1,7 +1,7 @@
-// src/components/orders/OrderForm.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { getCustomers } from "@/services/customers";
@@ -9,6 +9,7 @@ import { getQualifiedLeads } from "@/services/leads";
 import { getProducts } from "@/services/products";
 import { formatCurrency } from "@/utils/helper";
 import DropdownWithSearch from "@/components/common/DropdownWithSearch";
+import DropdownOptions from "@/components/common/DropdownOptions";
 
 export default function OrderForm({
   mode = "view",
@@ -475,12 +476,12 @@ export default function OrderForm({
               {/* Order date */}
               <div className="w-56">
                 <label className="block text-sm font-medium mb-1">Ngày đặt hàng</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="date"
                   value={form.order_date ? form.order_date.split("T")[0] : ""}
                   onChange={(e) => setForm((f) => ({ ...f, order_date: e.target.value }))}
-                  className="text-sm w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  variant="normal"
                 />
               </div>
             </div>
@@ -489,46 +490,32 @@ export default function OrderForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Phương thức thanh toán</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{paymentLabels[form.payment_method] || form.payment_method}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {PAYMENT_METHODS.map((pm) => (
-                      <DropdownMenuItem key={pm} onSelect={() => setForm((f) => ({ ...f, payment_method: pm }))}>
-                        {paymentLabels[pm] || pm}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+
+                { /* REPLACED: use DropdownOptions */ }
+                <DropdownOptions
+                  options={PAYMENT_METHODS.map((pm) => ({ value: pm, label: paymentLabels[pm] || pm }))}
+                  value={form.payment_method}
+                  onChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
+                  disabled={mode === "view"}
+                  placeholder={paymentLabels[form.payment_method] || form.payment_method}
+                  className="" 
+                  triggerClassName=""
+                />
               </div>
 
               <div className="w-56">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div
-                      className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"
-                        }`}
-                    >
-                      <span className="text-sm">{statusLabels[form.status] || form.status}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {ORDER_STATUSES.map((st) => (
-                      <DropdownMenuItem key={st} onSelect={() => setForm((f) => ({ ...f, status: st }))}>
-                        {statusLabels[st] || st}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+
+                { /* REPLACED: use DropdownOptions */ }
+                <DropdownOptions
+                  options={ORDER_STATUSES.map((st) => ({ value: st, label: statusLabels[st] || st }))}
+                  value={form.status}
+                  onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                  disabled={mode === "view"}
+                  placeholder={statusLabels[form.status] || form.status}
+                  className=""
+                  triggerClassName=""
+                />
               </div>
             </div>
 
@@ -536,12 +523,12 @@ export default function OrderForm({
             <div className="mt-3">
               <div>
                 <label className="block text-sm font-medium mb-1">Kênh (channel)</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   value={form.channel}
                   onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="website / phone / store ..."
+                  variant="normal"
                 />
               </div>
 
@@ -623,17 +610,20 @@ export default function OrderForm({
                   <div className="col-span-3">
                     <label className="block text-sm font-medium mb-1">Sản phẩm</label>
                     {mode === "view" ? (
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm truncate h-10 flex items-center">
-                        {detail.product_name || "-"}
-                      </div>
+                      <Input
+                        value={detail.product_name}
+                        disabled = {true}
+                        variant="normal"
+             
+                      />
                     ) : (
-                      <input
+                      <Input
                         value={detail.product_name}
                         onChange={(e) => updateOrderDetail(index, "product_name", e.target.value)}
                         placeholder="Nhập tên sản phẩm hoặc dùng 'Thêm sản phẩm' để chọn"
                         disabled={Boolean(detail.product_id)}
-                        className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${detail.product_id ? "bg-gray-50 cursor-not-allowed" : "bg-white"
-                          }`}
+                        variant="normal"
+                        className={detail.product_id ? "bg-gray-50 cursor-not-allowed h-9" : ""}
                       />
                     )}
                   </div>
@@ -641,61 +631,66 @@ export default function OrderForm({
                   {/* Original price */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Giá gốc</label>
-                    <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm h-10 flex items-center">
-                      {detail.original_price ? formatCurrency(detail.original_price) : "-"}
-                    </div>
+                    <Input 
+                      disabled = {true}
+                      variant="normal"
+                      value={formatCurrency(Number(detail.original_price || 0))}
+                    >
+
+                    </Input>
                   </div>
 
                   {/* Price */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Giá bán</label>
-                    <input
+                    <Input
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       type="number"
                       min="0"
                       value={Number(detail.price || 0)}
                       onChange={(e) => updateOrderDetail(index, "price", parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : "bg-white"
-                        }`}
+                      variant="normal"
+                      className={mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   {/* Discount */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium mb-1">CK (%)</label>
-                    <input
+                    <Input
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       type="number"
                       min="0"
                       max="100"
                       value={Math.round(Number(detail.discount || 0) * 100)}
                       onChange={(e) => updateOrderDetail(index, "discount", parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : "bg-white"
-                        }`}
+                      variant="normal"
+                      className={mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   {/* Quantity */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium mb-1">Số lượng</label>
-                    <input
+                    <Input
                       disabled={mode === "view"}
                       type="number"
                       min="1"
                       value={Number(detail.quantity || 1)}
                       onChange={(e) => updateOrderDetail(index, "quantity", parseInt(e.target.value) || 1)}
-                      className={`w-full px-3 text-sm border rounded-lg focus:outline-none focus:border-blue-500 h-10 ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "bg-white"
-                        }`}
+                      variant="normal"
+                      className={mode === "view" ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   {/* Subtotal */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Thành tiền</label>
-                    <input
+                    <Input
                       disabled
                       value={formatCurrency((detail.quantity || 0) * (detail.price || 0))}
-                      className="w-full px-3 text-sm bg-gray-50 border border-gray-300 rounded-lg h-10 flex items-center"
+                      variant="normal"
+                      className="bg-gray-50"
                     />
                   </div>
 
@@ -765,3 +760,4 @@ export default function OrderForm({
     </div>
   );
 }
+

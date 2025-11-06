@@ -1,5 +1,4 @@
-// ...existing code...
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Filter, List, Square, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MarketingCard from '@/pages/marketing/components/MarketingCard';
@@ -12,6 +11,8 @@ import { getAll } from '@/services/campaign';
 import MarketingDetail from '@/pages/marketing/components/MarketingDetail';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate } from '@/utils/helper';
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import { toast } from 'sonner';
 
 export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -51,13 +52,13 @@ export default function MarketingPage() {
         setCampaigns(mapped);
       } catch (e) {
         console.error('Load campaigns failed:', e);
-        alert('Không tải được danh sách chiến dịch');
+        toast.error('Không tải được danh sách chiến dịch');
       }
     })();
   }, []);
 
   // Items per page: card = 3, list = 8
-  const campaignsPerPage = viewMode === 'card' ? 3 : 8;
+  // const campaignsPerPage = viewMode === 'card' ? 3 : 8;
 
   // Helper: status badge classes (moved here to share between card and list)
   const getStatusBadge = (status) => {
@@ -136,8 +137,6 @@ export default function MarketingPage() {
       // Create new
       const newCampaign = {
         ...campaignData,
-      const newCampaign = {
-        ...campaignData,
         id: Math.max(...campaigns.map(c => c.id)) + 1,
         performance: null
       };
@@ -159,10 +158,10 @@ export default function MarketingPage() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc muốn xóa chiến dịch này?')) {
-      setCampaigns(prev => prev.filter(c => c.id !== id));
-      closeModal();
-    }
+    // deletion logic unchanged; confirmation should be provided by ConfirmDialog in UI
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+    closeModal();
+    toast.success('Đã xóa chiến dịch');
   };
 
   // Updated import handler for CSV
@@ -185,15 +184,15 @@ export default function MarketingPage() {
       }));
 
       setCampaigns(prev => [...prev, ...processedCampaigns]);
-      alert(`Đã nhập thành công ${processedCampaigns.length} chiến dịch!`);
+      toast.success(`Đã nhập thành công ${processedCampaigns.length} chiến dịch!`);
     } catch (error) {
       console.error('Lỗi xử lý dữ liệu nhập:', error);
-      alert('Có lỗi xảy ra khi xử lý dữ liệu nhập');
+      toast.error('Có lỗi xảy ra khi xử lý dữ liệu nhập');
     }
   };
 
   const handleImportError = (errorMessage) => {
-    alert(`Lỗi nhập file: ${errorMessage}`);
+    toast.error(`Lỗi nhập file: ${errorMessage}`);
   };
 
   // Pagination handlers
@@ -253,7 +252,6 @@ export default function MarketingPage() {
               onClick={() => setViewMode('card')}
               size="icon"
               className="rounded-none rounded-tl-md rounded-bl-md"
-              className="rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
@@ -261,7 +259,6 @@ export default function MarketingPage() {
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
               size="icon"
-              className="rounded-none rounded-tr-md rounded-br-md"
               className="rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
@@ -345,7 +342,7 @@ export default function MarketingPage() {
                       <td className="text-center w-36 py-2">
                         <div
                           className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === c.id
-                            ?"opacity-100 translate-y-0 pointer-events-auto"
+                            ? "opacity-100 translate-y-0 pointer-events-auto"
                             : "opacity-0 translate-y-1 pointer-events-none"}`}
                         >
                           <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
@@ -354,9 +351,19 @@ export default function MarketingPage() {
                           <Button variant="actionUpdate" size="icon" onClick={() => openEdit(c)}>
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="actionDelete" size="icon" onClick={() => handleDelete(c.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <ConfirmDialog
+                            title="Xác nhận xóa"
+                            description={<>
+                              Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{c?.name}</span>?
+                            </>}
+                            confirmText="Xóa"
+                            cancelText="Hủy"
+                            onConfirm={() => handleDelete(c.id)}
+                          >
+                            <Button variant="actionDelete" size="icon">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </ConfirmDialog>
                         </div>
                       </td>
                     </tr>

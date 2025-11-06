@@ -14,6 +14,7 @@ import { formatDate } from '@/utils/helper';
 
 import { request } from '@/utils/api';
 import { getFlow } from '@/services/automation'; // ⬅️ dùng service đã unwrap
+import { Input } from '@/components/ui/input';
 
 // ✅ Adapter: API -> UI
 const adaptFlow = (f) => ({

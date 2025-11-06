@@ -2,15 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown, Edit, Plus, Save, Trash2, X, History, ArrowLeft } from "lucide-react";
+import DropdownOptions from "@/components/common/DropdownOptions";
+import { Edit, Plus, Save, Trash2, X, History, ArrowLeft } from "lucide-react";
 import { StatusList, CustomerTypes, CustomerSources, Industries } from "@/lib/data";
 import InteractionHistory from "@/pages/customer/components/InteractionHistory";
+import { Input } from "@/components/ui/input";
 
 export function CustomerForm({
   mode = "view",
@@ -41,7 +37,7 @@ export function CustomerForm({
 
   const [tagInput, setTagInput] = useState("");
   const [showInteractionHistory, setShowInteractionHistory] = useState(showHistory);
-  
+
 
   useEffect(() => {
     if (data) {
@@ -182,110 +178,94 @@ export function CustomerForm({
           <div className="grid grid-cols-1 gap-3">
             {/* Tên và phân loại */}
             <div className="flex gap-3">
-              <div className="flex-1">
+              <div className="flex-2">
                 <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   value={form.name}
                   onChange={handleChange("name")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="Nhập tên khách hàng"
+                  variant="normal"
                 />
               </div>
-              <div className="w-40">
+              <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Phân loại</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}>
-                      <span className="text-sm">{form.type}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {Object.values(CustomerTypes).map((type) => (
-                      <DropdownMenuItem key={type} onSelect={() => setForm((f) => ({ ...f, type }))}>
-                        {type}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="w-full">
+                  <DropdownOptions
+                    options={Object.values(CustomerTypes).map(t => ({ value: t, label: t }))}
+                    value={form.type}
+                    onChange={(val) => setForm(f => ({ ...f, type: val }))}
+                    disabled={mode === "view"}
+                    placeholder="Chọn phân loại"
+                    width="w-full"
+                  />
+                </div>
               </div>
             </div>
 
             {/* Ngày sinh và giới tính */}
             <div className="flex gap-3">
-              <div className="flex-1">
+              <div className="flex-2">
                 <label className="block text-sm font-medium mb-1">Ngày sinh</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="date"
                   value={form.birthDate}
                   onChange={handleChange("birthDate")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
+                  variant="normal"
                 />
               </div>
-              <div className="w-32">
+              <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Giới tính</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}>
-                      <span className="text-sm">{form.gender}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {["Nam", "Nữ", "Khác"].map((gender) => (
-                      <DropdownMenuItem key={gender} onSelect={() => setForm((f) => ({ ...f, gender }))}>
-                        {gender}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="w-full">
+                  <DropdownOptions
+                    options={["Nam", "Nữ", "Khác"].map(g => ({ value: g, label: g }))}
+                    value={form.gender}
+                    onChange={(val) => setForm(f => ({ ...f, gender: val }))}
+                    disabled={mode === "view"}
+                    placeholder="Chọn giới tính"
+                    width="w-full"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Ngành nghề */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Ngành nghề / Lĩnh vực</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                  <div className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}>
-                    <span className="text-sm">{form.industry}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                  {Industries.map((industry) => (
-                    <DropdownMenuItem key={industry} onSelect={() => setForm((f) => ({ ...f, industry }))}>
-                      {industry}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+
 
             {/* Email và SĐT */}
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Email</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   type="email"
                   value={form.email}
                   onChange={handleChange("email")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="email@example.com"
+                  variant="normal"
                 />
               </div>
-              <div className="w-40">
-                <label className="block text-sm font-medium mb-1">SĐT</label>
-                <input
+              <div className="flex-1">
+                <label className="flex-1 text-sm font-medium mb-1">SĐT</label>
+                <Input
                   disabled={mode === "view"}
                   type="tel"
                   value={form.phone}
                   onChange={handleChange("phone")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="0123456789"
+                  variant="normal"
+                />
+              </div>
+              {/* Ngành nghề */}
+              <div className="flex-1">
+                <label className=" text-sm font-medium mb-1">Ngành nghề / Lĩnh vực</label>
+                <DropdownOptions
+                  options={Industries.map(i => ({ value: i, label: i }))}
+                  value={form.industry}
+                  onChange={(val) => setForm(f => ({ ...f, industry: val }))}
+                  disabled={mode === "view"}
+                  placeholder="Chọn ngành nghề"
+                  width="w-full"
                 />
               </div>
             </div>
@@ -293,12 +273,12 @@ export function CustomerForm({
             {/* Địa chỉ */}
             <div>
               <label className="block text-sm font-medium mb-1">Địa chỉ</label>
-              <input
+              <Input
                 disabled={mode === "view"}
                 value={form.address}
                 onChange={handleChange("address")}
-                className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 placeholder="Nhập địa chỉ"
+                variant="normal"
               />
             </div>
 
@@ -306,31 +286,24 @@ export function CustomerForm({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Mạng xã hội / Kênh liên lạc</label>
-                <input
+                <Input
                   disabled={mode === "view"}
                   value={form.socialMedia}
                   onChange={handleChange("socialMedia")}
-                  className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                   placeholder="VD: Facebook: username"
+                  variant="normal"
                 />
               </div>
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">Nguồn KH</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                    <div className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}>
-                      <span className="text-sm">{form.source}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                    {Object.values(CustomerSources).map((source) => (
-                      <DropdownMenuItem key={source} onSelect={() => setForm((f) => ({ ...f, source }))}>
-                        {source}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <DropdownOptions
+                  options={Object.values(CustomerSources).map(s => ({ value: s, label: s }))}
+                  value={form.source}
+                  onChange={(val) => setForm(f => ({ ...f, source: val }))}
+                  disabled={mode === "view"}
+                  placeholder="Chọn nguồn"
+                  width="w-full"
+                />
               </div>
             </div>
 
@@ -351,12 +324,12 @@ export function CustomerForm({
               </div>
               {mode === "edit" && (
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                    className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                     placeholder="Nhập tag và nhấn Enter"
+                    variant="normal"
                   />
                   <Button type="button" onClick={handleAddTag} variant="actionUpdate" >
                     <Plus className="w-4 h-4" />
@@ -382,21 +355,14 @@ export function CustomerForm({
             {/* Trạng thái */}
             <div className="w-40">
               <label className="block text-sm font-medium mb-1">Trạng thái</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={mode === "view"}>
-                  <div className={`flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg ${mode === "view" ? "bg-gray-50 cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}>
-                    <span className="text-sm">{form.status}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                  {StatusList.map((status) => (
-                    <DropdownMenuItem key={status} onSelect={() => setForm((f) => ({ ...f, status }))}>
-                      {status}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <DropdownOptions
+                options={StatusList.map(s => ({ value: s, label: s }))}
+                value={form.status}
+                onChange={(val) => setForm(f => ({ ...f, status: val }))}
+                disabled={mode === "view"}
+                placeholder="Chọn trạng thái"
+                width="w-full"
+              />
             </div>
           </div>
         </div>
@@ -462,7 +428,7 @@ export function CustomerForm({
         </div>
       </div>
     </div>
-      
+
   );
 }
 

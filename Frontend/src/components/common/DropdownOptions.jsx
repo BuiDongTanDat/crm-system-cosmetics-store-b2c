@@ -26,7 +26,7 @@ export default function DropdownOptions({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <div
-          className={`flex items-center justify-between ${width} px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+          className={`h-9 flex items-center justify-between ${width} px-3 py-2 bg-white border border-gray-300 rounded-lg ${
             disabled
               ? 'bg-gray-50 cursor-not-allowed'
               : 'cursor-pointer hover:border-blue-500'

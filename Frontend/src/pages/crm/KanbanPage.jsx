@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Users, DollarSign, TrendingUp, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import KanbanColumn from '@/pages/crm/components/KanbanColumn';
@@ -46,8 +46,6 @@ export default function KanbanPage() {
   const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingBoard, setIsDraggingBoard] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [boardScrollLeft, setBoardScrollLeft] = useState(0);
   const [animatedColumns, setAnimatedColumns] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [orderModal, setOrderModal] = useState({ open: false, lead: null, preset: null });
@@ -65,6 +63,26 @@ export default function KanbanPage() {
   const kanbanBoardRef = useRef(null);
   const scrollIntervalRef = useRef(null);
   const resetTimersRef = useRef({});
+  const scrollRafRef = useRef(null);
+
+  // Đảm bảo column nhìn thấy hoàn toàn khi kéo card vào column đó
+  const ensureColumnVisible = (colEl) => {
+    if (!colEl || !kanbanBoardRef.current) return;
+    const board = kanbanBoardRef.current;
+    const boardRect = board.getBoundingClientRect();
+    const colRect = colEl.getBoundingClientRect();
+    const padding = 12; // cho khoảng đệm nhỏ
+
+    if (colRect.left < boardRect.left + padding) {
+      const offset = boardRect.left + padding - colRect.left;
+      const newLeft = Math.max(0, board.scrollLeft - offset);
+      board.scrollTo({ left: newLeft, behavior: 'smooth' });
+    } else if (colRect.right > boardRect.right - padding) {
+      const offset = colRect.right - (boardRect.right - padding);
+      const newLeft = Math.min(board.scrollWidth - board.clientWidth, board.scrollLeft + offset);
+      board.scrollTo({ left: newLeft, behavior: 'smooth' });
+    }
+  };
 
   const PRIORITY_WEIGHT = { urgent: 4, high: 3, medium: 2, low: 1 };
   const getPriorityWeight = (p) => PRIORITY_WEIGHT[(p || '').toLowerCase()] || 0;
@@ -223,47 +241,97 @@ export default function KanbanPage() {
 
   // ---------- Drag scroll ----------
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const board = kanbanBoardRef.current;
+    if (!board) return;
+
+    let active = true;
+
+    // Cấu hình scroll: trigger sớm hơn khi chỉ lệch một xíu
+    const threshold = 300; // px from edge to start scrolling (increased)
+    const maxSpeed = 500; // max px per frame
+
+    const doScroll = (dir) => {
+      if (!active) return;
+      if (dir === 'left') {
+        board.scrollLeft = Math.max(0, board.scrollLeft - maxSpeed);
+      } else if (dir === 'right') {
+        board.scrollLeft = Math.min(board.scrollWidth - board.clientWidth, board.scrollLeft + maxSpeed);
+      }
+      scrollRafRef.current = requestAnimationFrame(() => doScroll(dir));
+    };
+
+
+    const stopScroll = () => {
+      active = false;
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+
+    const handleMove = (e) => {
       if (!isDragging || !kanbanBoardRef.current) return;
       const board = kanbanBoardRef.current;
-      const rect = board.getBoundingClientRect();
-      const threshold = 150;
-      const speed = 15;
 
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-        scrollIntervalRef.current = null;
+      // Lấy vị trí con trỏ (ưu tiên). Nếu không có (tùy event), fallback center của phần tử đang kéo.
+      let clientX = 0;
+      if (typeof e?.clientX === "number" && e.clientX > 0) {
+        clientX = e.clientX;
+      } else if (e?.touches && e.touches[0]) {
+        clientX = e.touches[0].clientX;
+      } else {
+        // fallback: tìm phần tử đang kéo (nếu code khác set class/attr)
+        const draggedCard = document.querySelector('[draggable].dragging, .dragging, [data-dragging="true"]');
+        if (draggedCard) {
+          const cardRect = draggedCard.getBoundingClientRect();
+          clientX = cardRect.left + cardRect.width / 2;
+        } else {
+          return; // không có nguồn vị trí -> thoát
+        }
       }
 
-      const x = e.clientX;
-      if (x - rect.left < threshold && board.scrollLeft > 0) {
-        scrollIntervalRef.current = setInterval(() => {
-          board.scrollLeft -= speed;
-        }, 16);
-      } else if (rect.right - x < threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
-        scrollIntervalRef.current = setInterval(() => {
-          board.scrollLeft += speed;
-        }, 16);
+      const rect = board.getBoundingClientRect();
+      const leftDist = clientX - rect.left;
+      const rightDist = rect.right - clientX;
+
+      // stop any ongoing rAF
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+
+      if (leftDist >= 0 && leftDist < threshold && board.scrollLeft > 0) {
+        const intensity = Math.min(1, (threshold - leftDist) / threshold);
+        doScroll('left', intensity);
+      } else if (rightDist >= 0 && rightDist < threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+        const intensity = Math.min(1, (threshold - rightDist) / threshold);
+        doScroll('right', intensity);
       }
     };
+
+
     const handleDragEnd = () => {
       setIsDragging(false);
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-        scrollIntervalRef.current = null;
-      }
+      stopScroll();
     };
-    if (isDragging) {
-      document.addEventListener('dragover', handleMouseMove);
-      document.addEventListener('dragend', handleDragEnd);
-      document.addEventListener('drop', handleDragEnd);
-    }
+
+    document.addEventListener('dragover', handleMove);
+    document.addEventListener('drag', handleMove);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('dragend', handleDragEnd);
+    document.addEventListener('drop', handleDragEnd);
+
     return () => {
-      document.removeEventListener('dragover', handleMouseMove);
+      stopScroll();
+      document.removeEventListener('dragover', handleMove);
+      document.removeEventListener('drag', handleMove);
+      document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('dragend', handleDragEnd);
       document.removeEventListener('drop', handleDragEnd);
     };
   }, [isDragging]);
+
 
   // ---------- Modal ----------
   const handleCardView = (card) => setModal({ open: true, mode: 'view', deal: card });
@@ -336,9 +404,9 @@ export default function KanbanPage() {
       toast.success('Thêm deal thành công!');
     }
     closeModal();
-    
+
   };
-  
+
   const handleCardDelete = (id) => {
     setCards((prev) => prev.filter((c) => c.id !== id));
     closeModal();
@@ -500,6 +568,8 @@ export default function KanbanPage() {
                 animatedData={animatedColumns[colId]}
                 initialAnimate={isInitialLoad}
                 isDraggingBoard={isDraggingBoard}
+                isCardDragging={isDragging}
+                onColumnDragOver={ensureColumnVisible}
               />
             </div>
           );

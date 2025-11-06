@@ -231,7 +231,7 @@ export default function RolePage() {
                                             <div className="text-sm text-gray-900">
                                                 {role.permissions && role.permissions.length > 0
                                                     ? (() => {
-                                                        const maxShow = 5;
+                                                        const maxShow = 4;
                                                         const perms = role.permissions.slice(0, maxShow);
                                                         return perms.join(", ") + (role.permissions.length > maxShow ? ", ..." : "");
                                                     })()

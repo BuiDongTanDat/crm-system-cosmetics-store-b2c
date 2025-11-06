@@ -66,7 +66,7 @@ const navItems = [
     icon: <Megaphone className="w-5 h-5" />,
     subItems: [
       { name: "Chiến dịch", path: "/marketing", pro: false },
-      { name: "Automation", path: "/automations", pro: false }
+      { name: "Automation", path: "/automations", pro: false },
       { name: "Phiên bán hàng", path: "/streams", pro: false }
     ],
   },
