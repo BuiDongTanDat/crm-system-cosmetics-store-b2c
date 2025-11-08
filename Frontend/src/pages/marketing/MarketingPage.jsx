@@ -22,24 +22,33 @@ export default function MarketingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const campaignsPerPage = 6;
   const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
-  const mapApiCampaignToUI = (c) => ({
-    id: c.campaign_id,
-    name: c.name,
-    type: capitalize(c.channel || 'Email'),
-    budget: c.budget ?? 0,
-    startDate: c.start_date ? c.start_date.slice(0, 10) : '',
-    endDate: c.end_date ? c.end_date.slice(0, 10) : '',
-    targetAudience: c.target_filter?.note || '',
-    dataSource: c.data_source || 'Customers',
-    status: capitalize(c.status || 'Draft'),
-    assignee: '',
-    assigneeId: c.owner_employee_id || null,
-    expectedKPI: c.expected_kpi ? JSON.stringify(c.expected_kpi) : '',
-    products: Array.isArray(c.products) ? c.products : [],
-    performance: null,
-    __raw: c,
-  });
+  const mapApiCampaignToUI = (c) => {
+    if (!c) {
+      console.warn("[MAP] nhận giá trị falsy:", c);
+      return null; // hoặc trả object default nếu bạn muốn
+    }
 
+    const mapped = {
+      id: c.campaign_id,
+      name: c.name,
+      type: capitalize(c.channel || 'Email'),
+      budget: c.budget ?? 0,
+      startDate: c.start_date ? c.start_date.slice(0, 10) : '',
+      endDate: c.end_date ? c.end_date.slice(0, 10) : '',
+      targetAudience: c.target_filter?.note || '',
+      dataSource: c.data_source || 'Customers',
+      status: capitalize(c.status || 'Draft'),
+      assignee: '',
+      assigneeId: c.owner_employee_id || null,
+      expectedKPI: c.expected_kpi ? JSON.stringify(c.expected_kpi) : '',
+      products: Array.isArray(c.products) ? c.products : [],
+      performance: null,
+      __raw: c,
+    };
+
+    console.log("[MAP] api.campaign_id -> ui.id", c.campaign_id, "=>", mapped.id, mapped.name);
+    return mapped;
+  };
   // view mode (card | list)
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);

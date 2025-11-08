@@ -59,4 +59,31 @@ export const getRunningCampaigns = async (params = {}) => {
         total: data.total ?? data.items?.length ?? 0,
         totalPages: data.totalPages ?? 1,
     };
+
+};
+export const approveCampaign = async (
+  id,
+  { status = 'running', sendBody = true } = {}
+) => {
+  if (!id) throw new Error('Thiếu campaign id');
+
+  const reqInit = {
+    method: 'PATCH',
+    ...(sendBody ? { body: JSON.stringify({ status }) } : {}),
+  };
+
+  const res = await request(`/campaign/${encodeURIComponent(id)}/status`, reqInit);
+
+  // BE trả về { ok: true, data: { message, campaign } }
+  if (!res.ok) throw new Error(res.error?.message || 'API error');
+
+  const data = res?.data || {};
+  const campaign = data.campaign || {};
+
+  return {
+    ok: res.ok,
+    message: data.message || 'Cập nhật trạng thái thành công',
+    status: campaign.status || status,
+    campaign,
+  };
 };
