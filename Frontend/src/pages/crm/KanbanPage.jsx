@@ -421,22 +421,40 @@ export default function KanbanPage() {
     const oldStageUI = card.stage;
     if (oldStageUI === newStageUI) return;
 
+    // Optimistic UI
     const prevCards = cards;
     setCards((prev) =>
       prev.map((c) =>
         c.id === cardId
-          ? { ...c, stage: newStageUI, status: newStageUI, lastActivity: new Date().toISOString().slice(0, 10) }
+          ? {
+            ...c,
+            stage: newStageUI,
+            status: newStageUI,
+            lastActivity: new Date().toISOString().slice(0, 10),
+          }
           : c
       )
     );
+
     try {
+      // 1) Đổi trạng thái trên BE
       const beStatus = UI2BE[newStageUI] || 'NEW';
       await apiUpdateLeadStatus(cardId, beStatus);
+
+      // Mở Order nếu cần
       if (STAGES_OPEN_ORDER.has(newStageUI) && !orderModal.open) {
         openOrderForLead({ ...card, stage: newStageUI });
       }
-      await refreshPipeline();
-      // 🔹 Sau khi API thành công → reload cột & summary để đảm bảo đồng bộ
+    } catch (err) {
+      // Nếu API thất bại mới rollback + báo lỗi
+      setCards(prevCards);
+      toast.error('Cập nhật trạng thái thất bại!');
+      setIsDragging(false);
+      return; // DỪNG ở đây
+    }
+
+    try {
+      // 2) Đồng bộ lại dữ liệu từ server (không coi là thất bại đổi trạng thái)
       const [colRes, sumRes] = await Promise.all([
         getPipelineColumns(),
         getPipelineSummary(),
@@ -444,7 +462,6 @@ export default function KanbanPage() {
 
       const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
       const columnsObj = payload.columns ?? {};
-      const orderArr = payload.order ?? Object.keys(columnsObj);
 
       const normalizeStatus = (s) => {
         const v = (s || '').toLowerCase();
@@ -469,7 +486,8 @@ export default function KanbanPage() {
         stage: normalizeStatus(lead?.status),
         status: normalizeStatus(lead?.status),
         createdDate: (lead?.created_at || '').slice(0, 10),
-        lastActivity: (lead?.created_at || '').slice(0, 10),
+        // Nếu BE có `updated_at`/`moved_at` thì ưu tiên dùng, tránh mất "lastActivity"
+        lastActivity: (lead?.updated_at || lead?.created_at || '').slice(0, 10),
         value: asNumber(lead?.predicted_value, 0),
         currency: lead?.predicted_value_currency || 'VND',
         priority: lead?.priority || 'medium',
@@ -483,15 +501,19 @@ export default function KanbanPage() {
 
       const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
       setCards(uiCards);
-      setSummary(sumRes?.data?.rows ?? []);
-    } catch (err) {
-      // rollback
-      setCards(prevCards);
-      toast.error('Cập nhật trạng thái thất bại!');
-    }
 
-    setIsDragging(false);
+      // LƯU Ý: summary trả về dạng nào thì lấy đúng dạng đó
+      const sumPayload = sumRes?.data?.data ?? sumRes?.data ?? sumRes ?? {};
+      setSummary(sumPayload?.rows ?? []);
+    } catch (err) {
+      // Đồng bộ lỗi thì chỉ cảnh báo nhẹ
+      console.warn('Refresh pipeline failed', err);
+      toast.info('Đổi trạng thái thành công, nhưng chưa đồng bộ lại bảng.');
+    } finally {
+      setIsDragging(false);
+    }
   };
+
 
 
   const handleDragStart = () => setIsDragging(true);

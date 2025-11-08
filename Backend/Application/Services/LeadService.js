@@ -42,14 +42,14 @@ class LeadService {
         assigned_to, tags, priority, product_interest
       } = leadData;
 
-      if (leadData.email) {
-        const dupEmail = await this.repo.findByEmail(leadData.email);
-        if (dupEmail) throw new AppError('Email already exists', { status: 400, code: 'DUPLICATE_EMAIL' });
-      }
-      if (leadData.phone) {
-        const dupPhone = await this.repo.findByPhone(leadData.phone);
-        if (dupPhone) throw new AppError('Phone number already exists', { status: 400, code: 'DUPLICATE_PHONE' });
-      }
+      // if (leadData.email) {
+      //   const dupEmail = await this.repo.findByEmail(leadData.email);
+      //   if (dupEmail) throw new AppError('Email already exists', { status: 400, code: 'DUPLICATE_EMAIL' });
+      // }
+      // if (leadData.phone) {
+      //   const dupPhone = await this.repo.findByPhone(leadData.phone);
+      //   if (dupPhone) throw new AppError('Phone number already exists', { status: 400, code: 'DUPLICATE_PHONE' });
+      // }
 
       let finalCustomerId = null;
       if (customer_id) {
