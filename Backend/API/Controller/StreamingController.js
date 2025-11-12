@@ -62,7 +62,8 @@ class StreamingController {
       if (!file) return res.status(400).json({ ok: false, error: 'video file is required (field "video")' });
 
       const meta = { originalname: file.originalname, size: file.size, mimetype: file.mimetype, uploader: req.user?.id };
-      const saved = streamingService.uploadFile(streamId, file.path, meta);
+      // Await uploadFile (now async) and accept path from multer
+      const saved = await streamingService.uploadFile(streamId, file.path, meta);
 
       return res.status(200).json({ ok: true, message: 'File uploaded', filePath: saved.filePath });
     } catch (err) {

@@ -156,7 +156,7 @@ class YouTubeService {
         this.isPolling = false;
     }
 
-    
+
     // Gửi tin nhắn vào live chat
     async sendMessage(text) {
         if (!this.liveChatId) await this.findActiveChat();
@@ -222,6 +222,7 @@ class YouTubeService {
         frameRate = "30fps"
     } = {}) {
 
+        console.log('[YouTube] Creating live stream...');
         const stream = await this.youtube.liveStreams.insert({
             auth: this.auth,
             part: "snippet,cdn",
@@ -239,6 +240,10 @@ class YouTubeService {
         const ingestAddr = stream.data.cdn.ingestionInfo.ingestionAddress;
         const fullRtmp = `${ingestAddr}/${streamKey}`;
 
+        //Delay
+        await new Promise(r => setTimeout(r, 2000));
+
+        console.log('[YouTube] Creating live broadcast...');
         const broadcast = await this.youtube.liveBroadcasts.insert({
             auth: this.auth,
             part: "snippet,status,contentDetails",
@@ -249,13 +254,13 @@ class YouTubeService {
                     scheduledStartTime: new Date(Date.now() + 5000).toISOString()
                 },
                 status: {
-                    privacyStatus: privacy || "public",
+                    privacyStatus: "public", // "public", "unlisted", "private"
                     selfDeclaredMadeForKids: false
                 },
                 contentDetails: {
                     latencyPreference: "low",
                     enableAutoStart: true,
-                    enableAutoStop: true,
+                    enableAutoStop: true, // Tắt auto stop để tránh việc YouTube tự động kết thúc buổi phát khi không nhận được stream trong một khoảng thời gian
                     enableDvr: true,
                     enableEmbed: true,
                     recordFromStart: true,
@@ -267,8 +272,10 @@ class YouTubeService {
 
         });
 
+        //Delay
+        await new Promise(r => setTimeout(r, 2000));
 
-
+        console.log('[YouTube] Binding broadcast to stream...');
         await this.youtube.liveBroadcasts.bind({
             auth: this.auth,
             id: broadcast.data.id,
@@ -276,16 +283,6 @@ class YouTubeService {
             streamId: stream.data.id
         });
 
-        // Cập nhật trạng thái broadcast sang public ngay sau khi bind 
-        // để tránh bị ghi đè
-        await this.youtube.liveBroadcasts.update({
-            auth: this.auth,
-            part: "status",
-            requestBody: {
-                id: broadcast.data.id,
-                status: { privacyStatus: "public" }
-            }
-        });
 
         return {
             streamKey,
@@ -298,7 +295,7 @@ class YouTubeService {
 
 
     async waitForIngest(streamId) {
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 7; i++) { // 20 → 7
             const res = await this.youtube.liveStreams.list({ auth: this.auth, part: 'status', id: streamId });
             const st = res.data.items?.[0]?.status?.streamStatus;
             console.log('[YouTube] Stream status:', st);
@@ -307,6 +304,7 @@ class YouTubeService {
         }
         throw new Error('Stream never became active');
     }
+
 
     // helper: get current broadcast status (tries several fields for robustness)
     async getBroadcastStatus(broadcastId) {

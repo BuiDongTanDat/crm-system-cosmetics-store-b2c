@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, CirclePause, CirclePlay, KeyRound, Paperclip, SendHorizontal, Upload } from "lucide-react";
-import { getProducts } from "@/services/products";
+import { ChevronLeft, CirclePause, CirclePlay, KeyRound, Paperclip, SendHorizontal, Upload, Loader2 } from "lucide-react";
 import { createStream, prepareYoutube, uploadStreamFile, startStreamFile, stopStreamFile } from "@/services/stream";
 import { getYoutubeAuthUrl, isAuthenticated } from "@/services/youtube";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
@@ -88,7 +87,7 @@ export default function YoutubeStreamVideo() {
         if (!f) return "";
         const max = 28;
         const name = f.name.length > max ? `${f.name.slice(0, max - 3)}...${f.name.slice(-8)}` : f.name;
-        return `${name} • ${(f.size / 1024 / 1024).toFixed(2)}MB`;
+        return `${name} - ${(f.size / 1024 / 1024).toFixed(2)}MB`;
     };
 
     const onFileChange = (e) => {
@@ -108,7 +107,7 @@ export default function YoutubeStreamVideo() {
         try {
             const status = await isAuthenticated();
             if (!status?.authenticated) {
-                // NEW: persist current campaign/title/description so we can restore after OAuth redirect
+                // persist current campaign/title/description so we can restore after OAuth redirect
                 try {
                     const toSave = {
                         campaign: campaign || { id, title: `Chiến dịch ${id || ""}` },
@@ -117,7 +116,6 @@ export default function YoutubeStreamVideo() {
                     };
                     sessionStorage.setItem('yt_campaign_restore', JSON.stringify(toSave));
                 } catch (e) {
-                    // ignore storage errors but log
                     console.error("Failed to save campaign to sessionStorage before redirect", e);
                 }
                 window.location.href = getYoutubeAuthUrl();
@@ -133,17 +131,22 @@ export default function YoutubeStreamVideo() {
         try {
             const titleForStream = title || `Youtube Live - ${campaign.title || campaign.name || campaign.id || ''}`;
 
-            // include description when creating the stream on backend
-            const createRes = await createStream({ title: titleForStream, description });
-            console.debug('[YouTubeStream] createStream response:', createRes);
-            const streamId = createRes?.streamId || createRes?.id || createRes?.data?.streamId;
-            if (!streamId) throw new Error('Không nhận được streamId từ server.');
-            setActiveStreamId(streamId);
+            // If we already have an activeStreamId, reuse it (allow multiple uploads to same stream)
+            let streamId = activeStreamId;
+            if (!streamId) {
+                const createRes = await createStream({ title: titleForStream, description });
+                console.debug('[YouTubeStream] createStream response:', createRes);
+                streamId = createRes?.streamId || createRes?.id || createRes?.data?.streamId;
+                if (!streamId) throw new Error('Không nhận được streamId từ server.');
+                setActiveStreamId(streamId);
+            } else {
+                console.debug('[YouTubeStream] Reusing existing streamId for upload:', streamId);
+            }
 
             const uploadResp = await uploadStreamFile(streamId, selectedFile, { title: titleForStream, description });
             setUploadedPath(uploadResp.filePath || uploadResp.filename || null);
 
-            toast.success("Upload thành công. Bấm 'Start Stream' để phát lên YouTube.");
+            toast.success("Upload thành công. Bấm 'BẮT ĐẦU' để phát video lên YouTube.");
         } catch (err) {
             console.error(err);
             toast.error(err.message || "Upload thất bại");
@@ -221,18 +224,57 @@ export default function YoutubeStreamVideo() {
         }
     }, [campaign, title]);
 
+    // helper: extract youtube video id from various watch URL forms
+    const extractVideoId = (url) => {
+        if (!url) return null;
+        try {
+            const u = new URL(url);
+            const v = u.searchParams.get('v');
+            if (v) return v;
+            // fallback: last path segment (for youtu.be or /watch/...)
+            const seg = u.pathname.split('/').filter(Boolean).pop();
+            return seg || null;
+        } catch { return null; }
+    };
+
+    const needsBackConfirm = uploading || isStreaming || !!uploadedPath;
+
     return (
         <div className="max-h-screen flex flex-col">
             {/* Sticky header */}
             <div className="flex-col sticky top-[70px] z-20 flex gap-1 px-3 py-3 bg-brand/10 backdrop-blur-lg rounded-md">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <Button
-                            size="icon"
-                            variant="actionNormal"
-                            onClick={() => navigate("/streams")}>
-                            <ChevronLeft className="w-10 h-10" />
-                        </Button>
+                        {/* Back button: ask confirmation when there's an upload/stream in progress */}
+                        {needsBackConfirm ? (
+                            <ConfirmDialog
+                                title="Bạn có muốn thoát?"
+                                description={<>Hiện có file đã upload hoặc buổi phát đang chạy. Thoát sẽ dừng/huỷ và xoá dữ liệu liên quan.</>}
+                                confirmText="Có, thoát"
+                                cancelText="Hủy"
+                                onConfirm={async () => {
+                                    try {
+                                        // try to stop/cleanup if we have a stream id or active streaming
+                                        if (isStreaming || activeStreamId) {
+                                            await handleStopStream();
+                                        }
+                                    } catch (e) {
+                                        console.error('Cleanup on back failed', e);
+                                    } finally {
+                                        navigate("/streams");
+                                    }
+                                }}
+                            >
+                                <Button size="icon" variant="actionNormal">
+                                    <ChevronLeft className="w-10 h-10" />
+                                </Button>
+                            </ConfirmDialog>
+                        ) : (
+                            <Button size="icon" variant="actionNormal" onClick={() => navigate("/streams")}>
+                                <ChevronLeft className="w-10 h-10" />
+                            </Button>
+                        )}
+
                         <h1 className="text-md font-medium ">
                             <div className="text-gray-900 font-bold text-md">{campaign.name} - Live video </div>
                         </h1>
@@ -272,7 +314,7 @@ export default function YoutubeStreamVideo() {
                                         onClick={handleUploadOnly}
                                         variant="actionCreate"
                                         disabled={uploading || isStreaming || !selectedFile || starting}>
-                                        <Upload className="w-4 h-4" />
+                                        {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                         {uploading ? "Đang upload..." : "Upload"}
                                     </Button>
 
@@ -299,7 +341,7 @@ export default function YoutubeStreamVideo() {
                                             variant="actionCreate"
                                             disabled={(!activeStreamId && !isStreaming) || starting}
                                         >
-                                            <CirclePlay className="w-4 h-4" />
+                                            {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CirclePlay className="w-4 h-4" />}
                                             {starting ? "Đang xử lý..." : "Bắt đầu"}
                                         </Button>
                                     )}
@@ -311,21 +353,26 @@ export default function YoutubeStreamVideo() {
                             <div className="w-full h-[320px] bg-white border-2 border-dashed border-gray-200 flex items-center justify-center relative overflow-hidden rounded">
                                 {/* If watch URL present embed, else show placeholder / local preview */}
                                 {watchUrlState ? (
-                                    <iframe
-                                        title="youtube-embed"
-                                        src={(function () { try { const u = new URL(watchUrlState); const v = u.searchParams.get('v'); if (v) return `https://www.youtube.com/embed/${v}?autoplay=1`; const seg = u.pathname.split('/').filter(Boolean).pop(); return seg ? `https://www.youtube.com/embed/${seg}?autoplay=1` : watchUrlState; } catch { return watchUrlState; } })()}
-                                        className="absolute inset-0 w-full h-full"
-
-                                        allow="autoplay; encrypted-media"
-                                        allowFullScreen
-                                    />
+                                    (() => {
+                                        const vid = extractVideoId(watchUrlState);
+                                        const src = vid ? `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1` : watchUrlState;
+                                        return (
+                                            <iframe
+                                                title="youtube-embed"
+                                                src={src}
+                                                className="absolute inset-0 w-full h-full"
+                                                allow="autoplay; encrypted-media"
+                                                allowFullScreen
+                                            />
+                                        );
+                                    })()
                                 ) : (
                                     <div className="text-sm text-gray-500">
                                         Upload file và BẮT ĐẦU stream để xem review trực tiếp trên youtube<br />
                                         1) Chọn file video từ máy tính.<br />
                                         2) Bấm "Upload" để tải video lên hệ thống.<br />
                                         3) Bấm "Bắt đầu" để phát trực tiếp video lên YouTube và xem trước tại đây.
-
+ 
                                     </div>
                                 )}
 
@@ -382,13 +429,29 @@ export default function YoutubeStreamVideo() {
                                 Watch
                             </Button>
                             <Button
-                                onClick={() => window.open("https://studio.youtube.com", "_blank")}
+                                onClick={() => {
+                                    const vid = extractVideoId(watchUrlState);
+                                    if (vid) {
+                                        // open Studio for the specific live video (fallback to studio root)
+                                        window.open(`https://studio.youtube.com/video/${vid}/live`, "_blank");
+                                    } else {
+                                        window.open("https://studio.youtube.com", "_blank");
+                                    }
+                                }}
                                 variant="actionDelete"
                                 className="w-full flex-1 rounded-none">
                                 Mở kênh
                             </Button>
                             <Button
-                                onClick={() => window.open("https://www.youtube.com/live_dashboard", "_blank")}
+                                onClick={() => {
+                                    const vid = extractVideoId(watchUrlState);
+                                    if (vid) {
+                                        // open Studio for the specific live video (fallback to studio root)
+                                        window.open(`https://studio.youtube.com/video/${vid}/livestreaming`, "_blank");
+                                    } else {
+                                        window.open("https://www.youtube.com/live_dashboard", "_blank");
+                                    }
+                                }}
                                 variant="actionDelete"
                                 className="w-full flex-1 rounded-none rounded-tr-md rounded-br-md">
                                 Mở Studio
@@ -398,28 +461,28 @@ export default function YoutubeStreamVideo() {
                         <div className="bg-white rounded-lg shadow p-4 flex-1 flex flex-col">
                             <div className="grid gap-2 flex-1">
                                 {watchUrlState ? (
-                                    <>
-                                        <iframe
-                                            title="YouTube Chat"
-                                            src={(function () {
-                                                try {
-                                                    const vid = new URL(watchUrlState).searchParams.get('v')
-                                                        || watchUrlState.split('/').filter(Boolean).pop();
-                                                    return `https://www.youtube.com/live_chat?v=${vid}&embed_domain=${window.location.hostname}`;
-                                                } catch { return ''; }
-                                            })()}
-                                            className="w-full h-full flex-1 border rounded"
-                                        />
-                                    </>
+                                    (() => {
+                                        const vid = extractVideoId(watchUrlState);
+                                        if (!vid) return <div className="text-xs text-gray-500">Không thể xác định video id để hiển thị chat.</div>;
+                                        // chat embeds can be blocked by adblockers; show a friendly fallback message when not available
+                                        const chatSrc = `https://www.youtube.com/live_chat?v=${vid}&embed_domain=${window.location.hostname}`;
+                                        return (
+                                            <iframe
+                                                title="YouTube Chat"
+                                                src={chatSrc}
+                                                className="w-full h-full flex-1 border rounded"
+                                            />
+                                        );
+                                    })()
                                 ) : (
                                     <div className="text-xs text-gray-500">Chưa có link YouTube để đồng bộ chat.</div>
                                 )}
                             </div>
                         </div>
 
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
+                     </div>
+                 </div>
+             </div>
+         </div>
+     );
+ }
