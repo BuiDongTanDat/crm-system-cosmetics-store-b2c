@@ -167,17 +167,17 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
 
                     {/* Wrap delete with ConfirmDialog */}
                     <ConfirmDialog
-                      title="Xác nhận xóa"
-                      description={<>
-                        Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{campaign?.name}</span>?
-                      </>}
-                      confirmText="Xóa"
-                      cancelText="Hủy"
-                      onConfirm={() => onDelete(campaign.id)}
+                        title="Xác nhận xóa"
+                        description={<>
+                            Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{campaign?.name}</span>?
+                        </>}
+                        confirmText="Xóa"
+                        cancelText="Hủy"
+                        onConfirm={() => onDelete(campaign.id)}
                     >
-                      <Button variant="actionDelete" size="icon">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                        <Button variant="actionDelete" size="icon">
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
                     </ConfirmDialog>
                 </div>
             )}
