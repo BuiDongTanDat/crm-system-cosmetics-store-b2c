@@ -1,11 +1,16 @@
-import { useState } from 'react';
 import { Toaster, toast } from 'sonner';
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SidebarProvider } from './context/SidebarContext';
-import { AuthProvider } from './context/AuthContext';
+
+// State
+import { useAuthStore } from './store/useAuthStore';
+import { useEffect } from 'react';
+// Layouts and Routes
 import Layout from './components/layout/Layout';
-import PrivateRoute from './components/auth/PrivateRoute';
-import PublicRoute from './components/auth/PublicRoute';
+import PrivateRoute from './components/routes/PrivateRoute';
+import PublicRoute from './components/routes/PublicRoute';
+
+// Pages
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 import ProductPage from "./pages/product/ProductPage";
@@ -14,7 +19,6 @@ import CFMAnalysisPage from "./pages/customer/CFMAnalysisPage";
 import CLVAnalysisPage from "./pages/customer/CLVAnalysisPage";
 import ChurnAnalysisPage from "./pages/customer/ChurnAnalysisPage";
 import LeadsPage from "./pages/crm/LeadsPage";
-import OpportunitiesPage from "./pages/crm/OpportunitiesPage";
 import ShoppingActivityPage from "./pages/order/ShoppingActivityPage";
 import MarketingPage from "./pages/marketing/MarketingPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -27,18 +31,38 @@ import AutomationPage from './pages/automation/AutomationPage';
 import LandingPage from './pages/landingPage/LandingPage';
 import FlowEditorPage from './pages/automation/FlowBuilderPage';
 import CategoryPage from './pages/category/CategoryPage';
-// Auth pages
-import LoginPage from './pages/auth/LoginPage';
-import SignupPage from './pages/auth/SignupPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ChangePasswordPage from './pages/auth/ChangePasswordPage';
-import ProfilePage from './pages/auth/ProfilePage';
-import StreamListPage from './pages/stream/StreamListPage';
 import YoutubeStreamCam from './pages/stream/YoutubeStreamCam';
 import YoutubeStreamVideo from './pages/stream/YoutubeStreamVideo';
+import StreamListPage from './pages/stream/StreamListPage';
+
+// Auth pages
+import LoginPage from './pages/auth/LoginPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ChangePasswordPage from './pages/auth/ChangePasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import ProfilePage from './pages/profile/ProfilePage';
+
+
 
 
 function App() {
+
+  const { refreshSession } = useAuthStore();
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = useAuthStore.getState().accessToken;
+      // Chỉ refresh nếu token tồn tại
+      if (token) {
+        try {
+          await refreshSession();
+        } catch (err) {
+          console.error("Session refresh failed:", err);
+        }
+      }
+    };
+    initAuth();
+  }, []);
 
   // Thêm: kiểm soát tắt/bật redirect (set VITE_DISABLE_AUTH_REDIRECTS=true để tắt redirect)
   const DISABLE_AUTH_REDIRECT = import.meta.env.VITE_DISABLE_AUTH_REDIRECTS === 'true';
@@ -64,177 +88,176 @@ function App() {
 
       {/* Content with relative positioning */}
       <div className="relative z-10">
-        <AuthProvider>
-          <SidebarProvider>
-            <BrowserRouter>
-              <Routes>
-                {/* Chưa đăng nhập sẽ truy cập các trang public (Đăng nhập, Đăng ký ,...) */}
-                <Route
-                  path="/auth/login"
-                  element={
-                    <PublicRoute>
-                      <LoginPage />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/auth/signup"
-                  element={
-                    <PublicRoute>
-                      <SignupPage />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/auth/forgot-password"
-                  element={
-                    <PublicRoute>
-                      <ForgotPasswordPage />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/auth/change-password"
-                  element={<ChangePasswordPage />}
-                />
+        <SidebarProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Chưa đăng nhập sẽ truy cập các trang public (Đăng nhập, Đăng ký ,...) */}
+              <Route
+                path="/auth/login"
+                element={
+                  <PublicRoute>
+                    <LoginPage />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/auth/forgot-password"
+                element={
+                  <PublicRoute>
+                    <ForgotPasswordPage />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/auth/reset-password"
+                element={
+                  <PublicRoute>
+                    <ResetPasswordPage />
+                  </PublicRoute>
+                }
+              />
 
-                {/* Sử dụng helper privateElement(...) để có thể tắt redirect tạm thời */}
-                <Route
-                  path="/"
-                  element={privateElement(<HomePage />)}
-                />
-                <Route
-                  path="/profile"
-                  element={privateElement(<ProfilePage />)}
-                />
+              <Route
+                path="/auth/change-password"
+                element={<ChangePasswordPage />}
+              />
 
-                {/* Sản phẩm */}
-                <Route
-                  path="/categories"
-                  element={privateElement(<CategoryPage />)}
-                />
-                <Route
-                  path="/products"
-                  element={privateElement(<ProductPage />)}
-                />
+              {/* Sử dụng helper privateElement(...) để có thể tắt redirect tạm thời */}
+              <Route
+                path="/"
+                element={privateElement(<HomePage />)}
+              />
+              <Route
+                path="/profile"
+                element={privateElement(<ProfilePage />)}
+              />
 
-                {/* Customer routes */}
-                <Route
-                  path="/customer-list"
-                  element={privateElement(<CustomerListPage />)}
-                />
-                <Route
-                  path="/ana-cfm"
-                  element={privateElement(<CFMAnalysisPage />)}
-                />
-                <Route
-                  path="/ana-clv"
-                  element={privateElement(<CLVAnalysisPage />)}
-                />
-                <Route
-                  path="/ana-churn"
-                  element={privateElement(<ChurnAnalysisPage />)}
-                />
+              {/* Sản phẩm */}
+              <Route
+                path="/categories"
+                element={privateElement(<CategoryPage />)}
+              />
+              <Route
+                path="/products"
+                element={privateElement(<ProductPage />)}
+              />
 
-                {/* Sales routes */}
-                <Route
-                  path="/leads"
-                  element={privateElement(<LeadsPage />)}
-                />
-                {/* <Route
+              {/* Customer routes */}
+              <Route
+                path="/customer-list"
+                element={privateElement(<CustomerListPage />)}
+              />
+              <Route
+                path="/ana-cfm"
+                element={privateElement(<CFMAnalysisPage />)}
+              />
+              <Route
+                path="/ana-clv"
+                element={privateElement(<CLVAnalysisPage />)}
+              />
+              <Route
+                path="/ana-churn"
+                element={privateElement(<ChurnAnalysisPage />)}
+              />
+
+              {/* Sales routes */}
+              <Route
+                path="/leads"
+                element={privateElement(<LeadsPage />)}
+              />
+              {/* <Route
                   path="/opporturnities"
                   element={privateElement(<OpportunitiesPage />)}
                 /> */}
 
-                <Route
-                  path="/kanban"
-                  element={privateElement(<KanbanPage />)}
-                />
+              <Route
+                path="/kanban"
+                element={privateElement(<KanbanPage />)}
+              />
 
-                {/* Bills routes */}
-                <Route
-                  path="/orders"
-                  element={privateElement(<OrderPage />)}
-                />
-                <Route
-                  path="/shopping_activity"
-                  element={privateElement(<ShoppingActivityPage />)}
-                />
+              {/* Bills routes */}
+              <Route
+                path="/orders"
+                element={privateElement(<OrderPage />)}
+              />
+              <Route
+                path="/shopping_activity"
+                element={privateElement(<ShoppingActivityPage />)}
+              />
 
-                {/* Marketing route */}
-                <Route
-                  path="/marketing"
-                  element={privateElement(<MarketingPage />)}
-                />
-                <Route
-                  path="/automations"
-                  element={privateElement(<AutomationPage />)}
-                />
-                <Route
-                  path="/automations/flow/new"
-                  element={privateElement(<FlowEditorPage />)}
-                />
-                <Route
-                  path="/automations/flow/:id"
-                  element={privateElement(<FlowEditorPage />)}
-                />
-
-
-                {/* Streaming routes */}
-                <Route
-                  path="/streams"
-                  element={privateElement(<StreamListPage />)}
-                />
-                <Route
-                  path="/streams/youtube/cam/:id"
-                  element={privateElement(<YoutubeStreamCam />)}
-                />
-                <Route
-                  path="/streams/youtube/vid/:id"
-                  element={privateElement(<YoutubeStreamVideo />)}
-                />
+              {/* Marketing route */}
+              <Route
+                path="/marketing"
+                element={privateElement(<MarketingPage />)}
+              />
+              <Route
+                path="/automations"
+                element={privateElement(<AutomationPage />)}
+              />
+              <Route
+                path="/automations/flow/new"
+                element={privateElement(<FlowEditorPage />)}
+              />
+              <Route
+                path="/automations/flow/:id"
+                element={privateElement(<FlowEditorPage />)}
+              />
 
 
+              {/* Streaming routes */}
+              <Route
+                path="/streams"
+                element={privateElement(<StreamListPage />)}
+              />
+              <Route
+                path="/streams/youtube/cam/:id"
+                element={privateElement(<YoutubeStreamCam />)}
+              />
+              <Route
+                path="/streams/youtube/vid/:id"
+                element={privateElement(<YoutubeStreamVideo />)}
+              />
 
-                {/* Reports routes */}
-                <Route
-                  path="/reports"
-                  element={privateElement(<ReportPage />)}
-                />
 
-                {/* Account management routes */}
-                <Route
-                  path="/employees"
-                  element={privateElement(<EmployeePage />)}
-                />
-                <Route
-                  path="/roles"
-                  element={privateElement(<RolePage />)}
-                />
 
-                {/* LandingPage */}
-                <Route
-                  path="/landing"
-                  element={<LandingPage />}
-                />
+              {/* Reports routes */}
+              <Route
+                path="/reports"
+                element={privateElement(<ReportPage />)}
+              />
 
-                {/* Others routes */}
-                <Route
-                  path="/settings"
-                  element={privateElement(<SettingsPage />)}
-                />
-                <Route
-                  path="/flows"
-                  element={privateElement(<FlowEditorPage />)}
-                />
-                <Route
-                  path="*"
-                  element={<NotFound />}
-                />
-              </Routes>
-            </BrowserRouter>
-          </SidebarProvider>
-        </AuthProvider>
+              {/* Account management routes */}
+              <Route
+                path="/employees"
+                element={privateElement(<EmployeePage />)}
+              />
+              <Route
+                path="/roles"
+                element={privateElement(<RolePage />)}
+              />
+
+              {/* LandingPage */}
+              <Route
+                path="/landing"
+                element={<LandingPage />}
+              />
+
+              {/* Others routes */}
+              <Route
+                path="/settings"
+                element={privateElement(<SettingsPage />)}
+              />
+              <Route
+                path="/flows"
+                element={privateElement(<FlowEditorPage />)}
+              />
+              <Route
+                path="*"
+                element={<NotFound />}
+              />
+            </Routes>
+          </BrowserRouter>
+        </SidebarProvider>
       </div>
     </div>
   );

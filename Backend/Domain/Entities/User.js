@@ -48,6 +48,16 @@ User.init(
       allowNull: false,
       defaultValue: 'active',       // 'active' | 'inactive' | ...
     },
+    avatar_url: {
+      type: DataTypes.STRING,   // Trường lưu đường link CDN để hiển thị hình
+    },
+    avatar_id: {
+      type: DataTypes.STRING,   // Trường lưu public ID để nữa có thể xóa ảnh trên Cloudinary
+    },
+    bio: {
+      type: DataTypes.TEXT, // hoặc DataTypes.STRING(500)
+      allowNull: true,
+    }
     // created_at / updated_at sẽ do timestamps quản lý
   },
   {

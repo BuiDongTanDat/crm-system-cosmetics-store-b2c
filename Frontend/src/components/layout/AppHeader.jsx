@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
-import { Menu, X, ChevronFirst, ChevronLast, Search, Bell, ChevronDown, User, KeyRound, LogOut } from "lucide-react";
+import { Menu, X, ChevronFirst, ChevronLast, Search, Bell, ChevronDown, User, KeyRound, LogOut, LogOutIcon } from "lucide-react";
 import { useSidebar } from "@/context/SidebarContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 import { notifications as mockNotifications } from '@/lib/data';
 import { Input } from "../ui/input";
+// ADDED: Confirm dialog for logout confirmation
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+
+// State
+import { useAuthStore } from "@/store/useAuthStore";
 
 // Danh sách các trang từ sidebar để tìm kiếm
 const searchablePages = [
@@ -30,6 +35,9 @@ const searchablePages = [
 ];
 
 export default function AppHeader() {
+  // Lấy user và signOut từ store
+  const { user, signOut } = useAuthStore();
+
   const {
     isMobileOpen,
     toggleSidebar,
@@ -41,9 +49,12 @@ export default function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  // control confirm logout dialog
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // notifications list (mock data)
   const [notifList, setNotifList] = useState(mockNotifications || []);
 
@@ -69,7 +80,7 @@ export default function AppHeader() {
   // Xử lý tìm kiếm
   const handleSearch = (query) => {
     setSearchQuery(query);
-    
+
     if (!query.trim()) {
       setSearchResults([]);
       setShowSearchResults(false);
@@ -121,19 +132,23 @@ export default function AppHeader() {
     }
   };
 
-  const handleLogout = () => {
-    // TODO: integrate real logout logic (clear tokens, call API, redirect)
+
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth/login");
     console.log('Logging out...');
   };
 
   const goProfile = () => {
-    // TODO: navigate to profile page
     console.log('Go to profile');
+    navigate("/profile");
+
   };
 
   const goChangePassword = () => {
-    // TODO: navigate to change password page
-    console.log('Go to change password');
+    console.log('Go to profile');
+    navigate("/profile");
   };
 
   const markAsRead = (id) => setNotifList(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -165,9 +180,9 @@ export default function AppHeader() {
             placeholder="Tìm kiếm chức năng..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            
+
           />
-          
+
           {/* Search Results Dropdown */}
           {showSearchResults && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
@@ -220,10 +235,10 @@ export default function AppHeader() {
 
           <DropdownMenuContent className="w-96 p-0 overflow-hidden" align="end" sideOffset={8}>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
-              <h3 className="font-semibold">Thông báo</h3>
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-white">
+              <h3 className="font-semibold text-sm">Thông báo</h3>
               <button
-                className="text-sm text-destructive px-2 hover:underline"
+                className="text-xs text-destructive px-2 hover:underline"
                 onClick={() => setNotifList([])}
               >
                 Xóa tất cả
@@ -240,16 +255,16 @@ export default function AppHeader() {
                 notifList.map((n) => (
                   <div
                     key={n.id}
-                    className={`p-3 flex items-start gap-3 transition-colors duration-150 cursor-pointer 
+                    className={`px-3 py-2 flex items-start gap-2 transition-colors duration-150 cursor-pointer 
               ${n.read ? 'bg-white hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'}`}
                     onClick={() => markAsRead(n.id)}
                   >
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-gray-900">{n.title}</div>
+                        <div className="text-xs font-medium text-gray-900">{n.title}</div>
                         <div className="text-xs text-gray-400">{n.time}</div>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">{n.message}</div>
+                      <div className="text-xs text-gray-600 mt-1">{n.message}</div>
                       <div className="mt-2 flex gap-2">
                         {!n.read && (
                           <button
@@ -281,28 +296,32 @@ export default function AppHeader() {
         </DropdownMenu>
 
 
-        <DropdownMenu>
+
+
+        <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
-            <div className={`flex items-center gap-2 rounded-xl px-2 py-1 cursor-pointer hover:border-brand transition-colors border border-transparent ${isScrolled
-              ? 'bg-white/90 dark:bg-gray-800/90'
-              : 'bg-white dark:bg-gray-800/60 backdrop-blur'
-              }`}>
+            <div
+              className={`flex items-center gap-2 rounded-xl px-2 py-1 cursor-pointer hover:border-brand transition-colors border border-transparent ${open ? 'bg-white/90 dark:bg-gray-800/90' : 'bg-white dark:bg-gray-800/60 backdrop-blur'}`}
+            >
               <img
-                src="/images/user/Tom meme.jpg"
+                src={user?.avatar || '/images/user/Tom.jpg'}
                 alt="User Avatar"
                 className="w-9 h-9 rounded-full object-cover"
               />
               <div className="hidden sm:flex flex-col leading-tight min-w-0">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">Alex Nguyen</span>
-                <span className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Admin</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{user?.name}</span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{user?.role}</span>
               </div>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+              />
             </div>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent className="w-52" align="end" sideOffset={8}>
             <DropdownMenuLabel className="flex flex-col">
-              <span className="text-sm font-medium">Alex Nguyen</span>
-              <span className="text-xs text-muted-foreground">admin@example.com</span>
+              <span className="text-sm font-medium">{user?.name}</span>
+              <span className="text-xs text-muted-foreground">{user?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={goProfile} className="cursor-pointer">
@@ -312,12 +331,38 @@ export default function AppHeader() {
               <KeyRound className="w-4 h-4 mr-2" /> Đổi mật khẩu
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+
+            <DropdownMenuItem
+              onSelect={() => {
+                // open confirm dialog and close the dropdown menu so dialog is on top
+                setConfirmOpen(true);
+                setOpen(false);
+              }}
+              className="flex items-center text-red-600 cursor-pointer 
+                        data-[highlighted]:bg-red-100 data-[highlighted]:text-red-700"
+            >
               <LogOut className="w-4 h-4 mr-2" /> Log out
             </DropdownMenuItem>
+
           </DropdownMenuContent>
         </DropdownMenu>
+
       </div>
+
+      {/* Controlled confirm dialog for logout (separate from the DropdownMenuContent) */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Xác nhận đăng xuất"
+        description="Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?"
+        confirmText="Đăng xuất"
+        cancelText="Hủy"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          handleLogout();
+        }}
+        confirmIcon={LogOutIcon}
+      />
     </header>
   );
 }

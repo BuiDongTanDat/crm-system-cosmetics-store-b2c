@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -10,13 +10,17 @@ import {
   DialogClose,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { Trash, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
-// ConfirmDialog props:
-// children - trigger element (asChild)
-// title, description, onConfirm, onCancel, loading, confirmText, cancelText
+/**
+ ConfirmDialog props:
+ - dùng trigger — children
+ - controlled — open + onOpenChange
+ */
 export default function ConfirmDialog({
   children,
+  open: externalOpen,          // nếu parent truyền open,
+  onOpenChange: externalSetOpen, // thì dùng controlled mode
   title = 'Xác nhận',
   description = 'Bạn có chắc chắn muốn thực hiện thao tác này?',
   onConfirm = () => { },
@@ -24,37 +28,50 @@ export default function ConfirmDialog({
   loading = false,
   confirmText = 'Xác nhận',
   cancelText = 'Hủy',
+  confirmIcon: ConfirmIcon = Trash2, // default icon
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const justConfirmedRef = useRef(false);
 
+  // Chế độ determine: ưu tiên controlled nếu props `externalOpen` tồn tại
+  const isControlled = externalOpen !== undefined;
+
+  const realOpen = isControlled ? externalOpen : internalOpen;
+  const setRealOpen = isControlled ? externalSetOpen : setInternalOpen;
+
+  // đảm bảo khi externalOpen thay đổi thì logic cũ vẫn ok
+  useEffect(() => {
+    if (isControlled) {
+      if (!externalOpen) justConfirmedRef.current = false;
+    }
+  }, [externalOpen]);
+
   const handleOpenChange = (val) => {
-    // nếu đóng và không do confirm thì gọi onCancel
+    // nếu đóng và không phải do confirm → chạy onCancel()
     if (!val && !justConfirmedRef.current) {
       onCancel?.();
     }
-    // reset flag khi đóng
+
     if (!val) justConfirmedRef.current = false;
-    setOpen(val);
+    setRealOpen(val);
   };
 
   const handleConfirm = async () => {
     justConfirmedRef.current = true;
+
     try {
-      // đảm bảo không dùng giá trị trả về từ onConfirm làm children
       await onConfirm?.();
-    } catch (e) {
-      // cho parent xử lý lỗi
-      console.error('Confirm action failed', e);
+    } catch (err) {
+      console.error('Confirm action failed:', err);
     } finally {
-      // đóng dialog PROGRAMMATICALLY sau khi onConfirm resolve/reject
       justConfirmedRef.current = false;
-      setOpen(false);
+      setRealOpen(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={realOpen} onOpenChange={handleOpenChange}>
+      {/* MODE A: nếu có children -> dùng như trigger */}
       {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
 
       <DialogContent className="sm:max-w-lg">
@@ -66,23 +83,23 @@ export default function ConfirmDialog({
 
         <div className="mt-2">
           <DialogDescription>
-
             {description}
-
           </DialogDescription>
         </div>
 
         <DialogFooter className="mt-4 space-x-2">
-          {/* Hủy: đóng dialog ngay lập tức */}
           <DialogClose asChild>
             <Button variant="outline" disabled={loading}>
               {cancelText}
             </Button>
           </DialogClose>
 
-          {/* Xác nhận: gọi handler, await và sau đó đóng dialog programmatic */}
-          <Button onClick={handleConfirm} variant="actionDelete" disabled={loading}>
-            <Trash2 className="w-4 h-4 " />
+          <Button
+            onClick={handleConfirm}
+            variant="actionDelete"
+            disabled={loading}
+          >
+            {ConfirmIcon && <ConfirmIcon className="w-4 h-4 mr-1" />}
             {loading ? `${confirmText}...` : confirmText}
           </Button>
         </DialogFooter>

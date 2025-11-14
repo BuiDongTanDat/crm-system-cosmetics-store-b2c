@@ -1,20 +1,41 @@
-const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT_SECRET || 'supersecret';
+const jwt = require("jsonwebtoken");
+
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "access-secret";
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh-secret";
+const RESET_SECRET = process.env.JWT_RESET_SECRET || "reset-secret";
+
+const ACCESS_TOKEN_EXPIRY = "30m";
+const REFRESH_TOKEN_EXPIRY = "7d";
+const RESET_TOKEN_EXPIRY = "15m";
 
 module.exports = {
-  generateToken(payload) {
-    return jwt.sign(payload, SECRET, { expiresIn: '1d' });
+  generateAccessToken(payload) {
+    return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
   },
 
-  generateResetToken(payload, expiresIn = '15m') {
-    return jwt.sign(payload, SECRET, { expiresIn });
+  generateRefreshToken(payload) {
+    return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+  },
+
+  verifyAccessToken(token) {
+    try {
+      return jwt.verify(token, ACCESS_SECRET);
+    } catch (err) {
+      console.error('Lỗi xác minh access token:', err);
+      throw new Error('Token không hợp lệ hoặc đã hết hạn');
+    }
+  },
+
+
+  verifyRefreshToken(token) {
+    return jwt.verify(token, REFRESH_SECRET);
+  },
+
+  generateResetToken(payload) {
+    return jwt.sign(payload, RESET_SECRET, { expiresIn: RESET_TOKEN_EXPIRY });
   },
 
   verifyResetToken(token) {
-    return jwt.verify(token, SECRET);
-  },
-
-  verifyToken(token) {
-    return jwt.verify(token, SECRET);
+    return jwt.verify(token, RESET_SECRET);
   }
 };

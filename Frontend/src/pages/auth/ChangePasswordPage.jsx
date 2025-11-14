@@ -10,7 +10,7 @@ export default function ChangePasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token'); // For reset password via email link
-  
+
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -61,15 +61,15 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setIsLoading(true);
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // Mock password change - in real app, replace with actual API call
       setIsSuccess(true);
       toast.success('Mật khẩu đã được thay đổi thành công!');
@@ -94,10 +94,14 @@ export default function ChangePasswordPage() {
             backgroundImage: 'url("/images/background/bg.jpg")',
           }}
         />
-        
+
         <div className="relative z-10 w-full max-w-md">
           <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
             <CardHeader className="space-y-1 text-center">
+              {/* logo (match LoginPage) */}
+              <div className="flex items-center justify-center mb-2">
+                <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
+              </div>
               <div className="flex justify-center mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
               </div>
@@ -108,13 +112,14 @@ export default function ChangePasswordPage() {
                 Mật khẩu của bạn đã được thay đổi thành công
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-4">
               <div className="text-center text-sm text-muted-foreground">
                 <p>Bạn có thể sử dụng mật khẩu mới để đăng nhập vào hệ thống</p>
               </div>
 
               <Button
+                variant="actionCreate"
                 onClick={handleGoToLogin}
                 className="w-full"
               >
@@ -136,21 +141,19 @@ export default function ChangePasswordPage() {
           backgroundImage: 'url("/images/background/bg.jpg")',
         }}
       />
-      
+
       <div className="relative z-10 w-full max-w-md">
         <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
+            {/* logo (match LoginPage) */}
+            <div className="flex items-center justify-center mb-2">
+              <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
+            </div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              {isPasswordReset ? 'Đặt lại mật khẩu' : 'Thay đổi mật khẩu'}
+              Thay đổi mật khẩu
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {isPasswordReset 
-                ? 'Nhập mật khẩu mới cho tài khoản của bạn'
-                : 'Cập nhật mật khẩu để bảo mật tài khoản'
-              }
-            </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Current Password Field - only show if not password reset */}
@@ -237,14 +240,15 @@ export default function ChangePasswordPage() {
               <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded">
                 <p className="font-medium mb-1">Yêu cầu mật khẩu:</p>
                 <ul className="space-y-1">
-                  <li>• Tối thiểu 6 ký tự</li>
-                  <li>• Nên bao gồm chữ hoa, chữ thường và số</li>
-                  <li>• Tránh sử dụng thông tin cá nhân</li>
+                  <li>- Tối thiểu 6 ký tự</li>
+                  <li>- Nên bao gồm chữ hoa, chữ thường và số</li>
+                  <li>- Tránh sử dụng thông tin cá nhân</li>
                 </ul>
               </div>
 
               {/* Submit Button */}
               <Button
+                variant="actionCreate"
                 type="submit"
                 className="w-full"
                 disabled={isLoading}

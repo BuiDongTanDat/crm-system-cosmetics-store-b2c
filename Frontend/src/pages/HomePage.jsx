@@ -15,7 +15,7 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="pt-6 h-screen">
+    <div className="pt-6 max-h-screen">
       {/* <h1 className="text-2xl font-bold">Dashboard</h1>
       <p className="mb-6">Bắt đầu quản lý doanh nghiệp và trao đổi với các khách hàng của bạn</p>
       Container chứa tất cả cards */}

@@ -163,21 +163,6 @@ export function EmployeeForm({
                 />
               </div>
             </div>
-
-            {mode === "edit" && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  {data ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
-                </label>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={handleChange("password")}
-                  placeholder={data ? "Nhập mật khẩu mới" : "Nhập mật khẩu"}
-                  variant="normal"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

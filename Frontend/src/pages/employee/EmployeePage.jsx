@@ -17,8 +17,11 @@ import { getRoles } from "@/services/roles";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { getInitials } from "@/utils/helper";
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function EmployeePage() {
+    const authStore = useAuthStore();
     const [employees, setEmployees] = useState([]);
     const [roles, setRoles] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -46,14 +49,15 @@ export default function EmployeePage() {
             const res = await getUsers();
             let data = Array.isArray(res) ? res : res?.data;
             if (!data) data = [];
-            // Chuyển đổi dữ liệu cho phù hợp với UI
+            // Chuyển đổi dữ liệu cho phù hợp với UI, thêm avatar_url
             setEmployees(data.map(u => ({
                 id: u.user_id,
                 name: u.full_name,
                 email: u.email,
                 phone: u.phone,
                 role: u.role_name,
-                status: u.status
+                status: u.status,
+                avatar_url: u.avatar_url
             })));
         } catch (err) {
             console.error("Lỗi tải danh sách nhân viên:", err);
@@ -117,7 +121,8 @@ export default function EmployeePage() {
                     email: res.email,
                     phone: res.phone,
                     role: res.role_name,
-                    status: res.status
+                    status: res.status,
+                    avatar_url: res.avatar_url
                 }
             });
         } catch (err) {
@@ -158,7 +163,7 @@ export default function EmployeePage() {
                 await updateUser(employeeData.id, payload);
                 savedItem = await getUserById(employeeData.id);
 
-                // Update employee list
+                // Update employee list (include avatar_url)
                 setEmployees(prev => prev.map(emp =>
                     emp.id === savedItem.user_id
                         ? {
@@ -167,7 +172,8 @@ export default function EmployeePage() {
                             email: savedItem.email,
                             phone: savedItem.phone,
                             role: savedItem.role_name,
-                            status: savedItem.status
+                            status: savedItem.status,
+                            avatar_url: savedItem.avatar_url
                         }
                         : emp
                 ));
@@ -182,7 +188,8 @@ export default function EmployeePage() {
                         email: savedItem.email,
                         phone: savedItem.phone,
                         role: savedItem.role_name,
-                        status: savedItem.status
+                        status: savedItem.status,
+                        avatar_url: savedItem.avatar_url
                     }
                 }));
                 toast.success("Cập nhật nhân viên thành công!");
@@ -204,7 +211,8 @@ export default function EmployeePage() {
                     email: savedItem.email,
                     phone: savedItem.phone,
                     role: savedItem.role_name,
-                    status: savedItem.status
+                    status: savedItem.status,
+                    avatar_url: savedItem.avatar_url
                 }, ...prev]);
 
                 toast.success("Thêm nhân viên thành công!");
@@ -232,43 +240,7 @@ export default function EmployeePage() {
         }
     };
 
-    // Import/Export functions
-    const exportEmployees = () => {
-        const blob = new Blob([JSON.stringify(employees, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'employees.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success("Xuất nhân viên thành công.");
-    };
 
-    const importEmployees = (file) => {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const json = JSON.parse(e.target.result);
-                if (Array.isArray(json)) {
-                    setEmployees(json.map((item, i) => ({
-                        id: item.id || Date.now() + i,
-                        name: item.name || 'Untitled',
-                        email: item.email || '',
-                        phone: item.phone || '',
-                        role: item.role || 'Sales',
-                        status: item.status || 'Active'
-                    })));
-                    toast.success("Nhập file thành công.");
-                } else {
-                    toast.error('File import không hợp lệ (cần mảng JSON)');
-                }
-            } catch (err) {
-                toast.error('Không thể đọc file JSON: ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    };
 
     const handleImportSuccess = (importedData) => {
         try {
@@ -278,7 +250,8 @@ export default function EmployeePage() {
                 email: item['Email'] || item.email || '',
                 phone: item['Số điện thoại'] || item.phone || '',
                 role: item['Vai trò'] || item.role || 'Sales',
-                status: item['Trạng thái'] || item.status || 'Active'
+                status: item['Trạng thái'] || item.status || 'Active',
+                avatar_url: null
             }));
 
             setEmployees(prev => [...prev, ...processedEmployees]);
@@ -402,81 +375,110 @@ export default function EmployeePage() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {currentEmployees.map((employee) => (
-                                    <tr
-                                        key={employee.id}
-                                        className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onMouseEnter={() => setHoveredRow(employee.id)}
-                                        onMouseLeave={() => setHoveredRow(null)}
-                                    >
-                                        <td className="px-6 py-2 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                                        </td>
-                                        <td className="px-6 py-2 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{employee.email}</div>
-                                        </td>
-                                        <td className="px-6 py-2 whitespace-nowrap text-center">
-                                            <div className="text-sm text-gray-900">{employee.phone}</div>
-                                        </td>
-                                        <td className="px-6 py-2 whitespace-nowrap text-center">
-                                            <span >{employee.role}</span>
-                                        </td>
-                                        <td className="px-6 py-2 whitespace-nowrap text-center w-32 uppercase">
-                                            <span className={getStatusBadge(employee.status)}>
-                                                {employee.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-2 text-center w-36">
-                                            <div
-                                                className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
-                                                    ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                    : "opacity-0 translate-y-1 pointer-events-none"
-                                                    }`}
-                                            >
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleView(employee)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionUpdate"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(employee)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
+                                {currentEmployees.map((employee) => {
+                                    const isCurrentUser = authStore.user?.id === employee.id; // check row hiện tại có phải chính user đăng nhập không
+                                    console.log('Current User ID:', authStore.user?.id, 'Employee ID:', employee.id);
+                                    return (
+                                        <tr
+                                            key={employee.id}
+                                            className={`group relative transition-colors cursor-pointer
+                                                    ${hoveredRow === employee.id ? "bg-gray-50" : ""}
+                                                    ${authStore.user?.id === employee.id ? "bg-blue-50 hover:bg-blue-100" : ""}`
+                                            }
+                                            onMouseEnter={() => setHoveredRow(employee.id)}
+                                            onMouseLeave={() => setHoveredRow(null)}
+                                        >
 
-                                                {/* Dùng ConfirmDialog cho hành động xóa ở table */}
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={
-                                                        <>
-                                                            Bạn có chắc chắn muốn xóa nhân viên{" "}
-                                                            <span className="font-semibold text-black">{employee.name}</span>?
-                                                        </>
-                                                    }
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(employee.id)}
-                                                >
-                                                    <Button
-                                                        variant="actionDelete"
-                                                        size="icon"
-                                                        className="h-8 w-8"
+                                            <td className="px-6 py-2 whitespace-nowrap">
+                                                <div className="flex items-center gap-3">
+                                                    {employee.avatar_url ? (
+                                                        <img
+                                                            src={employee.avatar_url}
+                                                            alt={employee.name}
+                                                            className="w-8 h-8 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xs font-semibold uppercase">
+                                                            {getInitials(employee.name)}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                                                </div>
+                                            </td>
+
+                                            <td className="px-6 py-2 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900">{employee.email}</div>
+                                            </td>
+
+                                            <td className="px-6 py-2 whitespace-nowrap text-center">
+                                                <div className="text-sm text-gray-900">{employee.phone}</div>
+                                            </td>
+
+                                            <td className="px-6 py-2 whitespace-nowrap text-center">
+                                                <span>{employee.role}</span>
+                                            </td>
+
+                                            <td className="px-6 py-2 whitespace-nowrap text-center w-32 uppercase">
+                                                <span className={getStatusBadge(employee.status)}>
+                                                    {employee.status}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-6 py-2 text-center w-36">
+                                                {!isCurrentUser && (
+                                                    <div
+                                                        className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
+                                                            ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                            : "opacity-0 translate-y-1 pointer-events-none"
+                                                            }`}
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </ConfirmDialog>
+                                                        <Button
+                                                            variant="actionRead"
+                                                            size="icon"
+                                                            onClick={() => handleView(employee)}
+                                                            className="h-8 w-8"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="actionUpdate"
+                                                            size="icon"
+                                                            onClick={() => handleEdit(employee)}
+                                                            className="h-8 w-8"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </Button>
 
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                        <ConfirmDialog
+                                                            title="Xác nhận xóa"
+                                                            description={
+                                                                <>
+                                                                    Bạn có chắc chắn muốn xóa nhân viên{" "}
+                                                                    <span className="font-semibold text-black">{employee.name}</span>?
+                                                                </>
+                                                            }
+                                                            confirmText="Xóa"
+                                                            cancelText="Hủy"
+                                                            onConfirm={() => handleDelete(employee.id)}
+                                                        >
+                                                            <Button
+                                                                variant="actionDelete"
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </ConfirmDialog>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                )
+                                }
                             </tbody>
+
                         </table>
                     </div>
                 </div>

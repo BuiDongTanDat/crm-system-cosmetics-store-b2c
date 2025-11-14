@@ -20,3 +20,23 @@ export const activateUser = (id) => request(`/users/${id}/activate`, { method: '
 
 // Hủy kích hoạt user
 export const deactivateUser = (id) => request(`/users/${id}/deactivate`, { method: 'PUT' });
+
+// Lấy thông tin user đã xác thực (đang đăng nhập)
+export const authMe = () => request('/users/me/info', { method: 'GET' });
+
+// Thay đổi mật khẩu
+export const changePassword = async (oldPassword, newPassword) => {
+    return request('/users/me/change-password', {
+        method: 'POST',
+        body: { oldPassword, newPassword },
+    });
+};
+
+// Cập nhật avatar cho user đã xác thực (đang đăng nhập)
+export const updateAvatar = (formData) =>
+    request('/users/me/change-avatar', {
+        method: 'POST',
+        body: formData,
+        isFormData: true // <- thêm flag để request biết đây là FormData
+    });
+

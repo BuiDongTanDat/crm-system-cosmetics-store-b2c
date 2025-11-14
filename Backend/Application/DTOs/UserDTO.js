@@ -1,11 +1,14 @@
 class UserDTO {
-    constructor({ user_id, full_name, email, phone, role_name, status, created_at, updated_at }) {
+    constructor({ user_id, full_name, email, phone, role_name, status, avatar_url, avatar_id, bio, created_at, updated_at }) {
         this.user_id = user_id;
         this.full_name = full_name;
         this.email = email;
         this.phone = phone;
         this.role_name = role_name;
         this.status = status;
+        this.avatar_url = avatar_url;
+        this.avatar_id = avatar_id;
+        this.bio = bio;
         this.created_at = created_at;
         this.updated_at = updated_at;
     }
@@ -18,6 +21,9 @@ class UserDTO {
             phone: entity.phone,
             role_name: entity.role_name,
             status: entity.status,
+            avatar_url: entity.avatar_url,
+            avatar_id: entity.avatar_id,
+            bio: entity.bio,
             created_at: entity.created_at,
             updated_at: entity.updated_at
         });

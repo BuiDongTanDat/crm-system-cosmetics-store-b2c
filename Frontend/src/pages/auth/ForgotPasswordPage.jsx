@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { forgotPassword } from '@/services/auth';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       toast.error('Vui lòng nhập email');
       return;
@@ -26,12 +27,10 @@ export default function ForgotPasswordPage() {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock email sending - in real app, replace with actual API call
+      // Call real API
+      await forgotPassword(email);
       setIsEmailSent(true);
       toast.success('Email đặt lại mật khẩu đã được gửi!');
     } catch (error) {
@@ -41,19 +40,6 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const handleResendEmail = async () => {
-    setIsLoading(true);
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Email đã được gửi lại!');
-    } catch (error) {
-      toast.error('Có lỗi xảy ra. Vui lòng thử lại!');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (isEmailSent) {
     return (
@@ -65,16 +51,14 @@ export default function ForgotPasswordPage() {
             backgroundImage: 'url("/images/background/bg.jpg")',
           }}
         />
-        
+
         <div className="relative z-10 w-full max-w-md">
           <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
             <CardHeader className="space-y-1 text-center">
-              {/* Thêm: logo + brand */}
-              <div className="flex items-center justify-center space-x-3">
+              {/* logo (match LoginPage) */}
+              <div className="flex items-center justify-center mb-2">
                 <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
-                <span className="text-2xl font-extrabold text-foreground">LuBoo</span>
               </div>
-
               <div className="flex justify-center mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
               </div>
@@ -85,7 +69,7 @@ export default function ForgotPasswordPage() {
                 Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến email của bạn
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-4">
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
@@ -97,17 +81,21 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="text-center text-sm text-muted-foreground">
-                <p>Không nhận được email?</p>
-                <p>Kiểm tra thư mục spam hoặc</p>
+                <p>Không nhận được email? Kiểm tra thư mục Spam hoặc:</p>
+                
               </div>
 
               <Button
-                onClick={handleResendEmail}
+                onClick={() => {
+                  // return to the input form so user can re-enter email
+                  setIsEmailSent(false);
+                  setEmail('');
+                }}
                 variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? 'Đang gửi lại...' : 'Gửi lại email'}
+                Nhập lại email
               </Button>
 
               <div className="text-center">
@@ -135,16 +123,14 @@ export default function ForgotPasswordPage() {
           backgroundImage: 'url("/images/background/bg.jpg")',
         }}
       />
-      
+
       <div className="relative z-10 w-full max-w-md">
         <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
-            {/* Thêm: logo + brand */}
-            <div className="flex items-center justify-center space-x-3">
+            {/* logo (match LoginPage) */}
+            <div className="flex items-center justify-center mb-2">
               <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
-              
             </div>
-
             <CardTitle className="text-2xl font-bold text-foreground">
               Quên mật khẩu
             </CardTitle>
@@ -152,7 +138,7 @@ export default function ForgotPasswordPage() {
               Nhập email để nhận hướng dẫn đặt lại mật khẩu
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Field */}
@@ -161,7 +147,7 @@ export default function ForgotPasswordPage() {
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="email"
                     placeholder="Nhập email của bạn"
@@ -178,10 +164,10 @@ export default function ForgotPasswordPage() {
 
               {/* Submit Button */}
               <Button
+                variant="actionCreate"
                 type="submit"
                 className="w-full"
                 disabled={isLoading}
-                variant ="actionCreate"
               >
                 {isLoading ? 'Đang gửi...' : 'Gửi'}
               </Button>

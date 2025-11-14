@@ -37,7 +37,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
         if (onDragStart) onDragStart(e);
       }}
       onDragEnd={() => setIsDragging(false)}
-      onClick={() => onView(card)}
+      // onClick={() => onView(card)} //Xóa hàm này vì khi kéo thấy bất tiện
     >
       <div className="space-y-2">
         {/* Priority + Title */}

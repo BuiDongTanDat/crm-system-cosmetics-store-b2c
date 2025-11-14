@@ -3,6 +3,8 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+
 
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
@@ -21,6 +23,7 @@ const StreamingRoutes = require('./API/routes/streamingRoutes');
 const YoutubeRoutes = require('./API/routes/youtubeRoutes');
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
+const protectedRoute = require('./API/Middleware/authMiddleware');
 
 // cron utils & domain events
 require('./Infrastructure/scheduler/automationCron');
@@ -37,18 +40,26 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 /* =========================
    Middlewares
 /* =========================
    Routes
 ========================= */
-app.use('/auth', authRoutes);
+
+app.use('/auth',authRoutes);
+/* đăng ký middleware bảo vệ các route phía dưới
+   Lưu ý là nếu route nào nằm dưới protected route thì khi call api cần truyền access token trong header
+   Để tránh bất tiện trong lúc debug nên tạm comment lại */
+
+app.use(protectedRoute);
+
+app.use('/users', userRoutes);
 app.use('/automation', flowRoutes);
 app.use('/leads', LeadRoutes);
 app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
-app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', OrderRoutes);
