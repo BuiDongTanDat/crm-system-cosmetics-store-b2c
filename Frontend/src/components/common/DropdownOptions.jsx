@@ -16,6 +16,7 @@ export default function DropdownOptions({
   className = "",
   triggerClassName = "",
   width = "w-full",
+  height = "h-9",
   side = "bottom",
   sideOffset = 4,
 }) {
@@ -26,7 +27,7 @@ export default function DropdownOptions({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <div
-          className={`h-9 flex items-center justify-between ${width} px-3 py-2 bg-white border border-gray-300 rounded-lg ${
+          className={`${height} flex items-center justify-between ${width} px-3 py-2 bg-white border border-gray-300 rounded-lg ${
             disabled
               ? 'bg-gray-50 cursor-not-allowed'
               : 'cursor-pointer hover:border-blue-500'

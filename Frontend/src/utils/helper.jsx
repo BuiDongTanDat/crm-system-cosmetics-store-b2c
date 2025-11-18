@@ -86,6 +86,107 @@ export const calculatePercentage = (value, total) => {
   return Math.round((value / total) * 100);
 };
 
+// Hàm lấy nhãn cho các khoảng thời gian
+export function getPeriodLabel(period) {
+  const now = new Date();
+
+  const format = (date) =>
+    date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+  if (period === "today") {
+    return `Hôm nay (${format(now)})`;
+  }
+
+  if (period === "week") {
+    const start = new Date(now);
+    const end = new Date(now);
+
+    // getDay(): CN = 0 => đổi thành 7 cho dễ tính
+    const day = now.getDay() === 0 ? 7 : now.getDay();
+
+    start.setDate(now.getDate() - (day - 1)); // Thứ 2
+    end.setDate(start.getDate() + 6); // Chủ nhật
+
+    return `Tuần này (${format(start)} – ${format(end)})`;
+  }
+
+  if (period === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return `Tháng này (${format(start)} – ${format(end)})`;
+  }
+
+  if (period === "quarter") {
+    const currentMonth = now.getMonth();
+    const quarter = Math.floor(currentMonth / 3); // 0–3
+
+    const start = new Date(now.getFullYear(), quarter * 3, 1);
+    const end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+
+    return `Quý này (${format(start)} – ${format(end)})`;
+  }
+
+  return "";
+}
+
+// Hàm lấy ngày bắt đầu của khoảng thời gian
+const getStartDate = (periodKey) => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (periodKey) {
+    case 'today':
+      return startOfToday;
+    case 'week': {
+      const day = now.getDay() === 0 ? 7 : now.getDay(); // Chủ nhật = 7
+      const startOfWeek = new Date(startOfToday);
+      startOfWeek.setDate(startOfToday.getDate() - (day - 1)); // Thứ 2
+      return startOfWeek;
+    }
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case 'quarter':
+      return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    default:
+      return startOfToday;
+  }
+};
+
+// Tính tổng doanh thu
+export const computeRevenue = (ordersRaw, periodKey, orderDateFn, orderTotalFn) => {
+  const startDate = getStartDate(periodKey);
+  let sum = 0;
+
+  for (const o of ordersRaw) {
+    const d = orderDateFn(o);
+    const total = orderTotalFn(o);
+
+    if (!d || Number.isNaN(d.getTime())) {
+      if (periodKey === 'month' || periodKey === 'quarter') sum += total;
+      continue;
+    }
+
+    if (d >= startDate) sum += total;
+  }
+
+  return sum;
+};
+
+//Lọc đơn pending (Chỗ này nữa có thể thay đổi cho phù hợp nha)
+export const filterPendingOrders = (ordersRaw) => {
+  return ordersRaw.filter(o => {
+    const s = (o.status || o.state || '').toString().toLowerCase();
+    return ['pending', 'chờ', 'processing', 'wait'].some(k => s.includes(k));
+  });
+};
+
+
+
 
 // Hàm lấy trạng thái màu sắc
 export const getStatusColor = (status) => {

@@ -39,10 +39,8 @@ const buttonVariants = cva(
         actionMore: " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0",
 
         actionAI: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
-        actionDashboard: "bg-blue-100 text-brand  transition-all duration-150 ease-in-out hover:bg-gradient-to-r hover:from-sky-500 hover:via-blue-600 hover:to-indigo-600 hover:text-white active:scale-95"
-
-
-
+        actionDashboardDeepBlue: "rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
+        actionDashboardLightBlue: "rounded-md bg-gradient-to-r from-cyan-400 to-blue-400 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",

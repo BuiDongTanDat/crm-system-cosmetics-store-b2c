@@ -11,12 +11,14 @@ import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
 import { getAllleads, getPipelineMetrics } from '@/services/leads';
 
+// Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
-  contacted: { label: 'contacted', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  qualified: { label: 'qualified', bg: 'bg-purple-100', text: 'text-purple-700' },
-  nurturing: { label: 'nurturing', bg: 'bg-orange-100', text: 'text-orange-700' },
-  converted: { label: 'converted', bg: 'bg-green-100', text: 'text-green-700' },
-  closed_lost: { label: 'closed_lost', bg: 'bg-red-100', text: 'text-red-700' },
+  new: { label: "NEW", bg: "bg-blue-100", text: "text-blue-700" },
+  contacted: { label: "CONTACTED", bg: "bg-yellow-100", text: "text-yellow-700" },
+  qualified: { label: "QUALIFIED", bg: "bg-purple-100", text: "text-purple-700" },
+  nurturing: { label: "NURTURING", bg: "bg-orange-100", text: "text-orange-700" },
+  converted: { label: "CONVERTED", bg: "bg-green-100", text: "text-green-700" },
+  closed_lost: { label: "CLOSED_LOST", bg: "bg-red-100", text: "text-red-700" },
 };
 
 const FILTER_OPTIONS = [
@@ -95,8 +97,10 @@ export default function LeadsPage() {
   // Reset page khi đổi filter
   useEffect(() => setCurrentPage(1), [filterStatus, leads.length]);
 
+  // normalize status key to lowercase when resolving meta
   const getStatusBadge = (status) => {
-    const meta = STATUS_META[status];
+    const key = (status || "").toString().toLowerCase();
+    const meta = STATUS_META[key];
     if (!meta)
       return <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 text-xs">-</span>;
     return (
@@ -267,17 +271,14 @@ export default function LeadsPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                     >
                       <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(
-                              lead.priority
-                            )}`}
-                          >
+                        <div className="flex flex-col items-start gap-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(lead.priority)}`}>
                             {getPriorityLabel(lead.priority)}
                           </span>
                           {lead.deal_name || '(Chưa đặt tên deal)'}
                         </div>
                       </td>
+
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.name}</td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.email}</td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.phone}</td>

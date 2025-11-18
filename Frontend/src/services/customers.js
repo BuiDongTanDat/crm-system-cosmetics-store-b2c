@@ -7,10 +7,10 @@ export const getCustomers = () => request('/customers', { method: 'GET' });
 export const getCustomerById = (id) => request(`/customers/${id}`, { method: 'GET' });
 
 // Tạo khách hàng mới
-export const createCustomer = (data) => request('/customers', { method: 'POST', data });
+export const createCustomer = (data) => request('/customers', { method: 'POST', body: data });
 
 // Cập nhật thông tin khách hàng
-export const updateCustomer = (id, data) => request(`/customers/${id}`, { method: 'PUT', data });
+export const updateCustomer = (id, data) => request(`/customers/${id}`, { method: 'PUT', body: data });
 
 // Xóa khách hàng
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });

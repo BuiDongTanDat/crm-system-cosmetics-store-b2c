@@ -4,13 +4,13 @@ const Customer = require('../../Domain/Entities/Customer');
 class CustomerRepository {
   // ---------------- CRUD ----------------
   async create(customer) {
-    return await Customer.create(customer.toJSON());
+    return await Customer.create(customer);
   }
 
-  async update(customer) {
-    const existing = await Customer.findByPk(customer.customer_id);
+  async update(customerId, patch) {
+    const existing = await Customer.findByPk(customerId);
     if (!existing) throw new Error('Customer not found');
-    await existing.update(customer.toJSON());
+    await existing.update(patch);
     return existing;
   }
 

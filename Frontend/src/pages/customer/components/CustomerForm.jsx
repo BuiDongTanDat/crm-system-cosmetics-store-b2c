@@ -4,7 +4,7 @@ import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { Edit, Plus, Save, Trash2, X, History, ArrowLeft } from "lucide-react";
-import { StatusList, CustomerTypes, CustomerSources, Industries } from "@/lib/data";
+import { CustomerTypes, CustomerSources, Industries } from "@/lib/data";
 import InteractionHistory from "@/pages/customer/components/InteractionHistory";
 import { Input } from "@/components/ui/input";
 
@@ -23,8 +23,7 @@ export function CustomerForm({
     name: "",
     type: CustomerTypes.standard,
     birthDate: "",
-    gender: "Nam",
-    industry: "Công nghệ thông tin",
+    gender: "male",
     email: "",
     phone: "",
     address: "",
@@ -32,7 +31,6 @@ export function CustomerForm({
     source: CustomerSources.website,
     notes: "",
     tags: [],
-    status: "Active",
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -41,20 +39,36 @@ export function CustomerForm({
 
   useEffect(() => {
     if (data) {
+      // ensure birthDate is YYYY-MM-DD and socialMedia is string
+      const formatBirth = (b) => {
+        if (!b) return "";
+        try {
+          return b.split('T')[0];
+        } catch (e) {
+          return b;
+        }
+      };
+      const socialToString = (s) => {
+        if (!s) return "";
+        if (typeof s === 'string') return s;
+        if (typeof s === 'object') {
+          return Object.entries(s).map(([k, v]) => `${k}:${v}`).join(', ');
+        }
+        return String(s);
+      };
+
       setForm({
         name: data.name || "",
         type: data.type || CustomerTypes.standard,
-        birthDate: data.birthDate || "",
-        gender: data.gender || "Nam",
-        industry: data.industry || "Công nghệ thông tin",
+        birthDate: formatBirth(data.birthDate || ""),
+        gender: data.gender || "male",
         email: data.email || "",
         phone: data.phone || "",
         address: data.address || "",
-        socialMedia: data.socialMedia || "",
+        socialMedia: socialToString(data.socialMedia || ""),
         source: data.source || CustomerSources.website,
         notes: data.notes || "",
         tags: data.tags || [],
-        status: data.status || "Active",
       });
     } else {
       // Reset form for new entries
@@ -62,8 +76,7 @@ export function CustomerForm({
         name: "",
         type: CustomerTypes.standard,
         birthDate: "",
-        gender: "Nam",
-        industry: "Công nghệ thông tin",
+        gender: "male",
         email: "",
         phone: "",
         address: "",
@@ -71,7 +84,6 @@ export function CustomerForm({
         source: CustomerSources.website,
         notes: "",
         tags: [],
-        status: "Active",
       });
     }
   }, [data, mode]);
@@ -106,8 +118,7 @@ export function CustomerForm({
         name: data.name || "",
         type: data.type || CustomerTypes.standard,
         birthDate: data.birthDate || "",
-        gender: data.gender || "Nam",
-        industry: data.industry || "Công nghệ thông tin",
+        gender: data.gender || "male",
         email: data.email || "",
         phone: data.phone || "",
         address: data.address || "",
@@ -115,7 +126,6 @@ export function CustomerForm({
         source: data.source || CustomerSources.website,
         notes: data.notes || "",
         tags: data.tags || [],
-        status: data.status || "Active",
       });
     }
     setMode?.("view");
@@ -127,15 +137,13 @@ export function CustomerForm({
       return;
     }
 
-    const isCreating = !data?.id;
-
     onSave({
       ...form,
       id: data?.id,
     });
 
     // Nếu là update, chuyển về view mode
-    if (!isCreating) {
+    if (data?.id) {
       setMode?.("view");
     }
   };
@@ -175,6 +183,8 @@ export function CustomerForm({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="space-y-4">
+          
+
           <div className="grid grid-cols-1 gap-3">
             {/* Tên và phân loại */}
             <div className="flex gap-3">
@@ -219,7 +229,11 @@ export function CustomerForm({
                 <label className="block text-sm font-medium mb-1">Giới tính</label>
                 <div className="w-full">
                   <DropdownOptions
-                    options={["Nam", "Nữ", "Khác"].map(g => ({ value: g, label: g }))}
+                    options={[
+                      { value: 'male', label: 'Nam' },
+                      { value: 'female', label: 'Nữ' },
+                      { value: 'other', label: 'Khác' }
+                    ]}
                     value={form.gender}
                     onChange={(val) => setForm(f => ({ ...f, gender: val }))}
                     disabled={mode === "view"}
@@ -256,18 +270,6 @@ export function CustomerForm({
                   variant="normal"
                 />
               </div>
-              {/* Ngành nghề */}
-              <div className="flex-1">
-                <label className=" text-sm font-medium mb-1">Ngành nghề / Lĩnh vực</label>
-                <DropdownOptions
-                  options={Industries.map(i => ({ value: i, label: i }))}
-                  value={form.industry}
-                  onChange={(val) => setForm(f => ({ ...f, industry: val }))}
-                  disabled={mode === "view"}
-                  placeholder="Chọn ngành nghề"
-                  width="w-full"
-                />
-              </div>
             </div>
 
             {/* Địa chỉ */}
@@ -296,13 +298,12 @@ export function CustomerForm({
               </div>
               <div className="w-40">
                 <label className="block text-sm font-medium mb-1">Nguồn KH</label>
-                <DropdownOptions
-                  options={Object.values(CustomerSources).map(s => ({ value: s, label: s }))}
-                  value={form.source}
-                  onChange={(val) => setForm(f => ({ ...f, source: val }))}
+                <Input
                   disabled={mode === "view"}
-                  placeholder="Chọn nguồn"
-                  width="w-full"
+                  value={form.source}
+                  onChange={handleChange("source")}
+                  placeholder="Nguồn khách hàng"
+                  variant="normal"
                 />
               </div>
             </div>
@@ -349,19 +350,6 @@ export function CustomerForm({
                 className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                 placeholder="Nhập ghi chú"
                 rows={3}
-              />
-            </div>
-
-            {/* Trạng thái */}
-            <div className="w-40">
-              <label className="block text-sm font-medium mb-1">Trạng thái</label>
-              <DropdownOptions
-                options={StatusList.map(s => ({ value: s, label: s }))}
-                value={form.status}
-                onChange={(val) => setForm(f => ({ ...f, status: val }))}
-                disabled={mode === "view"}
-                placeholder="Chọn trạng thái"
-                width="w-full"
               />
             </div>
           </div>

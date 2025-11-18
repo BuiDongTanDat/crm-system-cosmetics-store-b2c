@@ -79,7 +79,7 @@ export default function AvatarForm({
       </div>
 
       <div className="border-t bg-white p-4 flex-shrink-0 flex justify-end gap-2">
-        <Button variant="outline" onClick={() => { if (typeof onClose === 'function') onClose(); else if (typeof onCancel === 'function') onCancel(); }}>
+        <Button variant="outline" disabled={isSaving} onClick={() => { if (typeof onClose === 'function') onClose(); else if (typeof onCancel === 'function') onCancel(); }}>
           Hủy
         </Button>
         <Button onClick={handleSave} disabled={isSaving} variant="actionUpdate">

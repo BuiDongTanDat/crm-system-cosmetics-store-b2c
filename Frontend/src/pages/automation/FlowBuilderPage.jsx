@@ -14,6 +14,7 @@ import {
   Trash2,
   ChevronLeft,
   Save,
+  Search,
 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import DropdownOptions from '@/components/common/DropdownOptions';
@@ -28,6 +29,7 @@ import {
   saveFlowEditor,
   generateEmailContent,
 } from "@/services/automation";
+import { Input } from "@/components/ui/input";
 // ---- NORMALIZERS ----
 
 const toTagsArray = (tags) => {
@@ -635,6 +637,7 @@ export default function FlowBuilderPage() {
                     key={t.key}
                     icon={t.icon}
                     label={t.label}
+                    className="cursor-pointer"
                     active={selected?.type === "trigger" && selected?.key === t.key}
                     onClick={() => setSelected({ type: "trigger", key: t.key })}
                     right={
@@ -663,12 +666,13 @@ export default function FlowBuilderPage() {
                       <div className="text-sm font-semibold">Chọn Trigger</div>
                     </div>
                     <div className="mt-3">
-                      <div className="flex items-center gap-2 px-2 h-10 rounded-lg border bg-gray-50">
-                        <input
-                          className="w-full bg-transparent outline-none text-sm"
-                          placeholder="Tìm kiếm theo tên hoặc nền tảng Trigger"
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          type="text"
+                          placeholder="Tìm kiếm chiến dịch..."
                           value={qTrigger}
-                          onChange={(e) => setQTrigger(e.target.value)}
+                          onChange={e => setQTrigger(e.target.value)}
                         />
                       </div>
                       <div className="mt-3 max-h-96 overflow-auto pr-1">
@@ -676,7 +680,7 @@ export default function FlowBuilderPage() {
                           <button
                             key={it.key}
                             onClick={() => addTrigger(it)}
-                            className="w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
+                            className="cursor-pointer w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
                           >
                             <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
                             <div className="min-w-0 text-left">
@@ -714,6 +718,7 @@ export default function FlowBuilderPage() {
                     key={a.key}
                     icon={a.icon}
                     label={a.label}
+                    className="cursor-pointer"
                     active={selected?.type === "action" && selected?.key === a.key}
                     onClick={() => setSelected({ type: "action", key: a.key })}
                     right={
@@ -736,12 +741,13 @@ export default function FlowBuilderPage() {
                 {showActionPicker && (
                   <div ref={actionPickerRef} className="absolute left-full top-56 ml-3 w-[360px] bg-white rounded-2xl border shadow-lg p-3 z-10">
                     <div className="mt-3">
-                      <div className="flex items-center gap-2 px-2 h-10 rounded-lg border bg-gray-50">
-                        <input
-                          className="w-full bg-transparent outline-none text-sm"
-                          placeholder="Tìm kiếm theo tên hoặc nền tảng hành động"
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          type="text"
+                          placeholder="Tìm kiếm chiến dịch..."
                           value={qAction}
-                          onChange={(e) => setQAction(e.target.value)}
+                          onChange={e => setQAction(e.target.value)}
                         />
                       </div>
                       <div className="mt-3 max-h-96 overflow-auto pr-1">
@@ -749,7 +755,7 @@ export default function FlowBuilderPage() {
                           <button
                             key={it.key}
                             onClick={() => addAction(it)}
-                            className="w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
+                            className="cursor-pointer w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
                           >
                             <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
                             <div className="min-w-0 text-left">

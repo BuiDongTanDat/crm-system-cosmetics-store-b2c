@@ -3,6 +3,7 @@ import { ChevronDown, Paperclip, Settings, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { generateEmailContent } from "@/services/automation";
+import { Input } from "@/components/ui/input";
 
 export default function EmailEditor({ value = {}, onChange, onGenAI }) {
   const [openContent, setOpenContent] = useState(true);
@@ -82,8 +83,9 @@ export default function EmailEditor({ value = {}, onChange, onGenAI }) {
             {/* Subject */}
             <div className="space-y-1">
               <label className="text-sm text-gray-700">Tiêu đề email</label>
-              <input
-                className="w-full h-10 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500"
+              <Input
+                variant="normal"
+                className="w-full h-10 px-3"
                 placeholder="Nhập tiêu đề"
                 value={value.subject || ""}
                 onChange={(e) => onChange?.({ ...value, subject: e.target.value })}
@@ -108,32 +110,35 @@ export default function EmailEditor({ value = {}, onChange, onGenAI }) {
                   <Wand2 className="w-4 h-4 mr-2" />
                   Gen AI (tạo nội dung nhanh)
                 </div>
-                <Button onClick={handleGenAI} disabled={aiLoading}>
+                <Button 
+                variant = "actionAI"
+                onClick={handleGenAI} 
+                disabled={aiLoading}>
                   <Wand2 className="w-4 h-4 mr-2" />
                   {aiLoading ? "Đang tạo…" : "Tạo bằng AI"}
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  className="px-3 py-2 border rounded"
+                <Input
+                  variant = "normal"
                   placeholder="Tên lead"
                   value={aiInput.name}
                   onChange={(e) => setAiInput((s) => ({ ...s, name: e.target.value }))}
                 />
-                <input
-                  className="px-3 py-2 border rounded"
+                <Input
+                  variant = "normal"
                   placeholder="Sản phẩm"
                   value={aiInput.product}
                   onChange={(e) => setAiInput((s) => ({ ...s, product: e.target.value }))}
                 />
-                <input
-                  className="px-3 py-2 border rounded"
+                <Input
+                  variant = "normal"
                   placeholder="Chiến dịch"
                   value={aiInput.campaign}
                   onChange={(e) => setAiInput((s) => ({ ...s, campaign: e.target.value }))}
                 />
-                <input
-                  className="px-3 py-2 border rounded"
+                <Input
+                  variant = "normal"
                   placeholder="Tone (vd: chuyên nghiệp)"
                   value={aiInput.tone}
                   onChange={(e) => setAiInput((s) => ({ ...s, tone: e.target.value }))}
@@ -157,7 +162,7 @@ export default function EmailEditor({ value = {}, onChange, onGenAI }) {
               </p>
             </div>
 
-            <Button variant="outline" className="flex items-center gap-2 text-sm text-blue-600">
+            <Button variant="outline" className="flex items-center gap-2 text-sm">
               <Paperclip className="w-4 h-4" />
               Thêm file đính kèm
             </Button>
