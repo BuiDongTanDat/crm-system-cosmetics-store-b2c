@@ -19,28 +19,30 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
-        
+
         // Thêm variant mới cho menu
         menuItem: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-103 active:scale-95",
         menuSubmenu: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-103 active:scale-95",
         subMenuItem: "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold  active:scale-95",
-        
+
 
         //Variant action button
         // Thêm variant mới cho action button
         actionNormal: "active:bg-brand active:text-white bg-white hover:border-brand hover:text-brand transition-colors border border-white text-gray-700",
-        
+
         // CRUD Action Variants
         actionCreate: "bg-blue-600 text-white hover:bg-blue-700",
         actionRead: "bg-brand/10   hover:bg-brand text-brand hover:text-brand-foreground",
         actionUpdate: "bg-brand/10  active:bg-brand active:text-white hover:bg-brand text-brand hover:text-brand-foreground",
         actionDelete: "bg-red-100 text-destructive hover:bg-red-500 hover:text-white",
-        
+
         actionMore: " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0",
-        
+
         actionAI: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
-      
-      
+        actionDashboard: "bg-blue-100 text-brand  transition-all duration-150 ease-in-out hover:bg-gradient-to-r hover:from-sky-500 hover:via-blue-600 hover:to-indigo-600 hover:text-white active:scale-95"
+
+
+
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",
@@ -52,7 +54,7 @@ const buttonVariants = cva(
         // Thêm size cho menu
         menuItem: "h-auto p-2 gap-2",
         subMenuItem: "h-auto p-2 gap-1",
-        
+
         // Size cho product
         productAction: "h-8 px-3 py-1 text-xs",
         productCard: "w-full h-full p-4"

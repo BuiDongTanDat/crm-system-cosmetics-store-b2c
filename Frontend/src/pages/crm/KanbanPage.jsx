@@ -643,7 +643,7 @@ export default function KanbanPage() {
             }}
           />
         )}
-        maxWidth="sm:max-w-3xl"
+        maxWidth="sm:max-w-5xl"
       />
 
     </div>

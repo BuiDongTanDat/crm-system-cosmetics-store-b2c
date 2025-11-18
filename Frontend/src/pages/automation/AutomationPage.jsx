@@ -260,6 +260,10 @@ export default function AutomationPage() {
                 onStatusChange={handleStatusChange}
               />
             ))}
+            {currentAutomations.length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-500">Không có Automation</div>
+            )}
+
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
@@ -346,6 +350,11 @@ export default function AutomationPage() {
                       </td>
                     </tr>
                   ))}
+                  {currentAutomations.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className="text-center py-8 text-gray-500">Không có Automation</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

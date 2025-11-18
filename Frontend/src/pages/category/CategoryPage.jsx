@@ -39,7 +39,7 @@ export default function CategoryPage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const categoriesPerPage = 8;
+    const categoriesPerPage = 10;
     const totalPages = Math.max(1, Math.ceil(filteredCategories.length / categoriesPerPage));
     const currentCategories = filteredCategories.slice(
         (currentPage - 1) * categoriesPerPage,
@@ -148,7 +148,7 @@ export default function CategoryPage() {
         <div className=" flex flex-col">
             {/* Sticky header */}
             <div
-                className="sticky top-[70px] z-20 flex justify-between gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-7"
+                className="sticky top-[70px] z-20 flex justify-between gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-5"
                 style={{ backdropFilter: 'blur' }}
             >
                 {/* Header */}
@@ -189,7 +189,7 @@ export default function CategoryPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                         <thead className="bg-gray-50">
@@ -259,6 +259,12 @@ export default function CategoryPage() {
                                     </td>
                                 </tr>
                             ))}
+                            {/* Trạng thái rỗng */}
+                            {currentCategories.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="text-center py-8 text-gray-500">Không có Danh mục</td>
+                                </tr>
+                            )}
                         </tbody>
 
                     </table>

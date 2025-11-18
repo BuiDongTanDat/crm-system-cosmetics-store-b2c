@@ -178,11 +178,11 @@ export default function ProfilePage() {
       </div>
 
       {/* 2 columns bằng chiều cao */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mt-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-6 items-stretch">
         {/* Left column */}
-        <div className="flex flex-col gap-6 h-full lg:col-span-1">
+        <div className="flex flex-col gap-3 h-full lg:col-span-1 ">
           {/* Avatar card */}
-          <Card className="flex-1">
+          <Card className="flex-1 rounded-md">
             <CardHeader className="text-center">
               <CardTitle>Ảnh đại diện</CardTitle>
             </CardHeader>
@@ -215,7 +215,7 @@ export default function ProfilePage() {
           </Card>
 
           {/* Actions card */}
-          <Card className="flex-1">
+          <Card className="flex-1 rounded-md">
             <CardHeader>
               <CardTitle>Thao tác</CardTitle>
             </CardHeader>
@@ -252,7 +252,7 @@ export default function ProfilePage() {
 
         {/* Right column */}
         <div className="flex flex-col gap-6 h-full lg:col-span-2">
-          <Card className="flex-1">
+          <Card className="flex-1 rounded-md">
             <CardHeader>
               <CardTitle>Thông tin chi tiết</CardTitle>
               <CardDescription>Thông tin cá nhân và liên lạc của bạn</CardDescription>
@@ -326,7 +326,7 @@ export default function ProfilePage() {
                   onChange={handleChange("bio")}
                   disabled={mode === "view"}
                   maxLength={500}
-                  className="h-[100px] disabled:bg-muted/50 w-full px-3 py-2 border border-input rounded-md bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed resize-none"
+                  className="h-[120px] disabled:bg-muted/50 w-full px-3 py-2 border border-input rounded-md bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed resize-none"
                   placeholder="Viết vài dòng giới thiệu về bản thân..."
                 />
                 {mode === "edit" && (

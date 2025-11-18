@@ -222,6 +222,12 @@ export default function StreamListPage() {
                                         </td>
                                     </tr>
                                 ))}
+                                {/* Trạng thái rỗng */}
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có Chiến dịch</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

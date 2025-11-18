@@ -41,7 +41,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
               }`}
           >
             {product.status?.toString().toUpperCase() === 'AVAILABLE'
-              ? 'Còn hàng'
+              ? `Còn hàng (${product.inventory_qty || 0})`
               : product.status?.toString().toUpperCase() === 'OUT_OF_STOCK'
                 ? 'Hết hàng'
                 : 'Đã ngừng'}

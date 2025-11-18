@@ -299,6 +299,12 @@ export default function RolePage() {
                                         </td>
                                     </tr>
                                 ))}
+                                {/* Trạng thái rỗng */}
+                                {currentRoles.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="text-center py-8 text-gray-500">Không có Vai trò</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

@@ -400,8 +400,8 @@ export default function YoutubeStreamVideo() {
                     </div>
 
                     {/* Right: Quick actions + chat + local feed */}
-                    <div className="col-span-5 flex flex-col gap-4">
-                        <div className="w-full flex justify-center gap-0">
+                    <div className="col-span-5 flex flex-col gap-4 ">
+                        <div className="w-full flex justify-center gap-1 bg-red-100 p-2  rounded-md">
                             <Button
                                 onClick={async () => {
                                     try {
@@ -414,7 +414,8 @@ export default function YoutubeStreamVideo() {
                                     }
                                 }}
                                 variant="outline"
-                                className="w-full flex-1 rounded-none rounded-tl-md rounded-bl-md"
+                                size="sm"
+                                className="w-full flex-1"
                             >
                                 Sao chép URL
                             </Button>
@@ -424,7 +425,8 @@ export default function YoutubeStreamVideo() {
                                     else toast.error("Chưa có link xem live. Vui lòng upload và bấm Bắt đầu.");
                                 }}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none"
+                                size="sm"
+                                className="w-full flex-1"
                             >
                                 Watch
                             </Button>
@@ -439,7 +441,8 @@ export default function YoutubeStreamVideo() {
                                     }
                                 }}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none">
+                                size="sm"
+                                className="w-full flex-1 ">
                                 Mở kênh
                             </Button>
                             <Button
@@ -453,7 +456,8 @@ export default function YoutubeStreamVideo() {
                                     }
                                 }}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none rounded-tr-md rounded-br-md">
+                                size="sm"
+                                className="w-full flex-1">
                                 Mở Studio
                             </Button>
                         </div>

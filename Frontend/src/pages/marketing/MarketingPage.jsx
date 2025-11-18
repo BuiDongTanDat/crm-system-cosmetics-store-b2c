@@ -309,6 +309,9 @@ export default function MarketingPage() {
                 getTypeBadge={getTypeBadge}
               />
             ))}
+            {currentCampaigns.length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-500">Không có Chiến dịch</div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
@@ -377,6 +380,12 @@ export default function MarketingPage() {
                       </td>
                     </tr>
                   ))}
+                  {/* Trạng thái rỗng */}
+                  {currentCampaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-gray-500">Không có Chiến dịch</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

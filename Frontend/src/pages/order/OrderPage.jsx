@@ -35,7 +35,7 @@ export default function OrderPage() {
         pending: "Chờ xử lý",
         processing: "Đang xử lý",
         cancelled: "Đã hủy",
-        paid: "Đã thanh toán", 
+        paid: "Đã thanh toán",
         failed: "Thanh toán thất bại",
         refunded: "Đã hoàn tiền",
         shipped: "Đã giao hàng",
@@ -490,6 +490,12 @@ export default function OrderPage() {
                                         </td>
                                     </tr>
                                 ))}
+                                {/* Trạng thái rỗng */}
+                                {currentOrders.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có Đơn hàng</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

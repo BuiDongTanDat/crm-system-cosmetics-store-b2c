@@ -36,7 +36,7 @@ class CustomerController {
 
   static async create(req, res) {
     try {
-      const result = await CustomerService.create(req.body);
+      const result = await CustomerService.createCustomer(req.body);
       res.status(201).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });

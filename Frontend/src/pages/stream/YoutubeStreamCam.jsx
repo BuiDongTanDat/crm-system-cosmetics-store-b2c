@@ -638,7 +638,7 @@ export default function YoutubeStreamPage() {
 
                     {/* Bên phải: Quick action button + Khung chat */}
                     <div className="col-span-5 flex flex-col gap-4">
-                        <div className="w-full flex justify-center gap-0">
+                        <div className="w-full flex justify-center gap-1 p-2 bg-red-100 rounded-md">
                             <Button
                                 onClick={async () => {
                                     try {
@@ -651,7 +651,8 @@ export default function YoutubeStreamPage() {
                                     }
                                 }}
                                 variant="outline"
-                                className="w-full flex-1 rounded-none rounded-tl-md rounded-bl-md"
+                                size = "sm"
+                                className="w-full flex-1 "
                             >
                                 Sao chép URL
                             </Button>
@@ -662,7 +663,8 @@ export default function YoutubeStreamPage() {
                                     else alert("Chưa có link xem live. Vui lòng upload/bắt đầu stream.");
                                 }}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none"
+                                size = "sm"
+                                className="w-full flex-1 "
                             >
                                 Watch
                             </Button>
@@ -670,7 +672,8 @@ export default function YoutubeStreamPage() {
                             <Button
                                 onClick={() => window.open("https://www.youtube.com", "_blank")}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none"
+                                size = "sm"
+                                className="w-full flex-1"
                             >
                                 Mở kênh
                             </Button>
@@ -678,7 +681,8 @@ export default function YoutubeStreamPage() {
                             <Button
                                 onClick={() => window.open("https://studio.youtube.com", "_blank")}
                                 variant="actionDelete"
-                                className="w-full flex-1 rounded-none rounded-tr-md rounded-br-md"
+                                size = "sm"
+                                className="w-full flex-1"
                             >
                                 Mở Studio
                             </Button>

@@ -310,17 +310,7 @@ export default function EmployeePage() {
                             <Plus className="w-4 h-4" />
                             Thêm Nhân viên
                         </Button>
-
-                        {/* Import/Export Dropdown */}
-                        <ImportExportDropdown
-                            data={employees}
-                            filename="employees"
-                            fieldMapping={employeeFieldMapping}
-                            onImportSuccess={handleImportSuccess}
-                            onImportError={handleImportError}
-                            trigger="icon"
-                            variant="actionNormal"
-                        />
+                        
                     </div>
                 </div>
                 <div className="flex gap-3 items-center justify-end w-full">
@@ -477,6 +467,12 @@ export default function EmployeePage() {
                                 }
                                 )
                                 }
+                                {/* Trạng thái rỗng */}
+                                {currentEmployees.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="text-center py-8 text-gray-500">Không có Nhân viên</td>
+                                    </tr>
+                                )}
                             </tbody>
 
                         </table>

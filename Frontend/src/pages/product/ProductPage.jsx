@@ -180,7 +180,7 @@ export default function ProductPage() {
   //Lấy màu badge trạng thái
   const getStatusBadge = (status) =>
     status === 'AVAILABLE'
-      ? 'px-2 py-1 text-xs font-medium text-success   rounded-full w-[100px] text-center inline-block bg-green-100'
+      ? 'px-2 py-1 text-xs font-medium bg-cyan-100 text-brand   rounded-full w-[100px] text-center inline-block'
       : 'px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100';
 
   // file input change -> call importProductsCSV directly (service expects field name "file")
@@ -301,7 +301,7 @@ export default function ProductPage() {
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('card')}
               size="icon"
-              className = "rounded-none rounded-tl-md rounded-bl-md"
+              className="rounded-none rounded-tl-md rounded-bl-md"
             >
               <Square className="w-4 h-4" />
             </Button>
@@ -309,7 +309,7 @@ export default function ProductPage() {
               variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
               onClick={() => setViewMode('list')}
               size="icon"
-              className = "rounded-none rounded-tr-md rounded-br-md"
+              className="rounded-none rounded-tr-md rounded-br-md"
             >
               <List className="w-4 h-4" />
             </Button>
@@ -352,6 +352,9 @@ export default function ProductPage() {
                 onDelete={handleDelete}
               />
             ))}
+            {currentProducts.length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-500">Không có Sản phẩm</div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden mb-2">
@@ -454,6 +457,13 @@ export default function ProductPage() {
                       </td>
                     </tr>
                   ))}
+
+                  {/* Trạng thái rỗng */}
+                  {currentProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-gray-500">Không có Sản phẩm</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

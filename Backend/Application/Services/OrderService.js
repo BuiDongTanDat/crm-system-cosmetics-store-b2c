@@ -71,7 +71,6 @@ class OrderService {
 			notes: payload.notes || '',
 			order_date: new Date().toISOString(),
 
-			// giữ nguyên các field khác nếu bạn muốn
 			currency: payload.currency || 'VND',
 		};
 
@@ -182,6 +181,11 @@ class OrderService {
 		const order = await OrderRepo.findById(orderId);
 		if (!order) return null; // Để nữa bên controller 
 
+		// Lấy tên khách hàng
+		const res = await customerRepository.findById(order.customer_id);
+		if (res) {
+			order.customer_name = res.full_name;
+		}
 		// Lấy details từ đơn hàng này
 		let details = await OrderDetailService.getByOrderId(orderId);
 		return OrderResponseDTO.fromEntity(order, details);
@@ -198,6 +202,11 @@ class OrderService {
 			const results = await Promise.all(
 				orders.map(async (o) => {
 					const orderId = o.order_id;
+					// Lấy customer name
+					const res = await customerRepository.findById(o.customer_id);
+					if (res) {
+						o.customer_name = res.full_name;
+					}
 					const details = await OrderDetailService.getByOrderId(orderId);
 					return OrderResponseDTO.fromEntity(o, details);
 				})
