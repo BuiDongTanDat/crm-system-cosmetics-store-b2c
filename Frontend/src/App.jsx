@@ -18,14 +18,14 @@ import CustomerListPage from "./pages/customer/CustomerListPage";
 import CFMAnalysisPage from "./pages/customer/CFMAnalysisPage";
 import CLVAnalysisPage from "./pages/customer/CLVAnalysisPage";
 import ChurnAnalysisPage from "./pages/customer/ChurnAnalysisPage";
-import LeadsPage from "./pages/crm/LeadsPage";
+import LeadsPage from "./pages/deal/LeadsPage";
 import ShoppingActivityPage from "./pages/order/ShoppingActivityPage";
 import MarketingPage from "./pages/marketing/MarketingPage";
 import SettingsPage from "./pages/SettingsPage";
 import EmployeePage from './pages/employee/EmployeePage';
 import OrderPage from './pages/order/OrderPage';
 import ReportPage from './pages/report/ReportPage';
-import KanbanPage from './pages/crm/KanbanPage';
+import KanbanPage from './pages/deal/KanbanPage';
 import RolePage from './pages/role/RolePage';
 import AutomationPage from './pages/automation/AutomationPage';
 import LandingPage from './pages/landingPage/LandingPage';
@@ -41,6 +41,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import ChannelPage from './pages/channel/ChannelPage';
 
 
 
@@ -77,7 +78,7 @@ function App() {
     <div className="min-h-screen w-full relative ">
       {/* Background Image */}
       <div
-        className="opacity-30 absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        className="opacity-40 absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: 'url("/images/background/bg.jpg")',
         }}
@@ -161,10 +162,10 @@ function App() {
               />
 
               {/* Sales routes */}
-              <Route
+              {/* <Route
                 path="/leads"
                 element={privateElement(<LeadsPage />)}
-              />
+              /> */}
               {/* <Route
                   path="/opporturnities"
                   element={privateElement(<OpportunitiesPage />)}
@@ -189,6 +190,10 @@ function App() {
               <Route
                 path="/marketing"
                 element={privateElement(<MarketingPage />)}
+              />
+              <Route
+                path="/channels"
+                element={privateElement(<ChannelPage />)}
               />
               <Route
                 path="/automations"

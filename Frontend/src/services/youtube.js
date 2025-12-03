@@ -1,8 +1,16 @@
 import { request } from "@/utils/api";
 
-export function getYoutubeAuthUrl(returnTo = window.location.href) {
-	const encoded = encodeURIComponent(returnTo);
-	return `${import.meta.env.VITE_API_URL}/youtube/auth?returnTo=${encoded}`;
+export async function getYoutubeAuthUrl(returnTo = "/streams") {
+  try {
+    const data = await request(`/youtube/auth?returnTo=${encodeURIComponent(returnTo)}`);
+    if (data.url) {
+      window.location.href = data.url; // redirect trình duyệt đến Google
+    } else {
+      console.error("Không nhận được URL auth từ server");
+    }
+  } catch (err) {
+    console.error("Lỗi khi lấy URL YouTube auth:", err);
+  }
 }
 
 

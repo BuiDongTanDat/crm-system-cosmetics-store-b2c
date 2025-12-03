@@ -246,7 +246,7 @@ export default function AutomationPage() {
       </div>
 
       {/* Scrollable automations list */}
-      <div className="flex-1 overflow-auto pt-6 px-6">
+      <div className="flex-1 overflow-auto pt-6 px-4">
         {/* Automations view */}
         {viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">

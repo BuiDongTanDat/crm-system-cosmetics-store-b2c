@@ -47,11 +47,7 @@ const navItems = [
   {
     name: "Deals",
     icon: <BadgeDollarSign className="w-5 h-5" />,
-    subItems: [
-      { name: "Pipeline", path: "/kanban", pro: false },
-      { name: "Leads", path: "/leads", pro: false },
-      // { name: "Cơ hội bán hàng", path: "/opporturnities", pro: false }
-    ],
+    path: "/kanban",
   },
   {
     name: "Hóa đơn",
@@ -65,7 +61,9 @@ const navItems = [
     name: "Marketing",
     icon: <Megaphone className="w-5 h-5" />,
     subItems: [
+      { name: "Kênh", path: "/channels", pro: false },
       { name: "Chiến dịch", path: "/marketing", pro: false },
+      
       { name: "Automation", path: "/automations", pro: false },
       { name: "Phiên bán hàng", path: "/streams", pro: false }
     ],

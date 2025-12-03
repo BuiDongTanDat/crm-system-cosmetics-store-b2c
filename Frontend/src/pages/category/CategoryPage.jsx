@@ -15,6 +15,9 @@ export default function CategoryPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: "view", category: null });
 
+    // hovered row for action buttons (like ProductPage)
+    const [hoveredRow, setHoveredRow] = useState(null);
+
     // Filtering
     const [filterStatus, setFilterStatus] = useState("");
     const FILTER_OPTIONS = [
@@ -55,8 +58,14 @@ export default function CategoryPage() {
 
     const fetchCategories = async () => {
         try {
-            const data = await getCategories();
-            setCategories(data || []);
+            const result = await getCategories();
+            if (result && result.ok) {
+                setCategories(result.data || []);
+            } else {
+                console.log("Lỗi tải danh mục:", result.error);
+                setCategories([]);
+            }
+
         } catch (err) {
             console.error("Lỗi tải danh mục:", err);
             setCategories([]);
@@ -82,11 +91,11 @@ export default function CategoryPage() {
                 const updateRes = await updateCategory(idForUpdate, payloadToSend);
 
                 // Kiểm tra nếu lỗi
-                if (updateRes && updateRes.error) {
-                    return { success: false, message: String(updateRes.error) };
+                if (!updateRes || !updateRes.ok) {
+                    return { success: false, message: updateRes?.error?.message || "Lỗi cập nhật" };
                 }
 
-                savedItem = (updateRes && (updateRes.category_id || updateRes.id)) ? updateRes : await getCategory(idForUpdate);
+                savedItem = updateRes.data;
 
                 // Cập nhật state và giữ modal mở ở chế độ "view"
                 setCategories((prev) => {
@@ -104,11 +113,11 @@ export default function CategoryPage() {
             } else {
                 const createRes = await createCategory(payloadToSend);
                 // Kiểm tra nếu lỗi
-                if (createRes && createRes.error) {
-                    return { success: false, message: String(createRes.error) };
+                if (!createRes && !createRes.ok) {
+                    return { success: false, message: createRes?.error?.message || "Lỗi tạo danh mục mới" };
                 }
 
-                savedItem = createRes;
+                savedItem = createRes.data;
 
                 // Cập nhật state để thêm mục mới nhưng KHÔNG đóng modal ở đây; trả về success cho form
                 setCategories((prev) => [savedItem, ...prev]);
@@ -189,7 +198,7 @@ export default function CategoryPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
+            <div className="bg-white rounded-2xl border overflow-hidden shadow mb-4">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                         <thead className="bg-gray-50">
@@ -208,7 +217,9 @@ export default function CategoryPage() {
                             {currentCategories.map((category, index) => (
                                 <tr
                                     key={`${category.category_id || category.id || 'cat'}-${index}`}
-                                    className="group hover:bg-gray-50 transition-colors"
+                                    onMouseEnter={() => setHoveredRow(category.category_id || category.id)}
+                                    onMouseLeave={() => setHoveredRow(null)}
+                                    className="hover:bg-gray-50 transition-colors"
                                 >
                                     <td className="px-6 py-2 text-sm font-medium text-gray-900">{category.name}</td>
                                     <td className="px-6 py-2 text-sm text-gray-900">{category.description}</td>
@@ -216,7 +227,7 @@ export default function CategoryPage() {
                                         <span className={getStatusBadge(category.status)}>{category.status}</span>
                                     </td>
                                     <td className="px-6 py-2 text-center w-36">
-                                        <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
+                                        <div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredRow === (category.category_id || category.id) ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
                                             <Button
                                                 variant="actionRead"
                                                 size="icon"

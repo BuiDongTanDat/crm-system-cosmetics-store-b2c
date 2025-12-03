@@ -3,7 +3,7 @@ import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Plus } from '
 import CountUp from 'react-countup';
 import { Button } from '@/components/ui/button';
 import AppDialog from '@/components/dialogs/AppDialog';
-import DealForm from '@/pages/crm/components/DealForm';
+import DealForm from '@/pages/deal/components/DealForm';
 import { formatCurrency, getPriorityColor, getPriorityLabel, formatDate } from '@/utils/helper';
 import DropdownOptions from '@/components/common/DropdownOptions';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
@@ -26,7 +26,7 @@ const FILTER_OPTIONS = [
   ...Object.entries(STATUS_META).map(([value, v]) => ({ value, label: v.label })),
 ];
 
-export default function LeadsPage() {
+export default function LeadsPage({ showHeader = true, externalFilterStatus, onFilterChange }) {
 
   const [leads, setLeads] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -46,6 +46,15 @@ export default function LeadsPage() {
   const [shouldAnimateStats, setShouldAnimateStats] = useState(true);
 
   const dealsPerPage = 8;
+
+  // controlled vs uncontrolled filter
+  const isControlledFilter = externalFilterStatus !== undefined;
+  const effectiveFilterStatus = isControlledFilter ? externalFilterStatus : filterStatus;
+  const handleFilterChange = (v) => {
+    if (onFilterChange) onFilterChange(v);
+    if (!isControlledFilter) setFilterStatus(v);
+  };
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -94,8 +103,8 @@ export default function LeadsPage() {
     return () => { mounted = false; };
   }, []);
 
-  // Reset page khi đổi filter
-  useEffect(() => setCurrentPage(1), [filterStatus, leads.length]);
+  // Reset page khi đổi filter (use effectiveFilterStatus)
+  useEffect(() => setCurrentPage(1), [effectiveFilterStatus, leads.length]);
 
   // normalize status key to lowercase when resolving meta
   const getStatusBadge = (status) => {
@@ -142,7 +151,7 @@ export default function LeadsPage() {
     toast.success('Xóa lead thành công!');
   };
 
-  const filtered = filterStatus ? leads.filter((l) => l.status === filterStatus) : leads;
+  const filtered = effectiveFilterStatus ? leads.filter((l) => l.status === effectiveFilterStatus) : leads;
   const totalPages = Math.max(1, Math.ceil(filtered.length / dealsPerPage));
   const current = filtered.slice((currentPage - 1) * dealsPerPage, currentPage * dealsPerPage);
   const handlePageChange = (p) => setCurrentPage(p);
@@ -151,73 +160,75 @@ export default function LeadsPage() {
 
   return (
     <div className="flex flex-col">
-      {/* Header */}
-      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
-          <div className="flex gap-3">
-            <DropdownOptions
-              options={FILTER_OPTIONS}
-              value={filterStatus}
-              onChange={setFilterStatus}
-              width="w-44"
-              placeholder="Lọc trạng thái"
+      {/* Header + Stats: render only when showHeader is true */}
+      {showHeader && (
+        <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
+            <div className="flex gap-3">
+              <DropdownOptions
+                options={FILTER_OPTIONS}
+                value={effectiveFilterStatus}
+                onChange={handleFilterChange}
+                width="w-44"
+                placeholder="Lọc trạng thái"
+              />
+              <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                <Plus className="w-4 h-4" /> Thêm Deal
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+            {/* Tổng Lead */}
+            <StatCard
+              icon={<Target className="w-4 h-4 text-blue-600" />}
+              bg="bg-blue-100"
+              label="Tổng Lead"
+              value={stats.totalDeals}
+              prev={prevStats.totalDeals}
+              animate={shouldAnimateStats}
+              formatter={(v) => v}
             />
-            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-              <Plus className="w-4 h-4" /> Thêm Deal
-            </Button>
+
+            {/* Tổng giá trị */}
+            <StatCard
+              icon={<DollarSign className="w-4 h-4 text-green-600" />}
+              bg="bg-green-100"
+              label="Tổng giá trị"
+              value={stats.totalValue}
+              prev={prevStats.totalValue}
+              animate={shouldAnimateStats}
+              formatter={(v) => formatCurrency(Math.floor(v))}
+            />
+
+            {/* Tỷ lệ chuyển đổi */}
+            <StatCard
+              icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
+              bg="bg-purple-100"
+              label="Tỷ lệ chuyển đổi"
+              value={stats.conversionRate}
+              prev={prevStats.conversionRate}
+              animate={shouldAnimateStats}
+              formatter={(v) => `${v.toFixed(1)}%`}
+            />
+
+            {/* Leads đang xử lý */}
+            <StatCard
+              icon={<Users className="w-4 h-4 text-orange-600" />}
+              bg="bg-orange-100"
+              label="Leads đang xử lý"
+              value={stats.activeDeals}
+              prev={prevStats.activeDeals}
+              animate={shouldAnimateStats}
+              formatter={(v) => v}
+            />
           </div>
         </div>
+      )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
-          {/* Tổng Lead */}
-          <StatCard
-            icon={<Target className="w-4 h-4 text-blue-600" />}
-            bg="bg-blue-100"
-            label="Tổng Lead"
-            value={stats.totalDeals}
-            prev={prevStats.totalDeals}
-            animate={shouldAnimateStats}
-            formatter={(v) => v}
-          />
-
-          {/* Tổng giá trị */}
-          <StatCard
-            icon={<DollarSign className="w-4 h-4 text-green-600" />}
-            bg="bg-green-100"
-            label="Tổng giá trị"
-            value={stats.totalValue}
-            prev={prevStats.totalValue}
-            animate={shouldAnimateStats}
-            formatter={(v) => formatCurrency(Math.floor(v))}
-          />
-
-          {/* Tỷ lệ chuyển đổi */}
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
-            bg="bg-purple-100"
-            label="Tỷ lệ chuyển đổi"
-            value={stats.conversionRate}
-            prev={prevStats.conversionRate}
-            animate={shouldAnimateStats}
-            formatter={(v) => `${v.toFixed(1)}%`}
-          />
-
-          {/* Leads đang xử lý */}
-          <StatCard
-            icon={<Users className="w-4 h-4 text-orange-600" />}
-            bg="bg-orange-100"
-            label="Leads đang xử lý"
-            value={stats.activeDeals}
-            prev={prevStats.activeDeals}
-            animate={shouldAnimateStats}
-            formatter={(v) => v}
-          />
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Table + Pagination (always render) */}
       <div className="flex-1 pt-4">
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">

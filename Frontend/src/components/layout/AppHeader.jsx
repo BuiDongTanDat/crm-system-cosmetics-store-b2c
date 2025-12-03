@@ -21,8 +21,6 @@ const searchablePages = [
   { name: "Phân tích CLV", path: "/ana-clv", keywords: ["clv", "phân tích", "analysis"] },
   { name: "Phân tích Churn", path: "/ana-churn", keywords: ["churn", "phân tích", "analysis"] },
   { name: "Pipeline B2C", path: "/kanban", keywords: ["pipeline", "b2c", "kanban", "bán hàng"] },
-  { name: "Khách hàng tiềm năng", path: "/leads", keywords: ["leads", "tiềm năng", "prospect"] },
-  { name: "Cơ hội bán hàng", path: "/opporturnities", keywords: ["opportunity", "cơ hội", "bán hàng"] },
   { name: "Đơn hàng", path: "/orders", keywords: ["đơn hàng", "order", "hóa đơn"] },
   { name: "Hành vi mua hàng", path: "/shopping_activity", keywords: ["hành vi", "mua hàng", "shopping", "activity"] },
   { name: "Chiến dịch Marketing", path: "/marketing", keywords: ["marketing", "chiến dịch", "campaign"] },

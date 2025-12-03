@@ -520,7 +520,7 @@ export default function FlowBuilderPage() {
       </div>
 
       {/* Tab content */}
-      <div className="px-6 py-6">
+      <div className=" py-6">
         {activeTab === "info" ? (
           <div className="max-w-2xl mx-auto bg-white rounded-2xl border p-6 space-y-5">
             <div>
@@ -611,9 +611,9 @@ export default function FlowBuilderPage() {
           </div>
         ) : (
           // Tab setup
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
             {/* Trigger & Actions */}
-            <div className="lg:col-span-4 space-y-6 relative">
+            <div className="lg:col-span-4 space-y-3 relative">
               <Section
                 title="Trigger"
                 subtitle="Sự kiện sẽ kích hoạt kịch bản flow"

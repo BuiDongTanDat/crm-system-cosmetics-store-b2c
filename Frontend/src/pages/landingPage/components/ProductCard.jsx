@@ -29,7 +29,7 @@ const ProductCard = ({ p, onInterest, onOrder }) => {
     // Map API fields
     const id = p.product_id ?? p.id;
     const name = p.name;
-    const image = p.image || "/images/placeholder-product.jpg";
+    const image = p.image || "/images/products/product_temp.png";
     const brand = p.brand;
     const category = p.category;
     const shortDesc = p.short_description || "";

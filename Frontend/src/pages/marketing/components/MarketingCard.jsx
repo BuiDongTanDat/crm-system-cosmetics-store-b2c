@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog'; // <-- added import
+import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+
 const formatPercent = (v) => {
     const n = Number(v);
     if (Number.isNaN(n)) return String(v);
-    // nếu nhập 0.25 coi như 25%, nếu nhập 25 coi như 25%
     const percent = n <= 1 && n >= 0 ? n * 100 : n;
     return `${percent.toFixed(1)}%`;
 };
@@ -22,8 +22,8 @@ const KPI_LABELS = {
 };
 
 const KPI_FORMATTER = (key, val, { formatCurrency }) => {
-    if (key === 'cpl' || key === 'revenue') return formatCurrency(val);
-    if (key === 'open_rate' || key === 'click_rate' || key === 'roi') return formatPercent(val);
+    if (key === 'cpl' || key === 'revenue') return formatCurrency(val || 0);
+    if (key === 'open_rate' || key === 'click_rate' || key === 'roi') return formatPercent(val || 0);
     const n = Number(val);
     return Number.isNaN(n) ? String(val) : n.toLocaleString('vi-VN');
 };
@@ -45,11 +45,27 @@ const getKPIObject = (expectedKPI) => {
 export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge }) {
     const [hoveredCard, setHoveredCard] = useState(false);
 
-    // helpers are passed from parent (MarketingPage) to keep styling consistent across card/list
+    // safe helpers
+    const safeBudget = () => {
+        if (campaign?.budget == null) return '—';
+        try { return formatCurrency(Number(campaign.budget)); } catch { return String(campaign.budget); }
+    };
+    const safeDateRange = () => {
+        const s = campaign?.startDate;
+        const e = campaign?.endDate;
+        if (!s && !e) return '—';
+        const start = s ? formatDate(s) : '';
+        const end = e ? formatDate(e) : '';
+        return start + (end ? ` - ${end}` : '');
+    };
+    const safeReach = (perf) => {
+        if (!perf || perf.reach == null) return '—';
+        try { return Number(perf.reach).toLocaleString('vi-VN'); } catch { return String(perf.reach); }
+    };
 
     return (
         <div
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:scale-105 hover:shadow-md transition-all duration-150 animate-fade-in group"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:scale-105 hover:shadow-md transition-all duration-150 animate-fade-in group relative"
             onMouseEnter={() => setHoveredCard(true)}
             onMouseLeave={() => setHoveredCard(false)}
         >
@@ -57,15 +73,15 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
             <div className="flex justify-between items-start mb-3">
                 <div className="flex-1 pr-2">
                     <h3 className="font-semibold text-gray-900 text-lg mb-1 line-clamp-1">
-                        {campaign.name}
+                        {campaign?.name || 'Untitled'}
                     </h3>
                     <div className="flex gap-2">
-                        <span className={getTypeBadge?.(campaign.type)}>{campaign.type}</span>
+                        <span className={getTypeBadge?.(campaign?.type)}>{campaign?.type || '-'}</span>
                     </div>
                 </div>
                 {/* Status badge - top right corner */}
                 <div className="flex-shrink-0 ">
-                    <span className={getStatusBadge?.(campaign.status)}>{campaign.status}</span>
+                    <span className={getStatusBadge?.(campaign?.status)}>{campaign?.status || 'Draft'}</span>
                 </div>
             </div>
 
@@ -76,17 +92,17 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                     <DollarSign className="w-4 h-4 text-success" />
                     <div>
                         <p className="text-xs text-gray-500">Ngân sách</p>
-                        <p className="text-sm font-medium">{campaign.budget.toLocaleString()} đ</p>
+                        <p className="text-sm font-medium">{safeBudget()}</p>
                     </div>
                 </div>
 
-                {/* THời gian */}
+                {/* Thời gian */}
                 <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-600" />
                     <div>
                         <p className="text-xs text-gray-500">Thời gian</p>
                         <p className="text-sm font-medium">
-                            {new Date(campaign.startDate).toLocaleDateString("vi-VN")} - {new Date(campaign.endDate).toLocaleDateString("vi-VN")}
+                            {safeDateRange()}
                         </p>
                     </div>
                 </div>
@@ -97,30 +113,30 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                         <Target className="w-4 h-4 text-destructive" />
                         <div>
                             <p className="text-xs text-gray-500">Đối tượng</p>
-                            <p className="text-sm font-medium">{campaign.targetAudience}</p>
+                            <p className="text-sm font-medium">{campaign?.targetAudience || '—'}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white">
-                            {(campaign.assignee?.[0] || '?').toUpperCase()}
+                            {(campaign?.assignee?.[0] || '?').toUpperCase()}
                         </span>
                         <div>
                             <p className="text-xs text-gray-500">Phụ trách</p>
-                            <p className="text-sm font-medium">{campaign.assignee}</p>
+                            <p className="text-sm font-medium">{campaign?.assignee || '—'}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Hiệu suất chiến dịch (chỉ hiện nếu có nha) */}
-                {campaign.performance && (
+                {/* Hiệu suất chiến dịch (chỉ hiện nếu có) */}
+                {campaign?.performance && (
                     <div className="bg-gray-50 rounded p-2">
                         <div className="flex items-center gap-2 mb-1">
                             <TrendingUp className="w-4 h-4 text-green-600" />
                             <span className="text-xs text-gray-600">Hiệu suất</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                            <span>ROI: <strong>{campaign.performance.roi}%</strong></span>
-                            <span>Tiếp cận: <strong>{campaign.performance.reach.toLocaleString()}</strong></span>
+                            <span>ROI: <strong>{campaign.performance?.roi != null ? `${campaign.performance.roi}%` : '—'}</strong></span>
+                            <span>Tiếp cận: <strong>{safeReach(campaign.performance)}</strong></span>
                         </div>
                     </div>
                 )}
@@ -128,12 +144,11 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                 <div className={`transition-opacity duration-200 ${hoveredCard ? 'opacity-0' : 'opacity-100'}`}>
                     <p className="text-xs text-gray-500 mb-1">KPI kỳ vọng</p>
                     {(() => {
-                        const kpiObj = getKPIObject(campaign.expectedKPI);
+                        const kpiObj = getKPIObject(campaign?.expectedKPI);
                         if (!kpiObj || Object.keys(kpiObj).length === 0) {
-                            // fallback: nếu là string mô tả chứ không phải JSON
                             return (
                                 <p className="text-sm text-gray-700 line-clamp-2">
-                                    {typeof campaign.expectedKPI === 'string' ? campaign.expectedKPI : '—'}
+                                    {typeof campaign?.expectedKPI === 'string' ? campaign.expectedKPI : '—'}
                                 </p>
                             );
                         }
@@ -158,14 +173,13 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
             {/* Khu vực Action Buttons, hover là ẩn KPI */}
             {hoveredCard && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2  p-2  animate-slide-up z-10">
-                    <Button variant="actionRead" size="icon" onClick={() => onView(campaign)}>
+                    <Button variant="actionRead" size="icon" onClick={() => onView && onView(campaign)}>
                         <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="actionUpdate" size="icon" onClick={() => onEdit(campaign)}>
+                    <Button variant="actionUpdate" size="icon" onClick={() => onEdit && onEdit(campaign)}>
                         <Edit className="w-4 h-4" />
                     </Button>
 
-                    {/* Wrap delete with ConfirmDialog */}
                     <ConfirmDialog
                         title="Xác nhận xóa"
                         description={<>
@@ -173,7 +187,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                         </>}
                         confirmText="Xóa"
                         cancelText="Hủy"
-                        onConfirm={() => onDelete(campaign.id)}
+                        onConfirm={() => onDelete && onDelete(campaign.id)}
                     >
                         <Button variant="actionDelete" size="icon">
                             <Trash2 className="w-4 h-4" />

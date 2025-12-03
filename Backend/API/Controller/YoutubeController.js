@@ -6,14 +6,23 @@ let pinnedMessage = null;
 class YoutubeController {
   static async auth(req, res) {
     try {
+      // Backend có thể check JWT trước nếu cần
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const returnTo = req.query.returnTo;
       const url = youtubeService.getLoginUrl(returnTo);
-      res.redirect(url);
+
+      // Trả JSON thay vì redirect trực tiếp
+      res.json({ url });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Auth failed" });
     }
   }
+
 
   static async callback(req, res) {
     try {
@@ -38,6 +47,7 @@ class YoutubeController {
   static async checkStatus(req, res) {
     try {
       const creds = youtubeService?.auth?.credentials || {};
+      console.log("YouTube credentials:", creds);
       const authenticated = !!(creds.refresh_token || creds.access_token);
 
       res.json({ authenticated });

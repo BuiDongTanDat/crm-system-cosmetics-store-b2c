@@ -1,6 +1,5 @@
 const express = require("express");
 const YoutubeController = require("../Controller/YoutubeController.js");
-
 const router = express.Router();
 
 // OAuth login

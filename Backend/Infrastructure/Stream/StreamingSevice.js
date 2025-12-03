@@ -104,7 +104,9 @@ class StreamingService {
         console.log(`[StreamingService] FFmpeg streaming`, { file: fileEntry.filePath, rtmp: ytInfo.fullRtmp });
 
         const ff = spawn(this.ffmpegPath, [
-            '-re', '-i', fileEntry.filePath,
+            '-re', 
+            '-stream_loop', '-1',
+            '-i', fileEntry.filePath,
             '-c:v', 'libx264', '-preset', 'veryfast', '-maxrate', '3000k', '-bufsize', '6000k', '-g', '50',
             '-c:a', 'aac', '-b:a', '128k',
             '-f', 'flv', ytInfo.fullRtmp
@@ -122,7 +124,8 @@ class StreamingService {
 
                 try {
                     await youtubeService.waitForIngest(ytInfo.streamId);
-                    //await youtubeService.goLive(ytInfo.broadcastId); // Vì có auto start trên YouTube rồi
+
+                    await youtubeService.goLive(ytInfo.broadcastId); //Vì đã tắt auto start trên YouTube rồi
                     console.log('[YouTube] Broadcast is LIVE');
                 } catch (err) {
                     console.error(`[StreamingService] goLive failed: ${err.message}`);

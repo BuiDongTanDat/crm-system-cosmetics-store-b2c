@@ -426,7 +426,7 @@ const HomePage = () => {
             </div>
 
             {/* action area:  */}
-            <div className="flex-1 flex w-full">
+            <div className="flex-1 flex w-full ">
               <div className="w-full flex gap-3">
                 {/* Nút BÁO CÁO */}
                 <div
@@ -438,7 +438,7 @@ const HomePage = () => {
                 >
                   <Button
                     variant="actionDashboardDeepBlue"
-                    className="w-full h-full flex  items-center justify-center py-4"
+                    className="w-full h-20 flex  items-center justify-center py-4"
                     onClick={() => navigate('/reports')}
                   >
                     <ChartColumnIncreasing className="!w-10 !h-10 mb-1" />
@@ -459,7 +459,7 @@ const HomePage = () => {
                 >
                   <Button
                     variant="actionDashboardDeepBlue"
-                    className="w-full h-full flex  items-center justify-center py-4"
+                    className="w-full h-20 flex  items-center justify-center py-4"
                     onClick={() => navigate('/products')}
                   >
                     <Box className="!w-10 !h-10 mb-1" />

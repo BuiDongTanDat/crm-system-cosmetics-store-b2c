@@ -340,6 +340,9 @@ export default function ProductPage() {
 
       {/* Scrollable content: product cards / list, pagination, dialog */}
       <div className="flex-1 overflow-auto pt-4">
+        <div className="mx-2">
+          {/* Main content card (Flow-like) */}
+          <div className="flex-1 overflow-auto pt-4">
         {/* View Mode */}
         {viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3 px-2">
@@ -352,170 +355,171 @@ export default function ProductPage() {
                 onDelete={handleDelete}
               />
             ))}
-            {currentProducts.length === 0 && (
-              <div className="col-span-full text-center py-8 text-gray-500">Không có Sản phẩm</div>
-            )}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden mb-2">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      'Sản phẩm',
-                      'Thương hiệu',
-                      'Giá hiện tại',
-                      'Giá gốc',
-                      'Giảm (%)',
-                      'Tồn kho',
-                      'Đánh giá',
-                      'Trạng thái',
-                      ''
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentProducts.map((p) => (
-                    <tr
-                      key={p.product_id}
-                      onMouseEnter={() => setHoveredRow(p.product_id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      className="hover:bg-gray-50 transition"
-                    >
-                      <td className="px-6 py-2 whitespace-nowrap text-left">
-                        <div className="flex items-center">
-                          <img
-                            src={p.image || '/images/products/product_temp.png'}
-                            alt={p.name}
-                            className="w-10 h-10 rounded mr-3"
-                          />
-                          <div>
-                            <div className="font-small text-gray-900 truncate max-w-[180px]">
-                              {p.name}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                              {p.short_description}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="text-center text-sm text-gray-800">{p.brand}</td>
-                      <td className="text-center font-semibold">
-                        {formatCurrency(p.price_current)}
-                      </td>
-                      <td className="text-center text-gray-500 line-through">
-                        {formatCurrency(p.price_original)}
-                      </td>
-                      <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
-                      <td className="text-center text-sm">{p.inventory_qty}</td>
-                      <td className="text-center text-yellow-500">{p.rating}</td>
-                      <td className="text-center">
-                        <span className={getStatusBadge(p.status)}>
-                          {p.status === 'AVAILABLE'
-                            ? 'Còn hàng'
-                            : p.status === 'OUT_OF_STOCK'
-                              ? 'Hết hàng'
-                              : 'Đã ngừng'}
-
-                        </span>
-                      </td>
-                      <td className="text-center w-36">
-                        <div
-                          className={`flex justify-center gap-1  ${hoveredRow === p.product_id
-                            ? 'opacity-100 animate-fade-in duration-200'
-                            : 'opacity-0 pointer-events-none '
-                            }`}
-                        >
-                          <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <ConfirmDialog
-                            title="Xác nhận xóa"
-                            description={<>
-                              Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{p?.name}</span>?
-                            </>}
-                            confirmText="Xóa"
-                            cancelText="Hủy"
-                            onConfirm={() => handleDelete(p.product_id)}
+          <div className=" rounded-lg shadow overflow-hidden mb-2 mx-1">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1000px]">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {[
+                          'Sản phẩm',
+                          'Thương hiệu',
+                          'Giá hiện tại',
+                          'Giá gốc',
+                          'Giảm (%)',
+                          'Tồn kho',
+                          'Đánh giá',
+                          'Trạng thái',
+                          ''
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase"
                           >
-                            <Button variant="actionDelete" size="icon">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </ConfirmDialog>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentProducts.map((p) => (
+                        <tr
+                          key={p.product_id}
+                          onMouseEnter={() => setHoveredRow(p.product_id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          className="hover:bg-gray-50 transition"
+                        >
+                          <td className="px-6 py-2 whitespace-nowrap text-left">
+                            <div className="flex items-center">
+                              <img
+                                src={p.image || '/images/products/product_temp.png'}
+                                alt={p.name}
+                                className="w-10 h-10 rounded mr-3"
+                              />
+                              <div>
+                                <div className="font-small text-gray-900 truncate max-w-[180px]">
+                                  {p.name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate max-w-[180px]">
+                                  {p.short_description}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center text-sm text-gray-800">{p.brand}</td>
+                          <td className="text-center font-semibold">
+                            {formatCurrency(p.price_current)}
+                          </td>
+                          <td className="text-center text-gray-500 line-through">
+                            {formatCurrency(p.price_original)}
+                          </td>
+                          <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
+                          <td className="text-center text-sm">{p.inventory_qty}</td>
+                          <td className="text-center text-yellow-500">{p.rating}</td>
+                          <td className="text-center">
+                            <span className={getStatusBadge(p.status)}>
+                              {p.status === 'AVAILABLE'
+                                ? 'Còn hàng'
+                                : p.status === 'OUT_OF_STOCK'
+                                  ? 'Hết hàng'
+                                  : 'Đã ngừng'}
 
-                  {/* Trạng thái rỗng */}
-                  {currentProducts.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-500">Không có Sản phẩm</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                            </span>
+                          </td>
+                          <td className="text-center w-36">
+                            <div
+                              className={`flex justify-center gap-1  ${hoveredRow === p.product_id
+                                ? 'opacity-100 animate-fade-in duration-200'
+                                : 'opacity-0 pointer-events-none '
+                                }`}
+                            >
+                              <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <ConfirmDialog
+                                title="Xác nhận xóa"
+                                description={<>
+                                  Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{p?.name}</span>?
+                                </>}
+                                confirmText="Xóa"
+                                cancelText="Hủy"
+                                onConfirm={() => handleDelete(p.product_id)}
+                              >
+                                <Button variant="actionDelete" size="icon">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </ConfirmDialog>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Trạng thái rỗng */}
+                      {currentProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="text-center py-8 text-gray-500">Không có Sản phẩm</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <AppPagination
+                totalPages={totalPages}
+                currentPage={currentPage}
+                handleNext={handleNext}
+                handlePrev={handlePrev}
+                handlePageChange={handlePageChange}
+              />
             </div>
           </div>
-        )}
+          {/* Dialogs */}
+          <AppDialog
+            open={modal.open}
+            onClose={closeModal}
+            title={{
+              view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
+              edit: modal.product
+                ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
+                : 'Thêm sản phẩm mới',
+              add: 'Thêm sản phẩm mới'
+            }}
+            mode={modal.mode}
+            /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
+            FormComponent={(props) => (
+              <ProductForm
+                {...props}
+                setMode={(m) => {
+                  if (m === 'close') {
+                    setModal({ open: false, mode: 'view', product: null });
+                  } else {
+                    setModal((prev) => ({ ...prev, mode: m }));
+                  }
+                }}
+                onDelete={(id) => handleDelete(id)}
+              />
+            )}
+            data={modal.product}
+            onSave={handleSave}
+            onDelete={handleDelete}
+            maxWidth="sm:max-w-2xl"
+          />
 
-        <AppPagination
-          totalPages={totalPages}
-          currentPage={currentPage}
-          handleNext={handleNext}
-          handlePrev={handlePrev}
-          handlePageChange={handlePageChange}
-        />
-
-        <AppDialog
-          open={modal.open}
-          onClose={closeModal}
-          title={{
-            view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
-            edit: modal.product
-              ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
-              : 'Thêm sản phẩm mới',
-            add: 'Thêm sản phẩm mới'
-          }}
-          mode={modal.mode}
-          /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
-          FormComponent={(props) => (
-            <ProductForm
-              {...props}
-              setMode={(m) => {
-                if (m === 'close') {
-                  setModal({ open: false, mode: 'view', product: null });
-                } else {
-                  setModal((prev) => ({ ...prev, mode: m }));
-                }
-              }}
-              onDelete={(id) => handleDelete(id)}
-            />
-          )}
-          data={modal.product}
-          onSave={handleSave}
-          onDelete={handleDelete}
-          maxWidth="sm:max-w-2xl"
-        />
-
-        {/* Success dialog to show import result / errors */}
-        <SuccessDialog
-          open={successDialog.open}
-          title={successDialog.title || 'Kết quả import'}
-          message={successDialog.message}
-          onClose={() => setSuccessDialog({ open: false, title: '', message: null })}
-        />
+          {/* Success dialog to show import result / errors */}
+          <SuccessDialog
+            open={successDialog.open}
+            title={successDialog.title || 'Kết quả import'}
+            message={successDialog.message}
+            onClose={() => setSuccessDialog({ open: false, title: '', message: null })}
+          />
+        </div>
       </div>
     </div>
   );
