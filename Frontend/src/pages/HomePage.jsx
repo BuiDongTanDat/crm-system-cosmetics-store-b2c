@@ -9,12 +9,14 @@ import { getOrders } from '@/services/orders';
 import { getRunningCampaigns } from '@/services/campaign';
 import { getProducts } from '@/services/products';
 import { request } from '@/utils/api';
-import { formatCurrency, formatDate } from "@/utils/helper";
+import { computeRevenue, filterPendingOrders, formatCurrency, formatDate, getPeriodLabel } from "../utils/helper";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
-  // data from APIs (no mock)
+  // data from APIs 
   const [ordersRaw, setOrdersRaw] = useState([]);
   const [leads, setLeads] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -59,11 +61,12 @@ const HomePage = () => {
   const displayNotifications = (notifications && notifications.length) ? notifications : mockNotifications;
 
   // UI states
-  const [period, setPeriod] = useState('today'); // 'today' | 'week' | 'month'
+  const [period, setPeriod] = useState('today'); // 'today' | 'week' | 'month' | 'quarter'
   const periodOptions = [
     { value: 'today', label: 'Hôm nay' },
     { value: 'week', label: 'Tuần này' },
     { value: 'month', label: 'Tháng này' },
+    { value: 'quarter', label: 'Quý này' },
   ];
 
   // helpers to normalize varied API shapes
@@ -122,8 +125,13 @@ const HomePage = () => {
   };
 
   const orderDate = (o) => {
-    return new Date(o.order_date || o.createdAt || o.created_at || o.date || o.datetime || o.timestamp || (o._createdAt ?? Date.now()));
+    return new Date(o.order_date  ?? Date.now());
   };
+
+  //Compute dependent values
+  const periodLabel = getPeriodLabel(period);
+  const revenue = computeRevenue(ordersRaw, period, orderDate, orderTotal);
+  const pendingOrders = filterPendingOrders(ordersRaw);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -160,39 +168,8 @@ const HomePage = () => {
     fetchData();
   }, []);
 
-  // Tính doanh thu cho khoảng thời gian đã chọn từ ordersRaw
-  const computeRevenue = (periodKey) => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(startOfToday);
-    startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay()); // week starts Sun
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    let sum = 0;
-    for (const o of ordersRaw) {
-      const d = orderDate(o);
-      const total = orderTotal(o);
-      if (!d || Number.isNaN(d.getTime())) {
-        // if no date, include in month only as fallback
-        if (periodKey === 'month') sum += total;
-        continue;
-      }
-      if (periodKey === 'today' && d >= startOfToday) sum += total;
-      if (periodKey === 'week' && d >= startOfWeek) sum += total;
-      if (periodKey === 'month' && d >= startOfMonth) sum += total;
-    }
-    return sum;
-  };
-
-  const revenue = computeRevenue(period);
-  const pendingOrders = ordersRaw.filter(o => {
-    const s = (o.status || o.state || '').toString().toLowerCase();
-    return s.includes('pending') || s.includes('chờ') || s.includes('processing') || s.includes('wait');
-  });
-
-
-
-  const todayLabel = (period === 'today') ? 'Hôm nay' : (period === 'week' ? 'Tuần này' : 'Tháng này');
+  
 
   // Layout like design: left big area + right column
   return (
@@ -202,7 +179,7 @@ const HomePage = () => {
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-            <div className="text-sm text-slate-600 mt-1">Xin chào, <span className="font-medium"></span>!</div>
+            <div className="text-sm text-slate-600 mt-1">Xin chào  <span className="font-medium">{user.name}</span>!</div>
           </div>
           <div className="text-right">
             <div className="mt-3 inline-flex items-center bg-white/50 px-3 py-2 rounded-md shadow-sm text-sm font-medium">
@@ -220,27 +197,27 @@ const HomePage = () => {
               {/* revenue: giảm chiều cao, nhỏ padding, chiếm 2 cột */}
               <div
                 className={
-                  `bg-blue-600 text-white rounded-sm  col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden ` +
+                  `rounded-md  bg-gradient-to-r from-cyan-500 to-blue-500 font-medium rounded-base text-sm px-4 py-2.5 text-white col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden ` +
                   (visible[0] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
-                style={{ transitionDelay: `${0.5 * 120}ms` }}
+                style={{ transitionDelay: `${1 * 120}ms` }}
               >
                 {/* header bar like Orders header (no negative margins) */}
                 <div className="p-2 flex items-center justify-between  rounded-tl-sm rounded-tr-sm w-full">
                   <div className="flex items-center gap-2">
                     <div className="bg-white rounded-full p-1">
-                      <DollarSign className="!w-5 !h-5 text-yellow-400" />
+                      <DollarSign className="!w-5 !h-5 text-blue-500" />
                     </div>
                     <div className="text-sm font-semibold">Doanh thu</div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center ">
                     <DropdownOptions
                       options={periodOptions}
                       value={period}
                       onChange={(v) => setPeriod(v)}
                       width="w-auto"
-
+                      height="h-7"
                       triggerClassName="bg-white text-sm text-slate-700 rounded-md px-3 py-2"
                     />
                   </div>
@@ -253,7 +230,7 @@ const HomePage = () => {
                       formattingFn={(val) => formatCurrency(Number(val))}
                     />
                   </div>
-                  <div className="text-sm opacity-90 mt-1">{todayLabel}</div>
+                  <div className="text-sm opacity-90 mt-1">{periodLabel}</div>
                 </div>
               </div>
 
@@ -381,7 +358,7 @@ const HomePage = () => {
                     key={o.order_id || JSON.stringify(o)}
                     role="link"
                     onClick={() => {
-                      navigate( '/orders');
+                      navigate('/orders');
                     }}
                     className="flex items-center justify-between bg-slate-50 p-3 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
                   >
@@ -449,7 +426,7 @@ const HomePage = () => {
             </div>
 
             {/* action area:  */}
-            <div className="flex-1 flex w-full">
+            <div className="flex-1 flex w-full ">
               <div className="w-full flex gap-3">
                 {/* Nút BÁO CÁO */}
                 <div
@@ -460,12 +437,15 @@ const HomePage = () => {
                   style={{ transitionDelay: `${5 * 60}ms` }}
                 >
                   <Button
-                    variant="actionDashboard"
-                    className="w-full h-full flex  items-center justify-center py-4"
+                    variant="actionDashboardDeepBlue"
+                    className="w-full h-20 flex  items-center justify-center py-4"
                     onClick={() => navigate('/reports')}
                   >
                     <ChartColumnIncreasing className="!w-10 !h-10 mb-1" />
-                    <span className="text-base font-semibold">BÁO CÁO</span>
+                    <div className="flex flex-col items-start">
+                      <p className="text-base font-bold">BÁO CÁO</p>
+                      <p className="text-xs font-semibold">REPORTS</p>
+                    </div>
                   </Button>
                 </div>
 
@@ -478,12 +458,17 @@ const HomePage = () => {
                   style={{ transitionDelay: `${6 * 60}ms` }}
                 >
                   <Button
-                    variant="actionDashboard"
-                    className="w-full h-full flex  items-center justify-center py-4"
+                    variant="actionDashboardDeepBlue"
+                    className="w-full h-20 flex  items-center justify-center py-4"
                     onClick={() => navigate('/products')}
                   >
                     <Box className="!w-10 !h-10 mb-1" />
-                    <span className="text-base font-semibold">SẢN PHẨM</span>
+                    <div className="flex flex-col items-start">
+                      <p className="text-base font-bold">SẢN PHẨM</p>
+                      <p className="text-xs font-semibold">PRODUCT</p>
+                    </div>
+
+
                   </Button>
                 </div>
               </div>

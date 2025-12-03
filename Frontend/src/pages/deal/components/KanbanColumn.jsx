@@ -85,7 +85,7 @@ export default function KanbanColumn({
     };
   }, []);
 
-  // 1️⃣ Sắp xếp khác nhau theo loại cột
+  //  Sắp xếp khác nhau theo loại cột
   const sortCards = (cards) => {
     const isClosedCol = ["converted", "closed_lost"].includes(column.id);
 
@@ -122,13 +122,13 @@ export default function KanbanColumn({
     }
   };
 
-  // 2️⃣ Giới hạn hiển thị tối đa 7 deal nếu là cột closed/converted
+  //  Giới hạn hiển thị tối đa 7 deal nếu là cột closed/converted
   const MAX_VISIBLE = 7;
   const sortedCards = sortCards(cards);
   const isClosedCol = ["converted", "closed_lost"].includes(column.id);
   const visibleCards = isClosedCol && !showAll ? sortedCards.slice(0, MAX_VISIBLE) : sortedCards;
 
-  // 3️⃣ Tổng giá trị và count
+  //  Tổng giá trị và count
   const totalValue = sortedCards.reduce((sum, c) => sum + (c.value || 0), 0);
   const countEnd = sortedCards.length;
 
@@ -162,7 +162,7 @@ export default function KanbanColumn({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+    <div className="flex flex-col h-full bg-gray-50  rounded-lg shadow-sm border border-gray-200">
       {/* Header */}
       <div
         ref={headerRef}

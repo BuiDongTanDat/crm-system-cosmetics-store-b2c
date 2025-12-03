@@ -33,7 +33,7 @@ export default function InspectorBody({
           {currentTrigger?.label || currentTrigger?.key}
         </div>
         <div className="text-xs text-gray-500">
-          (UI điều kiện trigger chưa được triển khai)
+          (Giao diện đang được phát triển)
         </div>
       </div>
     );

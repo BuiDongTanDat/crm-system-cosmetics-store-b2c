@@ -118,7 +118,7 @@ export default function YoutubeStreamVideo() {
                 } catch (e) {
                     console.error("Failed to save campaign to sessionStorage before redirect", e);
                 }
-                window.location.href = getYoutubeAuthUrl();
+                await getYoutubeAuthUrl('/streams');
                 return;
             }
 

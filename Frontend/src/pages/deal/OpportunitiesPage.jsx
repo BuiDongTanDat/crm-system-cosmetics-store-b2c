@@ -3,7 +3,7 @@ import { Handshake, Filter, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import CountUp from 'react-countup';
 import { Button } from '@/components/ui/button';
 import AppDialog from '@/components/dialogs/AppDialog';
-import DealForm from '@/pages/crm/components/DealForm';
+import DealForm from '@/pages/deal/components/DealForm';
 import { kanbanCards as initialCards } from '@/lib/data';
 
 const formatCurrency = (amount) =>

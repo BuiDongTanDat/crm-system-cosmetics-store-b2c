@@ -5,48 +5,83 @@ class CategoryController {
   static async getAll(req, res) {
     try {
       const categories = await CategoryService.getAll();
-      res.json(categories.map(c => new CategoryDTO(c)));
+      if (categories.ok){
+        categories.data = categories.data.map(c => new CategoryDTO(c));
+      }
+      return res.json(categories);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
+      });
     }
   }
 
   static async getById(req, res) {
     try {
-      const category = await CategoryService.getById(req.params.id);
-      if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
-      res.json(new CategoryDTO(category));
+      const result = await CategoryService.getById(req.params.id);
+      if (result.ok) {
+        result.data = new CategoryDTO(result.data);
+        return res.json(result);
+      }
+      return res.status(result.error.status || 404).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
+      });
     }
   }
 
   static async create(req, res) {
     try {
-      const category = await CategoryService.create(req.body);
-      res.status(201).json(new CategoryDTO(category));
+      const result = await CategoryService.create(req.body);
+      if (result.ok) {
+        result.data = new CategoryDTO(result.data);
+        return res.status(201).json(result);
+      }
+      return res.status(result.error.status || 400).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
+      });
     }
   }
 
   static async update(req, res) {
     try {
-      const category = await CategoryService.update(req.params.id, req.body);
-      if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
-      res.json(new CategoryDTO(category));
+      const result = await CategoryService.update(req.params.id, req.body);
+      if (result.ok) {
+        result.data = new CategoryDTO(result.data);
+        return res.json(result);
+      }
+      return res.status(result.error.status || 400).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
+      });
     }
   }
 
   static async delete(req, res) {
     try {
-      const deleted = await CategoryService.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
-      res.json({ message: 'Category deleted' });
+      const result = await CategoryService.delete(req.params.id);
+      if (result.ok) {
+        return res.json(result);
+      }
+      return res.status(result.error.status || 404).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
+      });
     }
   }
 }

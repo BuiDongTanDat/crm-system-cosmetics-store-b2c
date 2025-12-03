@@ -9,6 +9,7 @@ import DropdownOptions from "@/components/common/DropdownOptions";
 import AppDialog from "@/components/dialogs/AppDialog";
 import MarketingForm from "@/pages/marketing/components/MarketingForm";
 import SelectStreamOptionDialog from "@/pages/stream/components/SelectStreamOptionDialog";
+import { isAuthenticated, getYoutubeAuthUrl } from "@/services/youtube";
 
 export default function StreamListPage() {
     const navigate = useNavigate();
@@ -29,16 +30,39 @@ export default function StreamListPage() {
     const closeSelectStreamDialog = () => setSelectDialog({ open: false, campaign: null });
 
     // onSelect từ dialog: điều hướng tới trang tương ứng và truyền campaign trong state
-    const handleSelectStreamOption = (optionKey) => {
+    const handleSelectStreamOption = async (optionKey) => {
         const cam = selectDialog.campaign;
         if (!cam) { closeSelectStreamDialog(); return; }
+
+        // CHECK AUTH: nếu chưa đăng nhập YouTube thì redirect sang OAuth và lưu campaign
+        try {
+            const status = await isAuthenticated();
+            if (!status?.authenticated) {
+                try {
+                    sessionStorage.setItem('yt_campaign_restore', JSON.stringify({ campaign: cam }));
+                } catch (e) {
+                    console.error("Failed to save campaign to sessionStorage before redirect", e);
+                }
+                await getYoutubeAuthUrl('/streams');
+                // getYoutubeAuthUrl sẽ redirect; thoát khỏi handler
+                return;
+            }
+        } catch (err) {
+            console.error("Failed to check YouTube auth status:", err);
+            // Nếu check lỗi, vẫn cố gắng chuyển hướng để user login
+            try {
+                sessionStorage.setItem('yt_campaign_restore', JSON.stringify({ campaign: cam }));
+            } catch {}
+            await getYoutubeAuthUrl('/streams');
+            return;
+        }
+
+        // nếu đã auth thì điều hướng như bình thường
         if (optionKey === 'video') {
-            // changed route segment 'video' -> 'vid'
             navigate(`/streams/youtube/vid/${cam.id}`, { state: { campaign: cam } });
         } else if (optionKey === 'cam') {
             navigate(`/streams/youtube/cam/${cam.id}`, { state: { campaign: cam } });
         } else {
-            // fallback to original single route (kept for safety)
             navigate(`/streams/youtube/${cam.id}`, { state: { campaign: cam } });
         }
         closeSelectStreamDialog();

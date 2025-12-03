@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Users, DollarSign, TrendingUp, Target } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, Target, Columns3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import KanbanColumn from '@/pages/crm/components/KanbanColumn';
+import KanbanColumn from '@/pages/deal/components/KanbanColumn';
 import AppDialog from '@/components/dialogs/AppDialog';
-import DealForm from '@/pages/crm/components/DealForm';
+import DealForm from '@/pages/deal/components/DealForm';
 import CountUp from 'react-countup';
 import OrderForm from '@/pages/order/components/OrderForm';
 import { formatCurrency } from '@/utils/helper';
@@ -14,13 +14,14 @@ import {
   updateOrderStatus,
   getOrder,
 } from '@/services/orders';
-// import { createOrder, saveOrderDraft, sendCheckoutLink } from '@/services/orders';
 import {
   getPipelineSummary,
   getPipelineColumns,
   updateLeadStatus as apiUpdateLeadStatus,
   getPipelineMetrics,
 } from '@/services/leads';
+import LeadsPage from '@/pages/deal/LeadsPage';
+import DropdownOptions from '@/components/common/DropdownOptions'; // added
 
 // Map giữa status backend và id cột UI
 const BE2UI = {
@@ -59,6 +60,21 @@ export default function KanbanPage() {
   });
   const [prevStats, setPrevStats] = useState(stats);
   const [shouldAnimateStats, setShouldAnimateStats] = useState(false);
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
+
+  // new: filter state for list view
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // local FILTER_OPTIONS (same as LeadsPage)
+  const FILTER_OPTIONS = [
+    { value: '', label: 'Tất cả trạng thái' },
+    { value: 'new', label: 'NEW' },
+    { value: 'contacted', label: 'CONTACTED' },
+    { value: 'qualified', label: 'QUALIFIED' },
+    { value: 'nurturing', label: 'NURTURING' },
+    { value: 'converted', label: 'CONVERTED' },
+    { value: 'closed_lost', label: 'CLOSED_LOST' },
+  ];
 
   const kanbanBoardRef = useRef(null);
   const scrollIntervalRef = useRef(null);
@@ -345,6 +361,10 @@ export default function KanbanPage() {
       open: true,
       lead: leadCard,
       preset: {
+        // include lead_id so OrderForm validation accepts a lead-based order
+        lead_id: leadCard.id || leadCard.lead_id || null,
+        // keep customer_name for display; include customer_id if available
+        customer_id: leadCard.customer_id || null,
         customer_name: leadCard.customer,
         channel: (leadCard.source || 'inbound').toLowerCase(),
         notes: `Deal ${leadCard.title} — tạo từ pipeline`,
@@ -521,12 +541,45 @@ export default function KanbanPage() {
   return (
     <div className="p-0 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-col items-center justify-between z-20 gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+      <div className="flex-col  z-20 gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
-          <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
-            <Plus className="w-4 h-4" /> Thêm Deal
-          </Button>
+          <div className="flex gap-2">
+            <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
+            <div className="rounded-md bg-white">
+              <Button
+                variant={viewMode === 'kanban' ? 'actionCreate' : 'actionNormal'}
+                onClick={() => setViewMode('kanban')}
+                className="rounded-none rounded-tl-md rounded-bl-md h-8">
+                <Columns3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
+                onClick={() => setViewMode('list')}
+                className="rounded-none rounded-tr-md rounded-br-md h-8">
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+
+          <div className="flex items-center gap-3">
+            {/* Filter dropdown (only in list mode) */}
+            {viewMode === 'list' && (
+              <div className=" flex items-center gap-3">
+                <DropdownOptions
+                  options={FILTER_OPTIONS}
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  width="w-44"
+                  placeholder="Lọc trạng thái"
+                />
+              </div>
+            )}
+
+            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
+              <Plus className="w-4 h-4" /> Thêm Deal
+            </Button>
+          </div>
         </div>
 
         {/* Statistics */}
@@ -568,84 +621,95 @@ export default function KanbanPage() {
             formatter={(v) => v}
           />
         </div>
+
+
       </div>
 
-      {/* Kanban board */}
-      <div
-        ref={kanbanBoardRef}
-        className="flex-1 min-h-0 flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth"
-      >
-        {order.map((colId) => {
-          const column = columns.find((c) => c.id === colId) || { id: colId, title: colId, count: 0 };
-          return (
-            <div key={colId} className="flex-shrink-0 w-64">
-              <KanbanColumn
-                column={column}
-                cards={getCardsByStage(colId)}
-                onCardView={handleCardView}
-                onCardEdit={handleCardEdit}
-                onCardDelete={handleCardDelete}
-                onDrop={handleDrop}
-                onDragStart={handleDragStart}
-                animatedData={animatedColumns[colId]}
-                initialAnimate={isInitialLoad}
-                isDraggingBoard={isDraggingBoard}
-                isCardDragging={isDragging}
-                onColumnDragOver={ensureColumnVisible}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {/* Main content: toggle between Kanban board and Leads list */}
+      {viewMode === 'kanban' ? (
+        <>
+          {/* Kanban board */}
+          <div
+            ref={kanbanBoardRef}
+            className="flex-1 min-h-0 flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scroll-smooth"
+          >
+            {order.map((colId) => {
+              const column = columns.find((c) => c.id === colId) || { id: colId, title: colId, count: 0 };
+              return (
+                <div key={colId} className="flex-shrink-0 w-64">
+                  <KanbanColumn
+                    column={column}
+                    cards={getCardsByStage(colId)}
+                    onCardView={handleCardView}
+                    onCardEdit={handleCardEdit}
+                    onCardDelete={handleCardDelete}
+                    onDrop={handleDrop}
+                    onDragStart={handleDragStart}
+                    animatedData={animatedColumns[colId]}
+                    initialAnimate={isInitialLoad}
+                    isDraggingBoard={isDraggingBoard}
+                    isCardDragging={isDragging}
+                    onColumnDragOver={ensureColumnVisible}
+                  />
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Dialog */}
-      <AppDialog
-        open={modal.open}
-        onClose={closeModal}
-        title={{
-          view: `Chi tiết deal - ${modal.deal?.title || ''}`,
-          edit: modal.deal ? `Chỉnh sửa deal - ${modal.deal.title}` : 'Thêm deal mới',
-        }}
-        mode={modal.mode}
-        FormComponent={DealForm}
-        data={modal.deal}
-        onSave={handleSave}
-        onDelete={handleCardDelete}
-        maxWidth="sm:max-w-3xl"
-      />
-      <AppDialog
-        open={orderModal.open}
-        onClose={closeOrderModal}
-        title="Tạo đơn hàng"
-        mode="edit"
-        FormComponent={(props) => (
-          <OrderForm
-            mode="edit"
-            data={orderModal.preset}
-            onSave={handleOrderSave}
-            onSaveDraft={handleOrderSaveDraft}
-            onSendToCustomer={handleSendToCustomer}
-            paymentLabels={{
-              credit_card: 'Thẻ',
-              paypal: 'PayPal',
-              bank_transfer: 'Chuyển khoản',
-              cash_on_delivery: 'COD',
+          {/* Dialogs used by Kanban */}
+          <AppDialog
+            open={modal.open}
+            onClose={closeModal}
+            title={{
+              view: `Chi tiết deal - ${modal.deal?.title || ''}`,
+              edit: modal.deal ? `Chỉnh sửa deal - ${modal.deal.title}` : 'Thêm deal mới',
             }}
-            statusLabels={{
-              paid: 'Đã thanh toán',
-              pending: 'Chờ xử lý',
-              cancelled: 'Đã hủy',
-              refunded: 'Đã hoàn tiền',
-              failed: 'Thanh toán thất bại',
-              processing: 'Đang xử lý',
-              shipped: 'Đã giao hàng',
-              completed: 'Hoàn tất',
-            }}
+            mode={modal.mode}
+            FormComponent={DealForm}
+            data={modal.deal}
+            onSave={handleSave}
+            onDelete={handleCardDelete}
+            maxWidth="sm:max-w-3xl"
           />
-        )}
-        maxWidth="sm:max-w-5xl"
-      />
-
+          <AppDialog
+            open={orderModal.open}
+            onClose={closeOrderModal}
+            title="Tạo đơn hàng"
+            mode="edit"
+            FormComponent={(props) => (
+              <OrderForm
+                mode="edit"
+                data={orderModal.preset}
+                onSave={handleOrderSave}
+                onSaveDraft={handleOrderSaveDraft}
+                onSendToCustomer={handleSendToCustomer}
+                paymentLabels={{
+                  credit_card: 'Thẻ',
+                  paypal: 'PayPal',
+                  bank_transfer: 'Chuyển khoản',
+                  cash_on_delivery: 'COD',
+                }}
+                statusLabels={{
+                  paid: 'Đã thanh toán',
+                  pending: 'Chờ xử lý',
+                  cancelled: 'Đã hủy',
+                  refunded: 'Đã hoàn tiền',
+                  failed: 'Thanh toán thất bại',
+                  processing: 'Đang xử lý',
+                  shipped: 'Đã giao hàng',
+                  completed: 'Hoàn tất',
+                }}
+              />
+            )}
+            maxWidth="sm:max-w-5xl"
+          />
+        </>
+      ) : (
+        // List view: render LeadsPage without its header, pass controlled filter props
+        <div className="flex-1 overflow-auto">
+          <LeadsPage showHeader={false} externalFilterStatus={filterStatus} onFilterChange={setFilterStatus} />
+        </div>
+      )}
     </div>
   );
 }

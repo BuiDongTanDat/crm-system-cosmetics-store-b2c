@@ -3,7 +3,7 @@ import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Plus } from '
 import CountUp from 'react-countup';
 import { Button } from '@/components/ui/button';
 import AppDialog from '@/components/dialogs/AppDialog';
-import DealForm from '@/pages/crm/components/DealForm';
+import DealForm from '@/pages/deal/components/DealForm';
 import { formatCurrency, getPriorityColor, getPriorityLabel, formatDate } from '@/utils/helper';
 import DropdownOptions from '@/components/common/DropdownOptions';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
@@ -11,12 +11,14 @@ import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
 import { getAllleads, getPipelineMetrics } from '@/services/leads';
 
+// Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
-  contacted: { label: 'contacted', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  qualified: { label: 'qualified', bg: 'bg-purple-100', text: 'text-purple-700' },
-  nurturing: { label: 'nurturing', bg: 'bg-orange-100', text: 'text-orange-700' },
-  converted: { label: 'converted', bg: 'bg-green-100', text: 'text-green-700' },
-  closed_lost: { label: 'closed_lost', bg: 'bg-red-100', text: 'text-red-700' },
+  new: { label: "NEW", bg: "bg-blue-100", text: "text-blue-700" },
+  contacted: { label: "CONTACTED", bg: "bg-yellow-100", text: "text-yellow-700" },
+  qualified: { label: "QUALIFIED", bg: "bg-purple-100", text: "text-purple-700" },
+  nurturing: { label: "NURTURING", bg: "bg-orange-100", text: "text-orange-700" },
+  converted: { label: "CONVERTED", bg: "bg-green-100", text: "text-green-700" },
+  closed_lost: { label: "CLOSED_LOST", bg: "bg-red-100", text: "text-red-700" },
 };
 
 const FILTER_OPTIONS = [
@@ -24,7 +26,7 @@ const FILTER_OPTIONS = [
   ...Object.entries(STATUS_META).map(([value, v]) => ({ value, label: v.label })),
 ];
 
-export default function LeadsPage() {
+export default function LeadsPage({ showHeader = true, externalFilterStatus, onFilterChange }) {
 
   const [leads, setLeads] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -44,6 +46,15 @@ export default function LeadsPage() {
   const [shouldAnimateStats, setShouldAnimateStats] = useState(true);
 
   const dealsPerPage = 8;
+
+  // controlled vs uncontrolled filter
+  const isControlledFilter = externalFilterStatus !== undefined;
+  const effectiveFilterStatus = isControlledFilter ? externalFilterStatus : filterStatus;
+  const handleFilterChange = (v) => {
+    if (onFilterChange) onFilterChange(v);
+    if (!isControlledFilter) setFilterStatus(v);
+  };
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -92,11 +103,13 @@ export default function LeadsPage() {
     return () => { mounted = false; };
   }, []);
 
-  // Reset page khi đổi filter
-  useEffect(() => setCurrentPage(1), [filterStatus, leads.length]);
+  // Reset page khi đổi filter (use effectiveFilterStatus)
+  useEffect(() => setCurrentPage(1), [effectiveFilterStatus, leads.length]);
 
+  // normalize status key to lowercase when resolving meta
   const getStatusBadge = (status) => {
-    const meta = STATUS_META[status];
+    const key = (status || "").toString().toLowerCase();
+    const meta = STATUS_META[key];
     if (!meta)
       return <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 text-xs">-</span>;
     return (
@@ -138,7 +151,7 @@ export default function LeadsPage() {
     toast.success('Xóa lead thành công!');
   };
 
-  const filtered = filterStatus ? leads.filter((l) => l.status === filterStatus) : leads;
+  const filtered = effectiveFilterStatus ? leads.filter((l) => l.status === effectiveFilterStatus) : leads;
   const totalPages = Math.max(1, Math.ceil(filtered.length / dealsPerPage));
   const current = filtered.slice((currentPage - 1) * dealsPerPage, currentPage * dealsPerPage);
   const handlePageChange = (p) => setCurrentPage(p);
@@ -147,73 +160,75 @@ export default function LeadsPage() {
 
   return (
     <div className="flex flex-col">
-      {/* Header */}
-      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
-          <div className="flex gap-3">
-            <DropdownOptions
-              options={FILTER_OPTIONS}
-              value={filterStatus}
-              onChange={setFilterStatus}
-              width="w-44"
-              placeholder="Lọc trạng thái"
+      {/* Header + Stats: render only when showHeader is true */}
+      {showHeader && (
+        <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
+            <div className="flex gap-3">
+              <DropdownOptions
+                options={FILTER_OPTIONS}
+                value={effectiveFilterStatus}
+                onChange={handleFilterChange}
+                width="w-44"
+                placeholder="Lọc trạng thái"
+              />
+              <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                <Plus className="w-4 h-4" /> Thêm Deal
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+            {/* Tổng Lead */}
+            <StatCard
+              icon={<Target className="w-4 h-4 text-blue-600" />}
+              bg="bg-blue-100"
+              label="Tổng Lead"
+              value={stats.totalDeals}
+              prev={prevStats.totalDeals}
+              animate={shouldAnimateStats}
+              formatter={(v) => v}
             />
-            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-              <Plus className="w-4 h-4" /> Thêm Deal
-            </Button>
+
+            {/* Tổng giá trị */}
+            <StatCard
+              icon={<DollarSign className="w-4 h-4 text-green-600" />}
+              bg="bg-green-100"
+              label="Tổng giá trị"
+              value={stats.totalValue}
+              prev={prevStats.totalValue}
+              animate={shouldAnimateStats}
+              formatter={(v) => formatCurrency(Math.floor(v))}
+            />
+
+            {/* Tỷ lệ chuyển đổi */}
+            <StatCard
+              icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
+              bg="bg-purple-100"
+              label="Tỷ lệ chuyển đổi"
+              value={stats.conversionRate}
+              prev={prevStats.conversionRate}
+              animate={shouldAnimateStats}
+              formatter={(v) => `${v.toFixed(1)}%`}
+            />
+
+            {/* Leads đang xử lý */}
+            <StatCard
+              icon={<Users className="w-4 h-4 text-orange-600" />}
+              bg="bg-orange-100"
+              label="Leads đang xử lý"
+              value={stats.activeDeals}
+              prev={prevStats.activeDeals}
+              animate={shouldAnimateStats}
+              formatter={(v) => v}
+            />
           </div>
         </div>
+      )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
-          {/* Tổng Lead */}
-          <StatCard
-            icon={<Target className="w-4 h-4 text-blue-600" />}
-            bg="bg-blue-100"
-            label="Tổng Lead"
-            value={stats.totalDeals}
-            prev={prevStats.totalDeals}
-            animate={shouldAnimateStats}
-            formatter={(v) => v}
-          />
-
-          {/* Tổng giá trị */}
-          <StatCard
-            icon={<DollarSign className="w-4 h-4 text-green-600" />}
-            bg="bg-green-100"
-            label="Tổng giá trị"
-            value={stats.totalValue}
-            prev={prevStats.totalValue}
-            animate={shouldAnimateStats}
-            formatter={(v) => formatCurrency(Math.floor(v))}
-          />
-
-          {/* Tỷ lệ chuyển đổi */}
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
-            bg="bg-purple-100"
-            label="Tỷ lệ chuyển đổi"
-            value={stats.conversionRate}
-            prev={prevStats.conversionRate}
-            animate={shouldAnimateStats}
-            formatter={(v) => `${v.toFixed(1)}%`}
-          />
-
-          {/* Leads đang xử lý */}
-          <StatCard
-            icon={<Users className="w-4 h-4 text-orange-600" />}
-            bg="bg-orange-100"
-            label="Leads đang xử lý"
-            value={stats.activeDeals}
-            prev={prevStats.activeDeals}
-            animate={shouldAnimateStats}
-            formatter={(v) => v}
-          />
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Table + Pagination (always render) */}
       <div className="flex-1 pt-4">
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">
@@ -267,17 +282,14 @@ export default function LeadsPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                     >
                       <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(
-                              lead.priority
-                            )}`}
-                          >
+                        <div className="flex flex-col items-start gap-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(lead.priority)}`}>
                             {getPriorityLabel(lead.priority)}
                           </span>
                           {lead.deal_name || '(Chưa đặt tên deal)'}
                         </div>
                       </td>
+
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.name}</td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.email}</td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.phone}</td>

@@ -193,24 +193,66 @@ class YouTubeService {
     }
 
     //Set thumnail cho broadcast
-    async setThumbnail(broadcastId, filePath = null) {
-        if (!filePath) {
-            filePath = path.join(process.cwd(), "public", "product_temp_small.png");
+    async setThumbnail(broadcastId, thumbnailPath = null) {
+        await this.ensureAuth();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+         
+        thumbnailPath = path.join(process.cwd(), "public", "product_temp_small.png");
+        // Step 1 — chờ broadcast vào state "ready"
+        const waitForReady = async () => {
+            for (let i = 0; i < 6; i++) {
+                const res = await this.youtube.liveBroadcasts.list({
+                    auth: this.auth,
+                    part: "status",
+                    id: broadcastId
+                });
+
+                const state = res.data.items?.[0]?.status?.lifeCycleStatus;
+                console.log(`[YouTube] broadcast state = ${state}`);
+
+                if (state === "ready") return true;
+                await sleep(1000);
+            }
+            return false;
+        };
+
+        const isReady = await waitForReady();
+        if (!isReady) {
+            console.log("[YouTube] Thumbnail skipped — broadcast never reached READY");
+            return false;
         }
 
-        const fileStream = require("fs").createReadStream(filePath);
+        // Step 2 — delay trước attempt đầu tiên (YouTube cần ~2-3s để tạo file video)
+        await sleep(3000);
 
-        const res = await this.youtube.thumbnails.set({
-            auth: this.auth,
-            videoId: broadcastId,
-            media: {
-                mimeType: 'image/png',
-                body: fileStream
+        // Step 3 — Retry upload thumbnail
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            try {
+                const res = await this.youtube.thumbnails.set({
+                    auth: this.auth,
+                    videoId: broadcastId,
+                    media: {
+                        mimeType: "image/jpeg",
+                        body: fs.createReadStream(thumbnailPath),
+                    }
+                });
+
+                console.log(`[YouTube] Thumbnail updated successfully`);
+                return true;
+
+            } catch (err) {
+                const code = err?.errors?.[0]?.reason || err?.code;
+                console.log(`[YouTube] setThumbnail attempt ${attempt} failed:`, code);
+
+                if (attempt === 5) {
+                    console.log("[YouTube] give up setting thumbnail.");
+                    return false;
+                }
+
+                // exponential backoff
+                await sleep(1500 * attempt);
             }
-        });
-
-        console.log('Thumbnail uploaded:', res.data);
-        return res.data;
+        }
     }
 
     // Hàm tạo live stream mới và lấy thông tin RTMP (Stream Key, Ingest URL)
@@ -221,7 +263,7 @@ class YouTubeService {
         resolution = "720p",
         frameRate = "30fps"
     } = {}) {
-
+        this.ensureAuth();
         console.log('[YouTube] Creating live stream...');
         const stream = await this.youtube.liveStreams.insert({
             auth: this.auth,
@@ -259,13 +301,13 @@ class YouTubeService {
                 },
                 contentDetails: {
                     latencyPreference: "low",
-                    enableAutoStart: true,
-                    enableAutoStop: true, // Tắt auto stop để tránh việc YouTube tự động kết thúc buổi phát khi không nhận được stream trong một khoảng thời gian
+                    enableAutoStart: false, // Tắt tự động bắt đầu
+                    enableAutoStop: true,
                     enableDvr: true,
                     enableEmbed: true,
                     recordFromStart: true,
                     monitorStream: {
-                        enableMonitorStream: true  // Live chat sẽ không hoạt động nếu không bật cái này
+                        enableMonitorStream: true  // Live chat 
                     }
                 }
             }
@@ -321,45 +363,62 @@ class YouTubeService {
 
     // Chuyển trạng thái broadcast sang "live"
     async goLive(broadcastId) {
-        // fetch current status first
-        const current = await this.getBroadcastStatus(broadcastId);
-        console.log(`[YouTube] Broadcast ${broadcastId} current status:`, current);
+        await this.ensureAuth();
 
-        if (current === 'live') {
-            console.log(`[YouTube] Broadcast ${broadcastId} is already live`);
-            return;
-        }
+        const getState = async () => {
+            const res = await this.youtube.liveBroadcasts.list({
+                auth: this.auth,
+                part: "status",
+                id: broadcastId
+            });
+            const st = res.data.items?.[0]?.status?.lifeCycleStatus;
+            return st || null;
+        };
 
-        try {
-            // If broadcast is "ready" it often needs to go to "testing" before "live"
-            if (current === 'ready') {
-                console.log(`[YouTube] Transitioning broadcast ${broadcastId} from ready -> testing`);
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        for (let attempt = 1; attempt <= 5; attempt++) {
+
+            const state = await getState();
+            console.log(`[YouTube] Broadcast ${broadcastId} state = ${state} (attempt ${attempt})`);
+
+            if (state === "live") {
+                console.log("[YouTube] Already LIVE — nothing to do");
+                return true;
+            }
+
+            if (state === "ready") {
+                console.log("[YouTube] Transition ready → testing");
                 await this.youtube.liveBroadcasts.transition({
                     auth: this.auth,
                     id: broadcastId,
-                    part: 'status',
-                    broadcastStatus: 'testing'
+                    part: "status",
+                    broadcastStatus: "testing"
                 });
-                // small pause to allow state propagation
-                await new Promise(r => setTimeout(r, 1500));
+
+                await sleep(1500); // đợi propagate state
+                continue;
             }
 
-            // Now attempt to transition to live (works when in testing or other eligible states)
-            console.log(`[YouTube] Transitioning broadcast ${broadcastId} -> live`);
-            const res = await this.youtube.liveBroadcasts.transition({
-                auth: this.auth,
-                id: broadcastId,
-                part: 'status',
-                broadcastStatus: 'live'
-            });
-            return res;
-        } catch (err) {
-            // enrich error message for upstream handling / logging
-            const msg = err?.message || err;
-            console.error(`[YouTube] goLive error for broadcast ${broadcastId}:`, msg);
-            throw new Error(msg);
+            if (state === "testing") {
+                console.log("[YouTube] Transition testing → live");
+                await this.youtube.liveBroadcasts.transition({
+                    auth: this.auth,
+                    id: broadcastId,
+                    part: "status",
+                    broadcastStatus: "live"
+                });
+
+                return true; // done
+            }
+
+            console.log(`[YouTube] Unknown state "${state}", retrying...`);
+            await sleep(1500);
         }
+
+        throw new Error("Failed to transition broadcast to LIVE after multiple attempts.");
     }
+
 
     // Kết thúc broadcast
     async completeLive(broadcastId) {
