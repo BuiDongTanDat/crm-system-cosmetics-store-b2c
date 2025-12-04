@@ -320,7 +320,7 @@ export default function OrderPage() {
     return (
         <div className=" flex flex-col">
             {/* Sticky header*/}
-            <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+            <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
                 <div className="flex justify-between w-full mb-2">
                     <h1 className="text-xl font-bold mb-2">
                         Danh sách đơn hàng ({filteredOrders.length})

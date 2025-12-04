@@ -215,13 +215,13 @@ export default function ProductPage() {
     <div className=" flex flex-col">
       {/* Sticky header */}
       <div
-        className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        className="sticky top-[70px] z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
         style={{ backdropFilter: 'blur' }}
       >
         {/* Cụm tiêu đề  */}
         <div className="flex items-center justify-between">
           {/* Tiêu đề bên trái */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <h1 className="text-xl font-bold text-gray-900">
               Quản lý Sản phẩm ({filtered.length})
             </h1>
@@ -229,7 +229,7 @@ export default function ProductPage() {
           </div>
 
           {/* Các nút bên phải */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -295,7 +295,7 @@ export default function ProductPage() {
         </div>
 
         {/* Cụm nằm dưới */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex gap-0">
             <Button
               variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
@@ -314,7 +314,7 @@ export default function ProductPage() {
               <List className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Category filter */}
             <DropdownOptions
               options={categoryOptions}
@@ -357,7 +357,7 @@ export default function ProductPage() {
             ))}
           </div>
         ) : (
-          <div className=" rounded-lg shadow overflow-hidden mb-2 mx-1">
+          <div className=" rounded-md shadow overflow-hidden mb-2 mx-1">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1000px]">
                     <thead className="bg-gray-50">

@@ -213,7 +213,7 @@ export default function MarketingPage() {
     <div className="flex flex-col">
       {/* Sticky header: two-row (title/actions) like ProductPage */}
       <div
-        className="sticky top-[70px] z-20 flex flex-col gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        className="sticky top-[70px] z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
         style={{ backdropFilter: 'blur' }}
       >
         {/* First row: title (left) and search/add/import (right) */}

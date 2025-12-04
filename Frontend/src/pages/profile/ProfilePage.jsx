@@ -170,7 +170,7 @@ export default function ProfilePage() {
   return (
     <div className="p-0">
       {/* Header */}
-      <div className="flex-col sticky top-[70px] z-20 flex gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md">
+      <div className="flex-col sticky top-[70px] z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Thông tin cá nhân</h1>
           <p className="text-gray-600">Quản lý thông tin tài khoản của bạn</p>

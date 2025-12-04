@@ -161,7 +161,7 @@ export default function AutomationPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Sticky header */}
-      <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+      <div className="sticky top-[70px] z-20 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between mb-6">
           {/* Header */}
           <div className="flex items-center gap-4">

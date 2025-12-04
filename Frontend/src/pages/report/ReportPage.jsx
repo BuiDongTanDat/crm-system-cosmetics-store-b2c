@@ -31,7 +31,7 @@ export default function ReportPage() {
     <div className="h-screen flex flex-col">
       {/* Sticky header */}
       <div
-        className="sticky top-[70px] z-20 flex  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md "
+        className="sticky top-[70px] z-20 flex  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
         style={{ backdropFilter: 'blur' }}
       >
         <div className="flex-col items-center justify-between">

@@ -16,8 +16,8 @@ function Backdrop() {
 function LayoutInner({ children }) {
   const { isExpanded, isMobileOpen, isHovered, isMobile } = useSidebar();
 
-  const sidebarWidth = isExpanded || isHovered ? 280 : 72;
-  const desktopGap = 7;
+  const sidebarWidth = isExpanded || isHovered ? 260 : 62; /// Sidebar chiếm 260 với 64
+  const desktopGap = 0;
 
   return (
     <div className="relative flex min-h-screen bg-transparent text-foreground">
@@ -28,7 +28,7 @@ function LayoutInner({ children }) {
         style={
           !isMobile
             ? {
-              marginLeft: sidebarWidth + desktopGap * 1.5, // sidebar left gap + itself + right gap
+              marginLeft: sidebarWidth, // sidebar left gap + itself + right gap
               paddingTop: desktopGap,
               paddingRight: desktopGap,
             }
@@ -36,7 +36,7 @@ function LayoutInner({ children }) {
         }
       >
         <AppHeader />
-        <div className="p-0 md:pt-0 md:pr-5 md:px-0 flex-1 w-full mx-auto max-w-screen "
+        <div className="px-3 py-1 flex-1 w-full mx-auto max-w-screen "
           
         >
           {children}
