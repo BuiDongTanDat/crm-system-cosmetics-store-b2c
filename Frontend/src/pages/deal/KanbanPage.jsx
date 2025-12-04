@@ -541,7 +541,7 @@ export default function KanbanPage() {
   return (
     <div className="p-0 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-col  z-20 gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+      <div className="flex-col  z-20 gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
@@ -549,13 +549,13 @@ export default function KanbanPage() {
               <Button
                 variant={viewMode === 'kanban' ? 'actionCreate' : 'actionNormal'}
                 onClick={() => setViewMode('kanban')}
-                className="rounded-none rounded-tl-md rounded-bl-md h-8">
+                className="rounded-none rounded-tl-md rounded-bl-md size-8">
                 <Columns3 className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
                 onClick={() => setViewMode('list')}
-                className="rounded-none rounded-tr-md rounded-br-md h-8">
+                className="rounded-none rounded-tr-md rounded-br-md size-8">
                 <List className="w-4 h-4" />
               </Button>
             </div>

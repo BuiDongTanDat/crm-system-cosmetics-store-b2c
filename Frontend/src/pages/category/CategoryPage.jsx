@@ -157,7 +157,7 @@ export default function CategoryPage() {
         <div className=" flex flex-col">
             {/* Sticky header */}
             <div
-                className="sticky top-[70px] z-20 flex justify-between gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-5"
+                className="border sticky top-[70px] z-20 flex justify-between gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-5"
                 style={{ backdropFilter: 'blur' }}
             >
                 {/* Header */}
@@ -198,7 +198,7 @@ export default function CategoryPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl border overflow-hidden shadow mb-4">
+            <div className="bg-white rounded-md border overflow-hidden shadow mb-4">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                         <thead className="bg-gray-50">

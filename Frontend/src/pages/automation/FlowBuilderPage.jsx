@@ -474,7 +474,7 @@ export default function FlowBuilderPage() {
   return (
     <div className="min-h-screen">
       {/* Sticky header */}
-      <div className="flex-col sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2 flex items-center border-b">
+      <div className="flex-col sticky top-[70px] z-20 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2 flex items-center border-b">
         <div className="flex items-center justify-between w-full ">
           <div className="flex items-center gap-2">
             <Button variant="actionNormal" onClick={() => navigate("/automations")} className="mr-2">
