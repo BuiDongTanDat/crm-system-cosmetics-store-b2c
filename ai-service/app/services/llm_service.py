@@ -11,7 +11,7 @@ try:
 
     _GEMINI_AVAILABLE = True
 except Exception as e:
-    print("[LLM] ⚠️ Google GenerativeAI SDK not found:", e)
+    print("[LLM] Google GenerativeAI SDK not found:", e)
     genai = None
     _GEMINI_AVAILABLE = False
 

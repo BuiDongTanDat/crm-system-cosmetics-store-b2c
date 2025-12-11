@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel, Field  
 from typing import Any, Dict, List, Optional
 from app.services.llm_service import LLMService
-from app.services.analyzer import HeuristicAnalyzer
+from app.services.ml_service import MLService 
 from app.schema.marketing import SuggestFromCustomersRequest, SuggestCampaignResponse
 # from app.services.recommender import EmailGenerator
 
@@ -71,7 +71,7 @@ class ScoreResponse(BaseModel):
     next_best_action: Optional[str] = None
 # ---------- Services ----------
 llm = LLMService()
-analyzer = HeuristicAnalyzer()
+ml = MLService()
 # email_gen = EmailGenerator(llm)
 
 # ---------- Routes ----------
