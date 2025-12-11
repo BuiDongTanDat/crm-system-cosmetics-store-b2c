@@ -11,7 +11,7 @@ class RecommendedProduct(BaseModel):
     name: str
     category: Optional[str] = None
     price_current: Optional[int] = Field(None, ge=0)
-    reason: Optional[str] = None  # vì sao sản phẩm được chọn
+    reason: Optional[str] = None 
 class TargetFilter(BaseModel):
     age: Optional[Dict[str, int]] = None       # {"min": 18, "max": 40}
     gender: Optional[Union[List[str], str]] = None  # "female" hoặc ["female","male"]
