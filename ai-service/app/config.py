@@ -1,5 +1,11 @@
 import os
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+# Thư mục chứa các file model đã train (.pkl, .joblib)
+ROOT_DIR = BASE_DIR.parent  # ai-service/
+MODEL_DIR = ROOT_DIR / "models"
+MODEL_DIR.mkdir(exist_ok=True)
 # Gemini API key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 

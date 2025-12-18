@@ -17,7 +17,7 @@ class AutomationTrigger extends Model {
   }
 
   matchesEvent(event) {
-    // 🔹 Matcher logic cơ bản, có thể mở rộng sau
+    //Matcher logic cơ bản, có thể mở rộng sau
     if (!this.is_active) return false;
     if (this.event_type && this.event_type !== event.type) return false;
     // TODO: parse thêm điều kiện phức tạp (JSON logic)
