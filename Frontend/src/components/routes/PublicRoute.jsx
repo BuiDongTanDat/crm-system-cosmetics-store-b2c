@@ -1,16 +1,29 @@
-// Chỉ cho phép truy cập nếu chưa đăng nhập (Trang đăng nhập, quên mật khẩu)
-// Nếu đã đăng nhập → chuyển hướng về trang chính
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/useAuthStore';
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useEffect, useState } from "react";
+import Loading from "../common/Loading";
 
-export default function PublicRoute({ children }) {
-  const { isAuthenticated } = useAuthStore();
+export default function PublicRoute() {
+  const { accessToken, loading, refresh } = useAuthStore();
+  const [starting, setStarting] = useState(true);
 
-  // Nếu đã đăng nhập, chuyển hướng về trang chính
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+  useEffect(() => {
+    const init = async () => {
+      if (!accessToken) {
+        await refresh();
+      }
+      setStarting(false);
+    };
+    init();
+  }, []);
+
+  if (starting || loading) {
+    return <div><Loading/></div>;
   }
 
-  return children;
+  if (accessToken) {
+    return <Navigate to="/" />;
+  }
+
+  return <Outlet />;
 }

@@ -41,13 +41,7 @@ const ProductCard = ({ p, onInterest, onOrder }) => {
     const statusRaw = (p.status || "").toString().toUpperCase();
 
     // Determine stock state
-    const outOfStock = inventory <= 0 || ["OUT_OF_STOCK", "SOLD_OUT", "UNAVAILABLE"].includes(statusRaw);
-    const statusLabel = (() => {
-        if (inventory > 0 && statusRaw === "AVAILABLE") return "Còn hàng";
-        if (["COMING_SOON", "PREORDER", "SCHEDULED"].includes(statusRaw)) return "Sắp về";
-        if (outOfStock) return "Hết hàng";
-        return p.status || "";
-    })();
+    const outOfStock = inventory <= 0 || ["OUT_OF_STOCK",'DISCONTINUED'].includes(statusRaw);
 
     return (
         <div className={`rounded-sm border bg-white shadow-sm overflow-hidden flex flex-col hover:scale-102 hover:shadow-lg transition-transform duration-200 animate-fadeIn`}>
@@ -73,12 +67,15 @@ const ProductCard = ({ p, onInterest, onOrder }) => {
                     <div>
                         {p.inventory_qty !== undefined && (
                             <span
-                                className={`rounded-full px-2.5 py-1 text-[12px] font-medium backdrop-blur border ${p.inventory_qty > 0
+                                className={`rounded-full px-2.5 py-1 text-[12px] font-medium backdrop-blur border ${p.inventory_qty > 0 && statusRaw !== 'OUT_OF_STOCK' 
+                                    && statusRaw !== 'DISCONTINUED' 
                                     ? "bg-cyan-50/80 text-blue-700 border-cyan-200"
                                     : "bg-rose-50/80 text-rose-700 border-rose-200"
                                     }`}
                             >
-                                {p.inventory_qty > 0 ? `Còn hàng (${p.inventory_qty})` : "Hết hàng"}
+                                {p.inventory_qty > 0 
+                                    && statusRaw !== 'OUT_OF_STOCK' 
+                                    && statusRaw !== 'DISCONTINUED' ? `Còn hàng (${p.inventory_qty})` : "Hết hàng"}
                             </span>
                         )}
                     </div>

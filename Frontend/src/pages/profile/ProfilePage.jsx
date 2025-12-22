@@ -41,7 +41,7 @@ export default function ProfilePage() {
   const [showAvatarForm, setShowAvatarForm] = useState(false);
 
   useEffect(() => {
-    const userId = user?.id;
+    const userId = user?.user_id;
     if (!userId) return;
     console.log('Fetching user data for userId:', userId);
 
@@ -254,7 +254,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-6 h-full lg:col-span-2">
           <Card className="flex-1 rounded-md">
             <CardHeader>
-              <CardTitle>Thông tin chi tiết</CardTitle>
+              <CardTitle>{mode === 'view' ? 'Thông tin chi tiết' : 'Chỉnh sửa thông tin chi tiết'}</CardTitle>
               <CardDescription>Thông tin cá nhân và liên lạc của bạn</CardDescription>
             </CardHeader>
 

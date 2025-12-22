@@ -278,3 +278,40 @@
   }
 }
 
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradientMove 3s ease infinite;
+}
+
+@keyframes bounce-ripe {
+  /* Nghỉ */
+  0%, 65% {
+    transform: scale(1);
+  }
+
+  /* Phóng nhanh */
+  72% {
+    transform: scale(1.08);
+  }
+
+  /* Thu lại */
+  80% {
+    transform: scale(1);
+  }
+
+  /* Nghỉ tiếp */
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animated-scale {
+  animation: bounce-ripe 3s ease-in-out infinite;
+}
+

@@ -1,10 +1,12 @@
 import React, { useMemo, useState, useEffect } from "react";
 import ProductCard from "./components/ProductCard";
 import { Button } from "@/components/ui/button";
-import { Box, RefreshCw, Search } from "lucide-react";
+import { Box, ChevronRight, RefreshCw, Search, Sparkles } from "lucide-react";
 import { getProducts } from "@/services/products";
 import AppPagination from "@/components/pagination/AppPagination";
 import { Input } from "@/components/ui/input";
+import { getCategories } from "@/services/categories";
+import DropdownOptions from "@/components/common/DropdownOptions";
 
 const AllProductPage = ({ onContact, onOrder }) => {
     // State
@@ -13,6 +15,9 @@ const AllProductPage = ({ onContact, onOrder }) => {
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
     const [searchText, setSearchText] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [categoryOptions, setCategoryOptions] = useState([]);
+    const [showSuggestion, setShowSuggestion] = useState(false);
 
     const pageSize = 15; // 2 row x 8 sản phẩm
 
@@ -32,17 +37,49 @@ const AllProductPage = ({ onContact, onOrder }) => {
         }
     };
 
+    const fetchCategoriesForFilter = async () => {
+        try {
+            let res = await getCategories();
+            if (!res.ok) return;
+
+            const active = res.data.filter((c) => c && String(c.status) === 'ACTIVE');
+            const opts = [
+                { value: 'all', label: 'Danh mục' },
+                ...active.map((c) => ({
+                    value: c.name ?? String(c.category_id),
+                    label: c.name ?? String(c.category_id),
+                })),
+            ];
+            setCategoryOptions(opts);
+        } catch (err) {
+            console.error('Failed to load category filter options:', err);
+        }
+    };
+
     useEffect(() => {
         fetchProducts();
+        fetchCategoriesForFilter();
     }, []);
+
+    // Suggest products (Áp dụng ML để gợi ý ...)
+    const suggestProducts = useMemo(() => {
+        // Giả sử hiện tại chỉ lấy 5 sản phẩm ngẫu nhiên từ danh sách
+        if (products.length <= 5) return products;
+        const shuffled = [...products].sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, 5);
+    }, [products]);
+
+
 
     // Filtered products by search
     const filteredProducts = useMemo(() => {
-        if (!searchText) return products;
-        return products.filter((p) =>
-            p.name?.toLowerCase().includes(searchText.toLowerCase())
-        );
-    }, [products, searchText]);
+        const search = searchText.trim().toLowerCase();
+        return products.filter((p) => {
+            const matchesSearch = p.name?.toLowerCase().includes(search) || p.description?.toLowerCase().includes(search);
+            const matchesCategory = !selectedCategory || selectedCategory === 'all' || p.category?.toLowerCase() === selectedCategory.toLowerCase();
+            return matchesSearch && matchesCategory;
+        });
+    }, [products, selectedCategory, searchText]);
 
     const total = filteredProducts.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -71,6 +108,7 @@ const AllProductPage = ({ onContact, onOrder }) => {
     if (loading) {
         return (
             <section id="products" className="space-y-4">
+
                 <h2 id="all-products-top" className="text-2xl font-bold">SẢN PHẨM HOT</h2>
 
                 {/* Skeleton grid */}
@@ -142,22 +180,74 @@ const AllProductPage = ({ onContact, onOrder }) => {
     return (
         <section id="products" className="py-12 px-5">
             <div className="flex justify-between">
+
                 <h2 id="all-products-top" className="text-2xl font-bold">SẢN PHẨM HOT</h2>
 
                 {/* Search bar */}
-                <div className="relative items-center gap-2 mt-2">
-                    <Search className="absolute left-3 top-1.5 w-5 h-5 text-gray-400" />
-                    <Input
-                        variant="project"
-                        type="text"
-                        placeholder="Tìm kiếm sản phẩm..."
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        className="w-[400px]"
+                <div className="flex gap-2 items-center">
+
+                    <div className="relative items-center gap-2">
+
+                        <Search className="absolute left-3 top-1.5 w-5 h-5 text-gray-400" />
+                        <Input
+                            variant="project"
+                            type="text"
+                            placeholder="Tìm kiếm sản phẩm..."
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            className="w-[200px]"
+                        />
+                    </div>
+                    <DropdownOptions
+                        options={categoryOptions}
+                        value={selectedCategory}
+                        onChange={(val) => setSelectedCategory(val)}
+                        width="w-49"
+                        placeholder="Danh mục"
                     />
                 </div>
 
+
             </div>
+            {/* Hiển thị sản phẩm gợi ý từ model ML */}
+            <div className="mt-4 p-5 rounded-xl 
+                    bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500
+                     shadow-lg shadow-blue-200/50"
+            >
+                <div className="flex justify-between items-center">
+                    <h2 id="all-products-top" className="text-xl font-bold flex items-center gap-2 text-white "><Sparkles className="h-7 w-7 animated-scale " />BẠN CŨNG CÓ THỂ THÍCH</h2>
+                    <ChevronRight
+                        className={`w-6 h-6 text-white cursor-pointer transition-transform ${showSuggestion ? 'rotate-90' : 'rotate-0'}`}
+                        onClick={() => setShowSuggestion(!showSuggestion)}
+                    />
+                </div>
+
+                <div className={`
+                    ${showSuggestion ? 'max-h-screen overflow-y-auto' : 'max-h-0 overflow-y-auto opacity-0 '}
+                    transition-all duration-300 overflow-hidden
+                `}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4 p-3">
+                        {
+                            suggestProducts.map((p) => (
+                                <div
+                                    key={p.product_id ?? p.id}
+                                    className="animate-fade-in duration-100 transition-transform"
+                                >
+                                    <ProductCard
+                                        p={p}
+                                        onInterest={handleInterest}
+                                        onOrder={onOrder}
+                                    />
+                                </div>
+
+                            ))}
+
+                    </div>
+                </div>
+
+
+            </div>
+
 
             {/* Product grid with fade-in */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
@@ -184,10 +274,7 @@ const AllProductPage = ({ onContact, onOrder }) => {
             </div>
 
             {/* Pagination */}
-            <div className="mt-6 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                    {total} sản phẩm • Trang {page} / {totalPages}
-                </div>
+            <div className="mt-6 flex items-center justify-center">
                 <div>
                     <AppPagination
                         totalPages={totalPages}
