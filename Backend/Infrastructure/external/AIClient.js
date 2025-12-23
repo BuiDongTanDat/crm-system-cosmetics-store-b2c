@@ -129,8 +129,29 @@ class AIClient {
   async generateEmail(input, opts = {}) {
     return this._request('POST', '/v1/generation/email', { data: { input, options: opts } });
   }
+  // ---------- ML customers endpoints (MỚI) ----------
+  // POST /v1/customers/segment
+  async segmentCustomer(segmentation_json, segment_map_json, debug = false) {
+    return this._request('POST', '/v1/customers/segment', {
+      data: { segmentation_json, segment_map_json, debug: !!debug },
+    });
+  }
+
+  // POST /v1/customers/churn
+  async predictCustomerChurn(churn_json, debug = false) {
+    return this._request('POST', '/v1/customers/churn', {
+      data: { churn_json, debug: !!debug },
+    });
+  }
+
+  // POST /v1/customers/clv
+  async predictCustomerCLV(horizon, clv_json, debug = false) {
+    return this._request('POST', '/v1/customers/clv', {
+      data: { horizon, clv_json, debug: !!debug },
+    });
+  }
 }
 
-// ✅ Export instance (singleton)
+// Export instance (singleton)
 const instance = new AIClient({ baseURL: process.env.AI_SERVICE_URL });
 module.exports = instance;
