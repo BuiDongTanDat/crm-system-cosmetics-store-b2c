@@ -5,6 +5,7 @@ const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepos
 const emailSvc = require('../../Infrastructure/external/EmailService');
 const scheduler = require('../../Infrastructure/scheduler/automationCron');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
+const CampaignService = require('./CampaignService'); // chỉnh path nếu khác
 
 class AutomationService {
 
@@ -152,7 +153,12 @@ class AutomationService {
                     await scheduler.enqueueIn(delay, 'automation.runAction', { action: nextAction, ctx });
                     break;
                 }
-
+                case 'campaign.run':
+                case 'campaign.approved':
+                case 'campaign.pause':
+                case 'campaign.end':
+                    await this.handleCampaignEvent(eventName, triggerPayload);
+                    break;
                 default:
                     console.warn(`[Automation] Unknown action type: ${type}`);
             }
@@ -247,7 +253,56 @@ class AutomationService {
             await this.runFlow(flow, ctx);
         }
     }
+    async handleCampaignEvent(eventName, payload) {
+        const campaignId = payload?.campaign_id || payload?.campaignId;
+        if (!campaignId) {
+            console.warn('[Automation] Missing campaign_id for campaign event:', eventName);
+            return;
+        }
 
+        console.log(`[Automation] Handling campaign event: ${eventName} (campaign_id=${campaignId})`);
+
+        try {
+            switch (eventName) {
+                case 'campaign.run':
+                case 'campaign.approved': {
+                    // chạy campaign theo campaign_channels
+                    const result = await CampaignService.runCampaign(campaignId);
+                    console.log('[Automation] Campaign run result:', result);
+                    return result;
+                }
+
+                case 'campaign.pause': {
+                    // nếu bạn chưa có pauseCampaign thì tạo stub trong CampaignService
+                    if (CampaignService.pauseCampaign) {
+                        const result = await CampaignService.pauseCampaign(campaignId);
+                        console.log('[Automation] Campaign pause result:', result);
+                        return result;
+                    }
+                    console.warn('[Automation] pauseCampaign not implemented in CampaignService');
+                    return;
+                }
+
+                case 'campaign.end': {
+                    if (CampaignService.endCampaign) {
+                        const result = await CampaignService.endCampaign(campaignId);
+                        console.log('[Automation] Campaign end result:', result);
+                        return result;
+                    }
+                    console.warn('[Automation] endCampaign not implemented in CampaignService');
+                    return;
+                }
+
+                default:
+                    console.warn('[Automation] Unknown campaign event:', eventName);
+                    return;
+            }
+        } catch (err) {
+            console.error('[Automation] handleCampaignEvent error:', err);
+            // ném lỗi để RabbitMQConsumer quyết định ack/nack/DLQ
+            throw err;
+        }
+    }
     // ---------------------------------------------------
     // Scheduled automation triggers
     // ---------------------------------------------------

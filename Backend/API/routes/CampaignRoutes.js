@@ -6,7 +6,6 @@ const CampaignController = require('../Controller/CampaignController');
 const router = express.Router();
 router.get('/running', CampaignController.getRunning);
 router.get('/', CampaignController.getAll);
-// router.get('/:id', CampaignController.getById);
 router.post('/', CampaignController.create);
 router.patch("/:id/status", CampaignController.updateStatus);
 // router.put('/:id', CampaignController.update);

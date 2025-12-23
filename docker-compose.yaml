@@ -26,15 +26,16 @@ services:
       context: ./ai-service
       dockerfile: Dockerfile
     container_name: crm_ai_service
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     env_file:
       - ./ai-service/.env
     ports:
       - "8000:8000"
+    volumes:
+      - ./ai-service:/app        
     restart: always
     networks:
       - crm_net
-
   # ===== BACKEND (Node.js) =====
   backend:
     build:

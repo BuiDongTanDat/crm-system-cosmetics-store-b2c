@@ -6,15 +6,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from app import config
 
 # ---------- Optional Gemini ----------
+import os
 try:
-    import google.generativeai as genai  # type: ignore
-
+    import google.generativeai as genai
     _GEMINI_AVAILABLE = True
-except Exception as e:
-    print("[LLM] Google GenerativeAI SDK not found:", e)
+except Exception:
     genai = None
     _GEMINI_AVAILABLE = False
-
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # ==============================
 # Heuristic (Rule-based)

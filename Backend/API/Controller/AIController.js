@@ -153,7 +153,161 @@ class AIController {
       );
     }
   }
+  static async predict_churn(req, res) {
+    try {
+      const { features, options } = req.body || {};
+      if (!features || typeof features !== 'object') {
+        return res.status(400).json(fail({
+          code: 'INVALID_INPUT',
+          message: 'Thiếu "features" (object) trong body',
+        }));
+      }
 
+      // Optional: basic validation for common fields
+      // (không bắt buộc, nhưng giúp giảm lỗi model service)
+      // ví dụ: features.recency, features.frequency_90d...
+      const result = await aiClient.predict_churn(features, options || {});
+      return res.status(200).json(ok(result));
+    } catch (err) {
+      console.error('[AI] predict_churn failed:', err);
+      return res.status(500).json(
+        fail(asAppError(err, {
+          status: 500,
+          code: 'AI_CHURN_PREDICT_FAILED',
+          message: 'Không thể dự đoán churn.',
+        }))
+      );
+    }
+  }
+   static async batch_predict_churn(req, res) {
+    try {
+      const { items, options } = req.body || {};
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json(fail({
+          code: 'INVALID_INPUT',
+          message: 'Thiếu "items" (array) trong body',
+        }));
+      }
+
+      // chỉ lấy features để gửi sang AI service
+      const payload = items.map((it) => ({
+        customer_id: it.customer_id || null,
+        features: it.features || {},
+      }));
+
+      const result = await aiClient.batch_predict_churn(payload, options || {});
+      return res.status(200).json(ok(result));
+    } catch (err) {
+      console.error('[AI] batch_predict_churn failed:', err);
+      return res.status(500).json(
+        fail(asAppError(err, {
+          status: 500,
+          code: 'AI_CHURN_BATCH_FAILED',
+          message: 'Không thể dự đoán churn theo danh sách.',
+        }))
+      );
+    }
+  }
+  static async segment_customers(req, res) {
+    try {
+      const { customers, options } = req.body || {};
+      if (!Array.isArray(customers) || customers.length === 0) {
+        return res.status(400).json(fail({
+          code: 'INVALID_INPUT',
+          message: 'Thiếu "customers" (array) trong body',
+        }));
+      }
+
+      const result = await aiClient.segment_customers(customers, options || {});
+      return res.status(200).json(ok(result));
+    } catch (err) {
+      console.error('[AI] segment_customers failed:', err);
+      return res.status(500).json(
+        fail(asAppError(err, {
+          status: 500,
+          code: 'AI_SEGMENT_FAILED',
+          message: 'Không thể phân nhóm khách hàng.',
+        }))
+      );
+    }
+  }
+    static async recommend_products(req, res) {
+    try {
+      const { customer_id, context, options } = req.body || {};
+      if (!customer_id) {
+        return res.status(400).json(fail({
+          code: 'INVALID_INPUT',
+          message: 'Thiếu "customer_id" trong body',
+        }));
+      }
+
+      // Lấy customer + products (tuỳ bạn)
+      const customer = await custommerService.getById(customer_id);
+      const products = await productService.getAll();
+
+      const product_data = (Array.isArray(products) ? products : [])
+        .filter(p => String(p.status || '').toUpperCase() === 'AVAILABLE')
+        .map(p => ({
+          product_id: String(p.product_id || p.id || '').trim(),
+          name: String(p.name || '').trim(),
+          brand: p.brand || null,
+          category: p.category || null,
+          price_current: Number(p.price_current) || 0,
+          discount_percent: Number(p.discount_percent) || 0,
+          rating: Number(p.rating) || 0,
+          inventory_qty: Number(p.inventory_qty) || 0,
+        }))
+        .filter(p => p.product_id && p.name);
+
+      const result = await aiClient.recommend_products(
+        customer,
+        product_data,
+        context || {},
+        options || {}
+      );
+
+      return res.status(200).json(ok(result));
+    } catch (err) {
+      console.error('[AI] recommend_products failed:', err);
+      return res.status(500).json(
+        fail(asAppError(err, {
+          status: 500,
+          code: 'AI_RECOMMEND_FAILED',
+          message: 'Không thể gợi ý sản phẩm.',
+        }))
+      );
+    }
+  }
+   static async predict_churn_by_customer_id(req, res) {
+    try {
+      const { customer_id, options } = req.body || {};
+      if (!customer_id) {
+        return res.status(400).json(fail({
+          code: 'INVALID_INPUT',
+          message: 'Thiếu "customer_id" trong body',
+        }));
+      }
+      const features = await custommerService.getCustomerChurnFeatures(customer_id);
+      if (!features) {
+        return res.status(404).json(fail({
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy dữ liệu feature cho customer_id',
+        }));
+      }
+
+      const result = await aiClient.predict_churn(features, options || {});
+      return res.status(200).json(ok({ customer_id, ...result }));
+    } catch (err) {
+      console.error('[AI] predict_churn_by_customer_id failed:', err);
+      return res.status(500).json(
+        fail(asAppError(err, {
+          status: 500,
+          code: 'AI_CHURN_BY_ID_FAILED',
+          message: 'Không thể dự đoán churn theo customer_id.',
+        }))
+      );
+    }
+  }
 }
 
 module.exports = AIController;
