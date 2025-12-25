@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ export default function OrderForm({
   const [products, setProducts] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState(null);
+  const initialSnapshotRef = useRef(null);
 
   // ===== Label -> Code helpers =====
   const PAYMENT_METHODS = ["credit_card", "paypal", "bank_transfer", "cash_on_delivery"];
@@ -58,8 +59,8 @@ export default function OrderForm({
   // ===== Hydrate from props.data =====
   useEffect(() => {
     if (!data) return;
-    setForm((prev) => ({
-      ...prev,
+
+    const newForm = {
       order_id: data.order_id || data.orderId || null,
       customer_id: data.customer_id || "",
       lead_id: data.lead_id || "",
@@ -73,35 +74,51 @@ export default function OrderForm({
         ? data.ai_suggested_crosssell.join(", ")
         : data.ai_suggested_crosssell || "",
       notes: data.notes || "",
-    }));
+    };
 
-    if (Array.isArray(data.items) && data.items.length) {
-      setOrderDetails(
-        data.items.map((it) => {
-          const quantity = Number(it.quantity ?? it.qty ?? 1);
-          const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
-          const subtotal = Number(it.subtotal ?? it.total_price ?? quantity * price);
-          let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
-          if (discount > 1) discount = discount / 100;
-          let original_price =
-            Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) || computeOriginalPrice(price, discount);
+    const newDetails = Array.isArray(data.items) && data.items.length
+      ? data.items.map((it) => {
+        const quantity = Number(it.quantity ?? it.qty ?? 1);
+        const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
+        const subtotal = Number(it.subtotal ?? it.total_price ?? quantity * price);
+        let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
+        if (discount > 1) discount = discount / 100;
+        const original_price =
+          Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) ||
+          computeOriginalPrice(price, discount);
 
-          return {
-            order_detail_id:
-              it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            product_id: it.product_id || it.productId || "",
-            product_name: it.product_name || it.name || it.productName || "",
-            quantity,
-            price,
-            subtotal,
-            discount,
-            original_price,
-          };
-        })
-      );
-    } else {
-      setOrderDetails([]);
-    }
+        return {
+          order_detail_id:
+            it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          product_id: it.product_id || it.productId || "",
+          product_name: it.product_name || it.name || it.productName || "",
+          quantity,
+          price,
+          subtotal,
+          discount,
+          original_price,
+        };
+      })
+      : [];
+
+    setForm((prev) => ({ ...prev, ...newForm }));
+    setOrderDetails(newDetails);
+
+    // Lưu snapshot để so sánh "status-only"
+    initialSnapshotRef.current = {
+      form: {
+        order_id: newForm.order_id,
+        customer_id: newForm.customer_id || "",
+        lead_id: newForm.lead_id || "",
+        order_date: (newForm.order_date || "").split("T")[0],
+        payment_method: newForm.payment_method,
+        status: newForm.status,
+        channel: newForm.channel || "",
+        notes: newForm.notes || "",
+      },
+      items: normalizeItems(newDetails),
+    };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
@@ -203,6 +220,56 @@ export default function OrderForm({
   }, [products]);
 
   // ===== Helpers =====
+  const normalizeItems = (details) => {
+    return (details || [])
+      .map((d) => ({
+        product_id: String(d.product_id || ""),
+        quantity: Number(d.quantity || 0),
+        price: Number(d.price || 0),
+        original_price: Number(d.original_price || 0),
+        // discount chuẩn hoá về 0..1 và làm tròn để tránh lệch float
+        discount: Number((Number(d.discount || 0)).toFixed(6)),
+      }))
+      // sort để không phụ thuộc thứ tự
+      .sort((a, b) => a.product_id.localeCompare(b.product_id));
+  };
+
+  const isStatusOnlyChange = () => {
+    const snap = initialSnapshotRef.current;
+    if (!snap?.form?.order_id || !form.order_id) return false;
+
+    const currentComparableForm = {
+      order_id: form.order_id,
+      customer_id: form.customer_id || "",
+      lead_id: form.lead_id || "",
+      order_date: (form.order_date ? new Date(form.order_date).toISOString() : "").split("T")[0],
+      payment_method: form.payment_method,
+      status: form.status,
+      channel: form.channel || "",
+      notes: form.notes || "",
+    };
+
+    const statusChanged = String(currentComparableForm.status) !== String(snap.form.status);
+    if (!statusChanged) return false;
+
+    // So sánh các field còn lại (ngoại trừ status)
+    const sameOtherFields =
+      String(currentComparableForm.customer_id) === String(snap.form.customer_id) &&
+      String(currentComparableForm.lead_id) === String(snap.form.lead_id) &&
+      String(currentComparableForm.order_date) === String(snap.form.order_date) &&
+      String(currentComparableForm.payment_method) === String(snap.form.payment_method) &&
+      String(currentComparableForm.channel) === String(snap.form.channel) &&
+      String(currentComparableForm.notes) === String(snap.form.notes);
+
+    if (!sameOtherFields) return false;
+
+    // items không đổi
+    const currentItems = normalizeItems(orderDetails);
+    const sameItems = JSON.stringify(currentItems) === JSON.stringify(snap.items);
+
+    return sameItems;
+  };
+
   const computeOriginalPrice = (price, discountDecimal) => {
     const p = Number(price || 0);
     let d = Number(discountDecimal || 0);
@@ -358,7 +425,11 @@ export default function OrderForm({
       toast.error("Vui lòng thêm ít nhất một sản phẩm");
       return;
     }
-
+    if (form.order_id && isStatusOnlyChange()) {
+      onSave?.({ order_id: form.order_id, status: form.status });
+      setMode?.("view");
+      return;
+    }
     const payload = {
       ...(form.order_id ? { order_id: form.order_id } : {}),
       customer_id: form.customer_id || null, // luôn có key, null nếu chưa chọn
@@ -385,7 +456,6 @@ export default function OrderForm({
         };
       }),
     };
-
     // debug (tạm): console.log("[OrderForm] submit payload", payload);
     onSave?.(payload);
 
@@ -491,14 +561,14 @@ export default function OrderForm({
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Phương thức thanh toán</label>
 
-                { /* REPLACED: use DropdownOptions */ }
+                { /* REPLACED: use DropdownOptions */}
                 <DropdownOptions
                   options={PAYMENT_METHODS.map((pm) => ({ value: pm, label: paymentLabels[pm] || pm }))}
                   value={form.payment_method}
                   onChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
                   disabled={mode === "view"}
                   placeholder={paymentLabels[form.payment_method] || form.payment_method}
-                  className="" 
+                  className=""
                   triggerClassName=""
                 />
               </div>
@@ -506,7 +576,7 @@ export default function OrderForm({
               <div className="w-56">
                 <label className="block text-sm font-medium mb-1">Trạng thái</label>
 
-                { /* REPLACED: use DropdownOptions */ }
+                { /* REPLACED: use DropdownOptions */}
                 <DropdownOptions
                   options={ORDER_STATUSES.map((st) => ({ value: st, label: statusLabels[st] || st }))}
                   value={form.status}
@@ -612,9 +682,9 @@ export default function OrderForm({
                     {mode === "view" ? (
                       <Input
                         value={detail.product_name}
-                        disabled = {true}
+                        disabled={true}
                         variant="normal"
-             
+
                       />
                     ) : (
                       <Input
@@ -631,8 +701,8 @@ export default function OrderForm({
                   {/* Original price */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Giá gốc</label>
-                    <Input 
-                      disabled = {true}
+                    <Input
+                      disabled={true}
                       variant="normal"
                       value={formatCurrency(Number(detail.original_price || 0))}
                     >
