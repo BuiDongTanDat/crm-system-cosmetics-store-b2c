@@ -75,39 +75,25 @@ const AutomationFlowController = {
     return res.json(result);
   }),
 
-  activate: asyncHandler(async (req, res) => {
-    const result = await AutomationFlowService.activateFlow(req.params.flow_id);
+  active: asyncHandler(async (req, res) => {
+    const result = await AutomationFlowService.setStatusActive(req.params.flow_id);
     return res.json(result);
   }),
-
-  deactivate: asyncHandler(async (req, res) => {
-    const result = await AutomationFlowService.deactivateFlow(req.params.flow_id);
-    return res.json(result);
-  }),
-
-  // ===== EDITOR (mới thêm) =====
-
   // PUT /api/flows/:flow_id/editor → autosave (upsert triggers/actions), vẫn DRAFT
   saveEditor: asyncHandler(async (req, res) => {
     try {
       const flow_id = req.params.flow_id; // lấy id từ URL
       const dto = SaveEditorRequestDTO.from(req.body);
-      // 🔒 Gán flow_id nếu chưa có trong body
       dto.flow_id = dto.flow_id || flow_id;
-      // nếu client không gửi isNewRecord hoặc không có thay đổi thì coi như false
       if (dto.isNewRecord === undefined || dto.isNewRecord === null) {
         dto.isNewRecord = false;
       }
-
       console.log('>>> saveEditor dto:', dto);
-
       const result = await AutomationFlowService.saveEditor(flow_id, dto);
-
       if (!result.ok) {
         const { status = 500 } = result.error || {};
         return res.status(status).json(result);
       }
-
       return res.status(200).json(result);
     } catch (err) {
       console.error('>>> saveEditor failed:', err);
@@ -116,13 +102,11 @@ const AutomationFlowController = {
         .json(fail(asAppError(err, { status: 500, code: 'SAVE_EDITOR_FAILED' })));
     }
   }),
-  // POST /api/flows/:flow_id/publish → validate & chuyển ACTIVE (hoặc simulate)
   publish: asyncHandler(async (req, res) => {
     const dto = PublishFlowRequestDTO.from(req.body || {});
     const out = await AutomationFlowService.publishFlow(req.params.flow_id, dto);
     return res.json(out);
   }),
-
   // ===== TRIGGERS =====
   triggers: {
     create: asyncHandler(async (req, res) => {
@@ -171,8 +155,6 @@ const AutomationFlowController = {
       return res.status(204).send();
     }),
   },
-
-  // ===== ACTIONS =====
   actions: {
     create: asyncHandler(async (req, res) => {
       const dto = CreateActionRequestDTO.from(req.body);
@@ -201,7 +183,6 @@ const AutomationFlowController = {
       if (!act) return res.status(404).json({ message: 'Action not found' });
       return res.json(act);
     }),
-
     update: asyncHandler(async (req, res) => {
       const dto = UpdateActionRequestDTO.from(req.body);
       const updated = await service.actions.update(req.params.action_id, dto);

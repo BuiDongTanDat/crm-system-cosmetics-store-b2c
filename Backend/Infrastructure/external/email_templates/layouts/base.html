@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{{ subject or "MyShop" }}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:640px;margin:0 auto;padding:18px;">
+      <div style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,0.06);">
+
+        <!-- Header -->
+        <div style="padding:18px 20px;border-bottom:1px solid #eef0f5;">
+          <div style="font-weight:700;font-size:16px;color:#111827;">
+            {{ brand.name or "MyShop" }}
+          </div>
+          {% if preheader %}
+            <div style="margin-top:6px;color:#6b7280;font-size:13px;">{{ preheader }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Body -->
+        <div style="padding:20px;">
+          {{ content | safe }}
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:16px 20px;border-top:1px solid #eef0f5;color:#6b7280;font-size:12px;line-height:1.6;">
+          <div>Bạn nhận email này vì đã tương tác với {{ brand.name or "MyShop" }}.</div>
+          <div style="margin-top:8px;">
+            © {{ now_year }} {{ brand.name or "MyShop" }}. All rights reserved.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>

@@ -45,7 +45,6 @@ class AutomationFlowRepository {
 
   //Trả về mảng item: { flow_id, name, description, is_active, trigger, actions[] }
   async findByEvent(eventType) {
-    // 1) Lấy các trigger theo event đang active từ repo Trigger
     const triggers = await AutomationTriggerRepository.list({
       event_type: eventType,
       is_active: true,

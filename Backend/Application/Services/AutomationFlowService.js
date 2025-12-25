@@ -664,6 +664,54 @@ class AutomationFlowService {
     if (!f) throw new Error('Flow not found');
     return f;
   }
+  async setStatusActive(flow_id) {
+  try {
+    if (!flow_id) {
+      throw new AppError('flow_id is required', { status: 400, code: 'VALIDATION_ERROR' });
+    }
+
+    const flow = await this.flows.findById(flow_id);
+    if (!flow) {
+      throw new AppError('Flow not found', { status: 404, code: 'FLOW_NOT_FOUND' });
+    }
+
+    const current = String(flow.status || '').toLowerCase();
+
+    // idempotent
+    if (current === 'active') {
+      return ok({ flow, alreadyActive: true });
+    }
+
+    // optional: chỉ cho publish từ draft/pending
+    if (current && !['draft', 'draff', 'pending', 'inactive'].includes(current)) {
+      throw new AppError(`Cannot activate flow from status=${flow.status}`, {
+        status: 400,
+        code: 'INVALID_STATUS_TRANSITION',
+      });
+    }
+    // check tối thiểu: phải có trigger + action
+    const [triggers, actions] = await Promise.all([
+      this.triggers.findByFlow(flow_id),
+      this.actions.findByFlow(flow_id),
+    ]);
+
+    if (!Array.isArray(triggers) || triggers.length === 0) {
+      throw new AppError('At least one trigger is required', { status: 400, code: 'NO_TRIGGER' });
+    }
+    if (!Array.isArray(actions) || actions.length === 0) {
+      throw new AppError('At least one action is required', { status: 400, code: 'NO_ACTION' });
+    }
+
+    const updated = await this.flows.update(flow_id, { status: 'active' });
+    if (!updated) {
+      throw new AppError('Failed to update flow status', { status: 500, code: 'UPDATE_FLOW_FAILED' });
+    }
+
+    return ok({ flow: updated });
+  } catch (err) {
+    return fail(asAppError(err, { code: 'ACTIVATE_FLOW_FAILED' }));
+  }
+}
 
 
 }

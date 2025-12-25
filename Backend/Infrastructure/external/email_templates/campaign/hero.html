@@ -1,0 +1,47 @@
+{% set now_year = (now_year or 2025) %}
+{% set cta_text = cta_text or "Xem ưu đãi" %}
+
+{% set inner %}
+  <div style="background:linear-gradient(135deg,#ff6f91,#ff9671);border-radius:12px;padding:18px;color:#ffffff;">
+    <div style="font-size:18px;font-weight:800;line-height:1.3;">
+      {{ headline or "Ưu đãi đặc biệt cho bạn" }}
+    </div>
+    <div style="margin-top:8px;font-size:13px;opacity:0.95;">
+      {{ subheadline or "Giảm giá có hạn – đừng bỏ lỡ" }}
+    </div>
+  </div>
+
+  <div style="margin-top:16px;color:#111827;font-size:14px;line-height:1.7;">
+    <div>Chào <strong>{{ lead.name or customer.name or "bạn" }}</strong>,</div>
+    <div style="margin-top:8px;">
+      {{ body_text or "Chúng tôi có một ưu đãi phù hợp với bạn. Nhấn vào nút bên dưới để xem chi tiết." }}
+    </div>
+
+    {% if product_name %}
+      <div style="margin-top:10px;color:#374151;">
+        Gợi ý cho bạn: <strong>{{ product_name }}</strong>
+      </div>
+    {% endif %}
+
+    <div style="text-align:center;margin:18px 0 6px;">
+      <a href="{{ cta_url or '#' }}"
+         style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">
+        {{ cta_text }}
+      </a>
+    </div>
+
+    {% if footnote %}
+      <div style="margin-top:10px;color:#6b7280;font-size:12px;">
+        {{ footnote }}
+      </div>
+    {% endif %}
+  </div>
+{% endset %}
+
+{% include "layouts/base.html" with {
+  subject: subject,
+  brand: brand,
+  preheader: preheader,
+  content: inner,
+  now_year: now_year
+} %}
