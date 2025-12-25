@@ -6,7 +6,7 @@ const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "access-secret";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh-secret";
 const RESET_SECRET = process.env.JWT_RESET_SECRET || "reset-secret";
 
-const ACCESS_TOKEN_EXPIRY = "30m";
+const ACCESS_TOKEN_EXPIRY = "30d"; //Tamj thời để dễ test
 const REFRESH_TOKEN_EXPIRY = "7d";
 const RESET_TOKEN_EXPIRY = "15m";
 

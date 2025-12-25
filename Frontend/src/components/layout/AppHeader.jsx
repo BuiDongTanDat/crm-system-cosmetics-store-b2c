@@ -319,7 +319,7 @@ export default function AppHeader() {
 
           <DropdownMenuContent className="w-52" align="end" sideOffset={8}>
             <DropdownMenuLabel className="flex flex-col">
-              <span className="text-sm font-medium">{user?.name}</span>
+              <span className="text-sm font-medium">{user?.full_name}</span>
               <span className="text-xs text-muted-foreground">{user?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

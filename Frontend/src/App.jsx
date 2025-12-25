@@ -42,24 +42,9 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import ChannelPage from "./pages/channel/ChannelPage";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
+import DashBoard from "./pages/dashboard/DashBoard";
 
 function App() {
-  const { refreshSession } = useAuthStore();
-
-  useEffect(() => {
-    const initAuth = async () => {
-      const token = useAuthStore.getState().accessToken;
-      // Chỉ refresh nếu token tồn tại
-      if (token) {
-        try {
-          await refreshSession();
-        } catch (err) {
-          console.error("Session refresh failed:", err);
-        }
-      }
-    };
-    initAuth();
-  }, []);
 
   return (
     <div className="min-h-screen w-full relative ">
@@ -103,12 +88,14 @@ function App() {
               <Route element={<ProtectedRoute />}>
                 {/* Nếu đăng nhập rồi thì mới render các component con */}
                 <Route element={<Layout />}>
+
+        
                   <Route
                     path="/auth/change-password"
                     element={<ChangePasswordPage />}
                   />
 
-                  <Route path="/" element={<HomePage />} />
+                  <Route path="/" element={<DashBoard />} />
                   <Route path="/profile" element={<ProfilePage />} />
 
                   {/* Sản phẩm */}

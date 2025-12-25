@@ -25,3 +25,8 @@ export const updateOrderStatus = (id, payload) => request(`/orders/${id}/status`
 
 // Xóa đơn hàng theo id
 export const deleteOrder = (id) => request(`/orders/${id}`, { method: 'DELETE' });
+
+export const getOrdersByDateRange = (from, to) => {
+    const query = new URLSearchParams({ from, to }).toString();
+    return request(`/orders/stat/by-date-range?${query}`, { method: 'GET' });
+}

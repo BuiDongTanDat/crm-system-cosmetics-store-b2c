@@ -46,3 +46,8 @@ export const analyzeCustomerBehavior = (id) => request(`/customers/${id}/analyze
 
 // Tự động phân nhóm toàn bộ khách hàng
 export const autoSegmentCustomers = () => request('/customers/auto-segment', { method: 'POST' });
+
+export const getCustomersByDateRange = (from, to) => {
+    const query = new URLSearchParams({ from, to }).toString();
+    return request(`/customers/stat/by-date-range?${query}`, { method: 'GET' });
+}

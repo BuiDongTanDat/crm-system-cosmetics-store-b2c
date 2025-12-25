@@ -191,13 +191,13 @@ const HomePage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* LEFT */}
-          <div className="lg:col-span-2 space-y-4 h-full flex-1 flex flex-col"> {/* flex-1 để cột trái cao bằng cột phải */}
+          <div className="lg:col-span-2 space-y-4 h-full flex-1 flex flex-col w-full"> {/* thêm w-full */}
             {/* Doanh thu */}
-            <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2  gap-4 "> {/* responsive: 1 col trên mobile, 4 col từ md */}
+            <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2  gap-4 w-full"> {/* thêm w-full */}
               {/* revenue: giảm chiều cao, nhỏ padding, chiếm 2 cột */}
               <div
                 className={
-                  `shadow-lg rounded-md  bg-gradient-to-r from-cyan-500 to-blue-500 font-medium rounded-base text-sm px-4 py-2.5 text-white col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden ` +
+                  `shadow-lg rounded-md  bg-gradient-to-r from-cyan-500 to-blue-500 font-medium rounded-base text-sm px-4 py-2.5 text-white col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden w-full ` + // thêm w-full
                   (visible[0] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
@@ -236,7 +236,7 @@ const HomePage = () => {
               {/* Lead*/}
               <div
                 className={
-                  `shadow-lg bg-white rounded-lg p-0 border col-start-3 col-span-2 row-start-1 row-span-3 flex flex-col justify-start h-full transform ` +
+                  `shadow-lg bg-white rounded-lg p-0 border col-start-3 col-span-2 row-start-1 row-span-3 flex flex-col justify-start h-full transform w-full ` + // thêm w-full
                   (visible[1] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
@@ -282,7 +282,7 @@ const HomePage = () => {
               {/* Campaign: */}
               <div
                 className={
-                  `shadow-lg bg-white rounded-lg p-0 border row-span-2 col-start-1 col-span-2 row-start-2 h-full transform ` +
+                  `shadow-lg bg-white rounded-lg p-0 border row-span-2 col-start-1 col-span-2 row-start-2 h-full transform w-full ` + // thêm w-full
                   (visible[2] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
@@ -327,7 +327,7 @@ const HomePage = () => {
             {/* Orders area - wide box */}
             <div
               className={
-                `shadow-lg bg-white rounded-lg p-0 border flex-1 transform` +
+                `shadow-lg bg-white rounded-lg p-0 border flex-1 transform w-full` + // thêm w-full
                 (visible[3] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                 ' transition-all duration-200 ease-out'
 
@@ -379,11 +379,11 @@ const HomePage = () => {
           </div>
 
           {/* RIGHT: notifications + report button */}
-          <div className="space-y-4 h-full flex flex-col justify-between"> {/* đảm bảo stretch theo chiều dọc và phân bố đều */}
+          <div className="space-y-4 h-full flex flex-col justify-between w-full"> {/* thêm w-full */}
             {/* sticky wrapper must NOT have transform; inner animated div handles animation */}
             <div className={
               (visible[4] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
-              ' shadow-lg transition-all duration-200 ease-out flex-2 bg-white rounded-lg p-0 border sticky'
+              ' shadow-lg transition-all duration-200 ease-out flex-2 bg-white rounded-lg p-0 border sticky w-full' // thêm w-full
             }
               style={{ transitionDelay: `${4 * 60}ms`, transformOrigin: 'top' }}>
               <div
