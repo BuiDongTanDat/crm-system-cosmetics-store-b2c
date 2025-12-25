@@ -1,42 +1,34 @@
 const CampaignRepository = require('../../Infrastructure/Repositories/CampaignRepository');
 const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
+const RabbitMQPublisher = require('../../Infrastructure/Bus/RabbitMQPublisher');
+const EVENTS = require('../../Domain/Events/eventscampaing.js');
 const { AppError, asAppError, ok, fail } = require('../helpers/errors.js');
 class CampaignService {
     static async updateStatus(campaignId, newStatus) {
         try {
             const validStatuses = ["draft", "running", "paused", "ended", "archived"];
-
             if (!validStatuses.includes(newStatus)) {
-                return fail(
-                    new AppError("Trạng thái không hợp lệ.", {
-                        code: "INVALID_STATUS",
-                        status: 400,
-                    })
-                );
+                return fail(new AppError("Trạng thái không hợp lệ.", { code: "INVALID_STATUS", status: 400 }));
             }
-
             const campaign = await CampaignRepository.findById(campaignId);
             if (!campaign) {
-                return fail(
-                    new AppError("Không tìm thấy chiến dịch.", {
-                        code: "CAMPAIGN_NOT_FOUND",
-                        status: 404,
-                    })
-                );
+                return fail(new AppError("Không tìm thấy chiến dịch.", { code: "CAMPAIGN_NOT_FOUND", status: 404 }));
+            }
+            // Update status trước (đảm bảo DB đúng trạng thái)
+            await CampaignRepository.updateStatus(campaignId, newStatus);
+            // Nếu approved/run => publish event để consumer chạy
+            if (newStatus === 'running') {
+                await RabbitMQPublisher.publish(EVENTS.CAMPAIGN_RUN, {
+                    campaign_id: campaignId,
+                    triggered_by: 'status_update',
+                });
             }
 
-            await CampaignRepository.updateStatus(campaignId, newStatus);
-
-            return ok({
-                message: `Cập nhật trạng thái thành công: ${newStatus}`,
-                campaign,
-            });
+            return ok({ message: `Cập nhật trạng thái thành công: ${newStatus}`, campaign });
         } catch (err) {
-            console.error("❌ updateStatus error:", err);
             return fail(asAppError(err, { status: 500, code: "UPDATE_STATUS_FAILED" }));
         }
     }
-
     static async createCampaign(campaignData) {
         try {
             if (!campaignData || !campaignData.name) {
@@ -67,6 +59,101 @@ class CampaignService {
 
         } catch (err) {
             return fail(asAppError(err, { status: 500, code: 'CREATE_CAMPAIGN_FAILED' }));
+        }
+    }
+    static async runCampaign(campaignId, options = {}) {
+        try {
+            const campaign = await CampaignRepository.findById(campaignId);
+            if (!campaign) {
+                return fail(new AppError("Không tìm thấy chiến dịch.", {
+                    code: "CAMPAIGN_NOT_FOUND",
+                    status: 404,
+                }));
+            }
+
+            // Lấy danh sách kênh chiến dịch
+            const channels = await CampaignChannelRepository.findByCampaignId(campaignId);
+            if (!channels || channels.length === 0) {
+                return fail(new AppError("Chiến dịch chưa có kênh để chạy.", {
+                    code: "NO_CHANNELS",
+                    status: 400,
+                }));
+            }
+
+            // Update campaign status -> running
+            await CampaignRepository.updateStatus(campaignId, "running");
+
+            const now = new Date();
+            const results = [];
+
+            for (const ch of channels) {
+                const chJson = ch?.toJSON?.() || ch;
+                const chStatus = String(chJson.status || 'draft').toLowerCase();
+
+                // chỉ chạy channel draft/paused
+                if (!['draft', 'paused'].includes(chStatus)) {
+                    results.push({
+                        channel_id: chJson.channel_id,
+                        channel: chJson.channel,
+                        skipped: true,
+                        reason: `channel status=${chJson.status}`,
+                    });
+                    continue;
+                }
+
+                // Check time window nếu có
+                const start = chJson.start_date ? new Date(chJson.start_date) : (campaign.start_date ? new Date(campaign.start_date) : null);
+                const end = chJson.end_date ? new Date(chJson.end_date) : (campaign.end_date ? new Date(campaign.end_date) : null);
+
+                if (start && now < start) {
+                    results.push({
+                        channel_id: chJson.channel_id,
+                        channel: chJson.channel,
+                        skipped: true,
+                        reason: `Not started yet. start_date=${start.toISOString()}`,
+                    });
+                    continue;
+                }
+                if (end && now > end) {
+                    // mark completed
+                    await CampaignChannelRepository.updateById(chJson.channel_id, { status: 'completed' });
+                    results.push({
+                        channel_id: chJson.channel_id,
+                        channel: chJson.channel,
+                        skipped: true,
+                        reason: `Already ended. end_date=${end.toISOString()}`,
+                    });
+                    continue;
+                }
+
+                // set channel -> active
+                await CampaignChannelRepository.updateById(chJson.channel_id, { status: 'active' });
+
+                // start runner
+                const runnerResult = await ChannelDispatcher.start(chJson, campaign, { options });
+
+                if (!runnerResult?.ok) {
+                    // rollback channel status nếu fail
+                    await CampaignChannelRepository.updateById(chJson.channel_id, { status: 'draft' });
+                }
+
+                results.push({
+                    channel_id: chJson.channel_id,
+                    channel: chJson.channel,
+                    status_after: runnerResult?.ok ? 'active' : 'draft',
+                    runner_result: runnerResult,
+                });
+            }
+
+            return ok({
+                message: "Campaign started by channels",
+                campaign_id: campaignId,
+                results,
+            });
+
+        } catch (err) {
+            console.error("runCampaign error:", err);
+            return fail(asAppError(err, { status: 500, code: "RUN_CAMPAIGN_FAILED" }));
         }
     }
     // Trong service của bạn

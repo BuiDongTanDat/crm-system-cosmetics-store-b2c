@@ -19,9 +19,9 @@ router.post('/trigger', AutomationController.trigger);
 router.get('/run-daily', AutomationController.runDaily);
 router.get('/trigger-now', AutomationController.triggerNow);
 // Validate & chuyển trạng thái
-router.post('/flows/:flow_id/validate', AutomationFlowController.validate);     // kiểm tra cấu hình
-router.post('/flows/:flow_id/activate', AutomationFlowController.activate);     // status -> ACTIVE
-router.post('/flows/:flow_id/deactivate', AutomationFlowController.deactivate); // status -> INACTIVE
+router.post('/flows/:flow_id/validate', AutomationFlowController.validate);     
+router.post('/flows/:flow_id/activate', AutomationFlowController.activate);
+router.post('/flows/:flow_id/deactivate', AutomationFlowController.deactivate);
 router.get('/flows/:flow_id/editor', AutomationFlowController.getEditor);
 router.put('/flows/:flow_id/editor', AutomationFlowController.saveEditor);
 router.post('/flows/:flow_id/publish', AutomationFlowController.publish);

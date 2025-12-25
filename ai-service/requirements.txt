@@ -4,3 +4,7 @@ requests
 pandas
 numpy
 google-generativeai
+joblib
+lightgbm
+python-multipart
+scikit-learn==1.6.1
