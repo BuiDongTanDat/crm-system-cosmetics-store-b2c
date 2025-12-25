@@ -2,7 +2,13 @@ const express = require('express');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const OrderController = require('../Controller/OrderController');
+const protectedRoute = require('../Middleware/authMiddleware');
 const router = express.Router();
+
+// Public route for order checkout
+router.get('/checkout/:id', OrderController.getOrderById);
+
+router.use(protectedRoute);
 
 
 router.post('createquick/', OrderController.createQuick);

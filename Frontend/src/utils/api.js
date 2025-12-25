@@ -46,7 +46,7 @@ api.interceptors.response.use(
           return api(originalRequest);
         }
       } catch (err) {
-        useAuthStore.getState().logout?.();
+        useAuthStore.getState().signOut?.();
         return Promise.reject(err);
       }
     }
@@ -72,24 +72,24 @@ export async function request(
       headers: isFormData ? headers : { "Content-Type": "application/json", ...headers },
       data: body,
       withCredentials: credentials === "include",
-      validateStatus: () => true,
+      //validateStatus: () => true,
       responseType,
     });
 
-    if (res.status === 204) return null;
+    // if (res.status === 204) return null;
 
-    if (res.status < 200 || res.status >= 300) {
-      const backendMsg =
-        res.data?.error ||
-        res.data?.message ||
-        res.statusText ||
-        `HTTP ${res.status}`;
+    // if (res.status < 200 || res.status >= 300) {
+    //   const backendMsg =
+    //     res.data?.error ||
+    //     res.data?.message ||
+    //     res.statusText ||
+    //     `HTTP ${res.status}`;
 
-      const error = new Error(backendMsg);
-      error.status = res.status;
-      error.data = res.data;
-      throw error;
-    }
+    //   const error = new Error(backendMsg);
+    //   error.status = res.status;
+    //   error.data = res.data;
+    //   throw error;
+    // }
 
     return res.data;
   } catch (err) {

@@ -3,7 +3,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import Loading from "../common/Loading";
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute() {
   const { accessToken, user, loading, refresh, fetchMe } = useAuthStore();
   const [starting, setStarting] = useState(true);
 
@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children }) {
 
   useEffect(() => {
     init();
-  }, []);
+  }, [accessToken, user]);
 
   if (starting || loading) {
     return (

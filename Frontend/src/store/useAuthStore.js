@@ -66,16 +66,14 @@ export const useAuthStore = create(
     refresh: async () => {
       try {
         set({ loading: true });
-        const { user, fetchMe, setAccessToken } = get();
         const data = await authService.refreshAccessToken();
         if (data?.token) {
-          setAccessToken(data.token)
+          get().setAccessToken(data.token);
+          await get().fetchMe();
+          return true;
         }
 
-        if (!user) {
-          await fetchMe();
-        }
-
+        return false;
       } catch (err) {
         //console.warn('Refresh token failed', err.message);
         set({ accessToken: null, user: null, isAuthenticated: false });

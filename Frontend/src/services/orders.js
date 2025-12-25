@@ -30,3 +30,6 @@ export const getOrdersByDateRange = (from, to) => {
     const query = new URLSearchParams({ from, to }).toString();
     return request(`/orders/stat/by-date-range?${query}`, { method: 'GET' });
 }
+
+// Lấy đơn hàng theo id
+export const getOrderCheckout = (id) => request(`/orders/checkout/${id}`, { method: 'GET' , isPublicRoute: true });

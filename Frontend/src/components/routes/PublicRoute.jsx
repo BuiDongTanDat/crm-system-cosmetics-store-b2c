@@ -15,7 +15,7 @@ export default function PublicRoute() {
       setStarting(false);
     };
     init();
-  }, []);
+  }, [accessToken]);
 
   if (starting || loading) {
     return <div><Loading/></div>;

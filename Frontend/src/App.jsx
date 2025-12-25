@@ -43,6 +43,7 @@ import ProfilePage from "./pages/profile/ProfilePage";
 import ChannelPage from "./pages/channel/ChannelPage";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashBoard from "./pages/dashboard/DashBoard";
+import CheckoutPage from "./pages/checkout/CheckoutPage";
 
 function App() {
 
@@ -68,6 +69,10 @@ function App() {
         <SidebarProvider>
           <BrowserRouter>
             <Routes>
+              {/*Checkout theo id order*/}
+              <Route path="/checkout" element={<CheckoutPage />} />
+
+              {/* Public root này là những trang khi đã đăng nhập rồi thì không được truy cập nữa */}
               <Route element={<PublicRoute />}>
                 <Route path="/auth/login" element={<LoginPage />} />
                 <Route
@@ -78,6 +83,8 @@ function App() {
                   path="/auth/reset-password"
                   element={<ResetPasswordPage />}
                 />
+
+                
               </Route>
               {/* Chưa đăng nhập sẽ truy cập các trang public (Đăng nhập, Đăng ký ,...) */}
 

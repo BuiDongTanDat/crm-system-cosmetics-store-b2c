@@ -226,14 +226,7 @@ class CustomerController {
       res.status(400).json({ error: err.message });
     }
   }
-    try {
-      if (!req.file) throw new Error("No file uploaded");
-      const result = await CustomerService.importCustomers(req.file.path);
-      res.status(200).json(result);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  }
+
 
   // Báo cáo khách hàng
   static async getCustomerByDateRange(req, res) {
