@@ -1,29 +1,21 @@
-/**
- * EmailService
- * - Gửi email thật hoặc log mock tùy theo môi trường/biến cấu hình
- * - Dễ mở rộng sang SendGrid/Mailgun/AWS SES
- */
+// backend/src/Infrastructure/external/EmailService.js
 
 const nodemailer = require('nodemailer');
 
 class EmailService {
     constructor() {
         this.env = process.env.NODE_ENV || 'development';
-        // Ưu tiên MAIL_MOCK nếu set; nếu không, mặc định mock khi không phải production
         this.mockMode = (process.env.MAIL_MOCK ?? '').length
             ? process.env.MAIL_MOCK === 'true'
             : this.env !== 'production';
 
         this.transporter = null;
 
-        // Nếu đang chạy thật, khởi tạo transporter ngay; nếu lỗi thiếu config sẽ throw tại đây
         if (!this.mockMode) {
             this.initTransporter();
         }
 
-        // phòng khi bạn gọi bằng cách destructure method
         this.send = this.send.bind(this);
-
         console.log('[EmailService] env =', this.env, 'mockMode =', this.mockMode);
     }
 
@@ -40,7 +32,6 @@ class EmailService {
             throw new Error('Email transporter not configured: missing SMTP_HOST/SMTP_USER/SMTP_PASS');
         }
 
-        // secure: nếu không chỉ định, tự suy dựa vào port
         const portNum = Number(SMTP_PORT);
         const secure =
             typeof SMTP_SECURE !== 'undefined'
@@ -52,50 +43,44 @@ class EmailService {
             port: portNum,
             secure,
             auth: { user: SMTP_USER, pass: SMTP_PASS },
-            logger: true,   // log SMTP
-            debug: true,    // log chi tiết
+            logger: true,
+            debug: true,
             tls: { ciphers: 'TLSv1.2' },
         });
     }
 
-    /**
-     * Gửi email
-     * @param {Object} options
-     * @param {string} options.to - người nhận
-     * @param {string} options.subject - tiêu đề
-     * @param {string} options.body - nội dung HTML hoặc text
-     * @param {string} [options.channel='email']
-     * @param {Object} [options.template]
-     */
     async send({ to, subject, body, channel = 'email', template }) {
         if (!to) throw new Error('EmailService.send() missing `to`');
 
+        const templateTag =
+            template && typeof template === 'object'
+                ? (template.key || template.name || 'template')
+                : (template ? String(template) : '');
+
+        // đảm bảo có HTML tối thiểu
+        const safeHtml = (body && String(body).trim())
+            ? String(body)
+            : `<div style="font-family:Arial,sans-serif;line-height:1.5">
+          <h3 style="margin:0 0 8px">${subject || 'Thông báo'}</h3>
+          <div>Thông báo từ hệ thống.</div>
+        </div>`;
+
         if (this.mockMode) {
-            console.log('📨 [EmailService:MOCK]', {
-                to,
-                subject,
-                channel,
-                template,
-                body,
-            });
+            console.log('📨 [EmailService:MOCK]', { to, subject, channel, template: templateTag, body: safeHtml });
             return { ok: true, mock: true };
         }
 
         try {
-            // Lazy-init nếu vì lý do nào đó chưa có transporter
             if (!this.transporter) this.initTransporter();
-
-            // Verify cấu hình SMTP trước khi gửi
             await this.transporter.verify();
 
             const mailOptions = {
                 from: process.env.MAIL_FROM || '"MyShop" <no-reply@myshop.vn>',
                 to,
                 subject,
-                html: body || '',
-                text: body?.replace(/<[^>]+>/g, '') || '',
+                html: safeHtml,
+                text: safeHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
 
-                // giúp DMARC/SPF: Return-Path sẽ dùng envelope.from
                 envelope: {
                     from: process.env.MAIL_ENVELOPE_FROM || 'bounce@myshop.vn',
                     to,
@@ -103,7 +88,7 @@ class EmailService {
                 headers: {
                     'X-App': 'MyShop',
                     'X-Channel': channel,
-                    ...(template ? { 'X-Template': String(template) } : {}),
+                    ...(templateTag ? { 'X-Template': templateTag } : {}),
                 },
             };
 

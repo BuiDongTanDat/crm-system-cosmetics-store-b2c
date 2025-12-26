@@ -1,0 +1,15 @@
+{% extends "layout_base.njk" %}
+{% block content %}
+  <p style="margin-top:0;">Chào <b>{{ email.greeting_name or customer.full_name or "bạn" }}</b>,</p>
+  <p>{{ email.body or "Cảm ơn bạn. Đơn hàng đã được thanh toán thành công." }}</p>
+
+  <div style="margin:10px 0;padding:10px 12px;background:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;">
+    <div style="font-size:13px;color:#047857;">Mã đơn</div>
+    <div style="font-size:16px;font-weight:800;color:#065f46;">{{ email.order_id or order.order_id or "" }}</div>
+    <div style="margin-top:6px;font-size:13px;color:#065f46;">
+      Tổng tiền: <b>{{ email.total_amount or order.total_amount or 0 }}</b> {{ email.currency or order.currency or "VND" }}
+    </div>
+  </div>
+
+  <p style="font-size:12px;color:#6b7280;margin-bottom:0;">Chúng tôi sẽ sớm bàn giao/ship đơn hàng.</p>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+</head>
+<body style="margin:0;padding:0;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7fb;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e9ecf3;">
+          {% if theme.banner_url %}
+          <tr>
+            <td style="padding:0;">
+              <img src="{{ theme.banner_url }}" alt="banner" style="width:100%;display:block;"/>
+            </td>
+          </tr>
+          {% endif %}
+
+          <tr>
+            <td style="padding:18px 20px;background:linear-gradient(135deg,{{ theme.primary or "#111827" }},{{ theme.secondary or "#374151" }});color:#fff;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                {% if theme.logo_url %}
+                  <img src="{{ theme.logo_url }}" alt="logo" style="width:34px;height:34px;border-radius:8px;object-fit:cover;"/>
+                {% endif %}
+                <div>
+                  <div style="font-size:16px;font-weight:800;">{{ email.title or subject or "Thông báo" }}</div>
+                  <div style="font-size:12px;opacity:.9;margin-top:4px;">{{ brand.name or "MyShop" }}</div>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 20px;color:#111827;line-height:1.65;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:14px 20px;border-top:1px solid #e9ecf3;font-size:12px;color:#6b7280;">
+              © {{ (now_year or (now | date("YYYY"))) or "2025" }} {{ brand.name or "MyShop" }}.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
