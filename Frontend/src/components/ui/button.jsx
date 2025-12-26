@@ -24,7 +24,7 @@ const buttonVariants = cva(
         menuItem: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-103 active:scale-95",
         menuSubmenu: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-103 active:scale-95",
         subMenuItem: "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold  active:scale-95",
-
+        menuLanding: "w-full justify-start rounded-0 text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  active:scale-95",
 
         //Variant action button
         // Thêm variant mới cho action button
@@ -41,6 +41,10 @@ const buttonVariants = cva(
         actionAI: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
         actionDashboardDeepBlue: "rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
         actionDashboardLightBlue: "rounded-md bg-gradient-to-r from-cyan-400 to-blue-400 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
+        
+        actionActivePage: "bg-white shadow text-accent-foreground dark:bg-accent/80 hover:bg-accent hover:shadow-md hover:text-accent-foreground dark:hover:bg-accent/90  active:scale-90",
+        actionHoverPage: "hover:bg-accent/90 hover:shadow hover:text-accent-foreground dark:hover:bg-accent/50 active:scale-95 active:dark:hover:bg-accent/90 "
+      
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",

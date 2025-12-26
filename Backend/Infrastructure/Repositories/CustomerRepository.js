@@ -1,6 +1,7 @@
+
 const Customer = require('../../Domain/Entities/Customer');
 // const ICustomerRepository = require('../../Domain/Interfaces/ICustomerRepository');
-
+const { Op } = require('sequelize');
 class CustomerRepository {
   // ---------------- CRUD ----------------
   async create(customer) {
@@ -44,6 +45,16 @@ class CustomerRepository {
 
   async findBySource(source) {
     return await Customer.findAll({ where: { source } });
+  }
+
+  async getCustomersByDateRange(from, to) {
+    return await Customer.findAll({
+      where: {
+        created_at: {
+          [Op.between]: [from, to]
+        }
+      }
+    });
   }
 
   // ---------------- Nghiệp vụ tiện ích ----------------

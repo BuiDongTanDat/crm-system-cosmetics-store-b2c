@@ -1,6 +1,7 @@
 import { AppSidebar } from "@/components/layout/AppSideBar";
 import AppHeader from "@/components/layout/AppHeader";
 import { useSidebar } from "@/context/SidebarContext";
+import { Outlet } from "react-router";
 
 function Backdrop() {
   const { isMobileOpen, toggleMobileSidebar } = useSidebar();
@@ -39,14 +40,14 @@ function LayoutInner({ children }) {
         <div className="px-3 py-1 flex-1 w-full mx-auto max-w-screen "
           
         >
-          {children}
+          <Outlet />
         </div>
       </div>
     </div>
   );
 }
 
-export default function Layout({ children }) {
+export default function Layout() {
   // SidebarProvider đã được bọc ở App.jsx, tránh lồng kép.
-  return <LayoutInner>{children}</LayoutInner>;
+  return <LayoutInner><Outlet/></LayoutInner>;
 }

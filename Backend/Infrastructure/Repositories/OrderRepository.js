@@ -65,6 +65,17 @@ class OrderRepository {
 
 		return this.Order.findAll(query);
 	}
+
+	//Lấy order theo khoảng thời gian
+	async getOrdersByDateRange(from, to) {
+		return await this.Order.findAll({
+			where: {
+				order_date: {
+					[Op.between]: [from, to],
+				},
+			},
+		});
+	}
 }
 
 module.exports = new OrderRepository();

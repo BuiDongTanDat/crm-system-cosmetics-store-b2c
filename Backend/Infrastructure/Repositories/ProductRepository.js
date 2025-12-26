@@ -24,6 +24,13 @@ class ProductRepository {
     return await Product.findAll();
   }
 
+  async findNameAndImageById(productId) {
+    const product = await Product.findByPk(productId);
+    return product
+      ? { name: product.name, image: product.image }
+      : { name: null, image: null };
+  }
+
   // Tạo hoặc cập nhật sản phẩm
   async save(product) {
     //console.log('Product to save:', product);

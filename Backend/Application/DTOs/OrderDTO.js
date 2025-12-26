@@ -39,6 +39,7 @@ class OrderDetailResponseDTO {
 		this.order_id = detail.order_id || null;
 		this.product_id = detail.product_id || null;
 		this.product_name = detail.product_name || null; // Đảm bảo ánh xạ product_name
+		this.image = detail.image || null;
 		this.price_unit = Number(detail.price_unit) || 0;
 		this.price_original = Number(detail.price_original) || 0;
 		this.quantity = Number(detail.quantity) || 0;

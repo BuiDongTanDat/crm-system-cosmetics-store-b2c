@@ -22,4 +22,6 @@ router.get('/:id/analyze-churn', CustomerController.analyzeChurn);
 router.get('/:id/analyze-behavior', CustomerController.analyzeBehavior);
 router.post('/auto-segment', CustomerController.autoSegmentAll);
 
+
+router.get('/stat/by-date-range', CustomerController.getCustomerByDateRange);
 module.exports = router;

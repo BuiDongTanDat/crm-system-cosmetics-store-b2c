@@ -1,8 +1,8 @@
 // src/services/products.js
 import { request, requestWithFormData } from '@/utils/api';
 
-// Lấy tất cả sản phẩm
-export const getProducts = () => request('/products', { method: 'GET' });
+// Lấy tất cả sản phẩm (Dùng cho trang public Landing Page nữa nên để isPublicRoute: true)
+export const getProducts = () => request('/products', { method: 'GET' , isPublicRoute: true});
 
 // Lấy sản phẩm theo id
 export const getProduct = (id) => request(`/products/${id}`, { method: 'GET' });

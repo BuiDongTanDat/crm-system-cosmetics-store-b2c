@@ -316,6 +316,24 @@ class CustomerService {
       return fail(asAppError(err, { status: 500, code: 'PREDICT_ALL_DAILY_FAILED' }));
     }
   }
+
+
+  //Trả về tổng số khách hàng được thêm mới
+  async getCustomersByDateRange(from, to){
+    try {
+      const totalCustomers = (await customerRepository.findAll()).length;
+      const customersInRange = await customerRepository.getCustomersByDateRange(from, to);
+      const newCustomersCount = customersInRange.length;
+
+      return ok({
+        totalCustomers,
+        newCustomersCount,
+        customersInRange
+      });
+    } catch (error) {
+      return fail(asAppError(error, { status: 500, code: 'GET_CUSTOMERS_BY_DATE_RANGE_FAILED' }));
+    }
+  }
 }
 
 module.exports = new CustomerService();

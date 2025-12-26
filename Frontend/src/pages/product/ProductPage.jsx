@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Plus, Edit, Trash2, Eye, Filter, List, Square, Upload, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/pages/product/components/ProductCard';
@@ -62,19 +62,14 @@ export default function ProductPage() {
   const fetchCategoriesForFilter = async () => {
     try {
       let res = await getCategories();
-      if (Array.isArray(res)) {
-        res = { ok: true, data: res };
-      }
-      if (!res || typeof res.ok === 'undefined') return;
-      const { ok, data } = res;
-      if (!ok || !Array.isArray(data)) return;
+      if (!res.ok) return;
 
-      const active = data.filter((c) => c && String(c.status) === 'ACTIVE');
+      const active = res.data.filter((c) => c && String(c.status) === 'ACTIVE');
       const opts = [
         { value: 'all', label: 'Danh mục' },
         ...active.map((c) => ({
-          value: c.name ?? String(c.category_id ?? c.id),
-          label: c.name ?? String(c.category_id ?? c.id),
+          value: c.name ?? String(c.category_id),
+          label: c.name ?? String(c.category_id),
         })),
       ];
       setCategoryOptions(opts);
@@ -159,13 +154,15 @@ export default function ProductPage() {
   };
 
   // Lọc 
-  const filtered = products.filter((p) => {
+  const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const matchesSearch = !term || p.name.toLowerCase().includes(term);
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+    return products.filter((p) => {
+      const matchesSearch = p.name.toLowerCase().includes(term) || p.short_description.toLowerCase().includes(term);
+      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [products, searchTerm, selectedCategory, statusFilter]);
 
   useEffect(() => setCurrentPage(1), [searchTerm, selectedCategory, statusFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage));
@@ -343,21 +340,21 @@ export default function ProductPage() {
         <div className="mx-2">
           {/* Main content card (Flow-like) */}
           <div className="flex-1 overflow-auto pt-4">
-        {/* View Mode */}
-        {viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3 px-2">
-            {currentProducts.map((p) => (
-              <ProductCard
-                key={p.product_id}
-                product={p}
-                onView={openView}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className=" rounded-md shadow overflow-hidden mb-2 mx-1">
+            {/* View Mode */}
+            {viewMode === 'card' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3 px-2">
+                {currentProducts.map((p) => (
+                  <ProductCard
+                    key={p.product_id}
+                    product={p}
+                    onView={openView}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className=" rounded-md shadow overflow-hidden mb-2 mx-1">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1000px]">
                     <thead className="bg-gray-50">

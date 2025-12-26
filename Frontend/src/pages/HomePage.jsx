@@ -125,7 +125,7 @@ const HomePage = () => {
   };
 
   const orderDate = (o) => {
-    return new Date(o.order_date  ?? Date.now());
+    return new Date(o.order_date ?? Date.now());
   };
 
   //Compute dependent values
@@ -169,7 +169,7 @@ const HomePage = () => {
   }, []);
 
 
-  
+
 
   // Layout like design: left big area + right column
   return (
@@ -191,19 +191,18 @@ const HomePage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* LEFT */}
-          <div className="lg:col-span-2 space-y-4 h-full flex-1 flex flex-col"> {/* flex-1 để cột trái cao bằng cột phải */}
+          <div className="lg:col-span-2 space-y-4 h-full flex-1 flex flex-col w-full"> {/* thêm w-full */}
             {/* Doanh thu */}
-            <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2  gap-4 "> {/* responsive: 1 col trên mobile, 4 col từ md */}
+            <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2  gap-4 w-full"> {/* thêm w-full */}
               {/* revenue: giảm chiều cao, nhỏ padding, chiếm 2 cột */}
               <div
                 className={
-                  `rounded-md  bg-gradient-to-r from-cyan-500 to-blue-500 font-medium rounded-base text-sm px-4 py-2.5 text-white col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden ` +
+                  `shadow-lg rounded-md  bg-gradient-to-r from-cyan-500 to-blue-500 font-medium rounded-base text-sm px-4 py-2.5 text-white col-start-1 col-span-2 row-start-1 h-full flex flex-col justify-between max-h-[22vh] overflow-hidden w-full ` + // thêm w-full
                   (visible[0] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
                 style={{ transitionDelay: `${1 * 120}ms` }}
               >
-                {/* header bar like Orders header (no negative margins) */}
                 <div className="p-2 flex items-center justify-between  rounded-tl-sm rounded-tr-sm w-full">
                   <div className="flex items-center gap-2">
                     <div className="bg-white rounded-full p-1">
@@ -237,36 +236,35 @@ const HomePage = () => {
               {/* Lead*/}
               <div
                 className={
-                  `bg-white rounded-lg p-0 border col-start-3 col-span-2 row-start-1 row-span-3 flex flex-col justify-start h-full transform ` +
+                  `shadow-lg bg-white rounded-lg p-0 border col-start-3 col-span-2 row-start-1 row-span-3 flex flex-col justify-start h-full transform w-full ` + // thêm w-full
                   (visible[1] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
                 style={{ transitionDelay: `${1 * 60}ms` }}
-              > {/* lead bây giờ rộng hơn - container padding removed */}
-                {/* header (same as Orders header) */}
-                <div className="px-3 py-2 flex items-center justify-between bg-brand/10 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full mb-2">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-indigo-500" />
+              >
+                <div className="px-3 py-2 flex items-center justify-between bg-blue-500 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full mb-2">
+                  <div className="flex items-center gap-2 text-white ">
+                    <User className="w-4 h-4 text-white" />
                     <h3 className="text-sm font-semibold uppercase">Lead đang chờ xử lý</h3>
                   </div>
                   <span
                     role="link"
                     onClick={() => navigate('/leads')}
-                    className="px-2 text-sm text-slate-700 hover:underline cursor-pointer flex items-center gap-1"
+                    className="px-2 text-sm text-white hover:underline cursor-pointer flex items-center gap-1"
                   >
                     Chi tiết
                   </span>
                 </div>
-                <div className="px-3 py-2 text-xs text-slate-600">
+                <div className="p-2 text-xs text-slate-600">
                   {leads.length === 0 ? <div>Không có lead</div> :
                     leads.slice(0, 6).map(l => (
                       <div
                         key={l.id || JSON.stringify(l.raw)}
                         role="link"
-                        onClick={() => navigate('/leads')}
+                        onClick={() => navigate('/kanban')}
                         className="py-2 px-3 rounded-md hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3"
                       >
-                        <User className="w-4 h-4 text-indigo-500" />
+                        <User className="w-4 h-4 " />
                         <div>
                           <div className="font-medium">{l.name || '-'}</div>
                           <div className="text-xs text-slate-500">
@@ -284,21 +282,21 @@ const HomePage = () => {
               {/* Campaign: */}
               <div
                 className={
-                  `bg-white rounded-lg p-0 border row-span-2 col-start-1 col-span-2 row-start-2 h-full transform ` +
+                  `shadow-lg bg-white rounded-lg p-0 border row-span-2 col-start-1 col-span-2 row-start-2 h-full transform w-full ` + // thêm w-full
                   (visible[2] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                   ' transition-all duration-200 ease-out'
                 }
                 style={{ transitionDelay: `${2 * 60}ms` }}
               >
-                <div className="px-3 py-2 flex items-center justify-between bg-brand/10 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full mb-2">
-                  <div className="flex items-center gap-2">
-                    <Megaphone className="w-4 h-4 text-rose-500" />
+                <div className="px-3 py-2 flex items-center justify-between bg-blue-500 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full mb-2">
+                  <div className="flex items-center gap-2 text-white ">
+                    <Megaphone className="w-4 h-4 " />
                     <h3 className="text-sm font-semibold uppercase">Chiến dịch đang hoạt động</h3>
                   </div>
                   <span
                     role="link"
                     onClick={() => navigate('/marketing')}
-                    className="px-2 text-sm text-slate-700 hover:underline cursor-pointer flex items-center gap-1"
+                    className="px-2 text-sm text-white hover:underline cursor-pointer flex items-center gap-1"
                   >
                     Chi tiết
                   </span>
@@ -329,22 +327,23 @@ const HomePage = () => {
             {/* Orders area - wide box */}
             <div
               className={
-                `bg-white rounded-lg p-0 border flex-1 transform ` +
+                `shadow-lg bg-white rounded-lg p-0 border flex-1 transform w-full` + // thêm w-full
                 (visible[3] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
                 ' transition-all duration-200 ease-out'
+
               }
               style={{ transitionDelay: `${3 * 60}ms` }}
             > {/* flex-1 để chiếm không gian còn lại */}
               <div className="flex items-center justify-between mb-3">
-                <div className="px-3 py-2 flex items-center justify-between bg-brand/10 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart className="w-4 h-4 text-amber-500" />
+                <div className="px-3 py-2 flex items-center justify-between bg-blue-500 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full">
+                  <div className="flex items-center gap-2 text-white">
+                    <ShoppingCart className="w-4 h-4" />
                     <h3 className="text-sm font-semibold uppercase ">Các đơn hàng đang chờ xử lý</h3>
                   </div>
                   <span
                     role="link"
                     onClick={() => navigate('/orders')}
-                    className="px-2 text-sm text-slate-700 hover:underline cursor-pointer  flex items-center gap-1"
+                    className="px-2 text-sm text-white hover:underline cursor-pointer  flex items-center gap-1"
                   >
                     Chi tiết
                   </span>
@@ -380,25 +379,25 @@ const HomePage = () => {
           </div>
 
           {/* RIGHT: notifications + report button */}
-          <div className="space-y-4 h-full flex flex-col justify-between"> {/* đảm bảo stretch theo chiều dọc và phân bố đều */}
+          <div className="space-y-4 h-full flex flex-col justify-between w-full"> {/* thêm w-full */}
             {/* sticky wrapper must NOT have transform; inner animated div handles animation */}
             <div className={
               (visible[4] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3') +
-              ' transition-all duration-200 ease-out flex-2 bg-white rounded-lg p-0 border sticky'
+              ' shadow-lg transition-all duration-200 ease-out flex-2 bg-white rounded-lg p-0 border sticky w-full' // thêm w-full
             }
               style={{ transitionDelay: `${4 * 60}ms`, transformOrigin: 'top' }}>
               <div
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="px-3 py-2 flex items-center justify-between bg-brand/10 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full">
-                    <div className="flex items-center gap-2">
+                <div className=" flex items-center justify-between mb-3">
+                  <div className="px-3 py-2 flex items-center justify-between bg-blue-500 backdrop-blur-lg rounded-tl-sm rounded-tr-sm w-full">
+                    <div className="flex items-center gap-2 text-white">
                       <Bell className="w-4 h-4 text-blue-500" />
                       <h3 className="text-sm font-semibold uppercase">THÔNG BÁO</h3>
                     </div>
                     <span
                       role="link"
                       onClick={() => navigate('/notifications')}
-                      className="px-2 text-sm text-slate-700 hover:underline cursor-pointer flex items-center gap-1"
+                      className="px-2 text-sm text-white hover:underline cursor-pointer flex items-center gap-1"
                     >
                       Tất cả thông báo
                     </span>

@@ -196,6 +196,19 @@ class OrderController {
       return next(err);
     }
   }
+
+  async getOrderByDateRange(req, res, next) {
+    try {
+      const { from, to } = req.query;
+      if (!from || !to) {
+        return res.status(400).json({ message: 'Thiếu tham số from hoặc to' });
+      }
+      const orders = await OrderService.getOrdersByDateRange(from, to);
+      return res.json(orders);
+    } catch (err) {
+      return next(err);
+    }
+  }
 }
 
 module.exports = new OrderController();

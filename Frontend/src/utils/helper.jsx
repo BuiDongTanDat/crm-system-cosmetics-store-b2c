@@ -135,7 +135,7 @@ export function getPeriodLabel(period) {
 }
 
 // Hàm lấy ngày bắt đầu của khoảng thời gian
-const getStartDate = (periodKey) => {
+export const getStartDate = (periodKey) => {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -156,6 +156,14 @@ const getStartDate = (periodKey) => {
       return startOfToday;
   }
 };
+
+// Hàm lấy ngày bắt đầu trong N ngày gần đây
+export const getRollingStartDate = (days) => {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - days);
+  return startDate;
+}
 
 // Tính tổng doanh thu
 export const computeRevenue = (ordersRaw, periodKey, orderDateFn, orderTotalFn) => {

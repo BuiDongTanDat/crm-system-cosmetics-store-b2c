@@ -14,13 +14,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false });
 
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, loading, isAuthenticated } = useAuthStore(); // isAuthenticated là boolean
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  const { signIn, loading } = useAuthStore(); 
 
 
   // email-specific input handling and suggestion behavior
@@ -34,6 +28,7 @@ export default function LoginPage() {
       setSuggestion('');
     }
   };
+
 
   const handleEmailKeyDown = (e) => {
     if (!suggestion) return;
@@ -66,12 +61,12 @@ export default function LoginPage() {
     }
 
     try {
-      const success = await signIn(form.email, form.password); // success sẽ là true
-      if (success) {
-        navigate('/', { replace: true }); // chuyển hướng ngay lập tức
-      }
+      const { email, password } = form;
+      await signIn(email, password);
+      navigate('/'); // Chuyển hướng sau khi đăng nhập thành công
     } catch (err) {
       // toast lỗi đã hiển thị bên trong signIn
+      toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     }
   };
 

@@ -1,96 +1,95 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/useAuthStore";
 
-const API_URL = import.meta.env.VITE_API_URL || ""; // nếu dùng proxy thì để rỗng
-const buildUrl = (path) => `${API_URL}${path}`;
+// Tạo axios instance
+const API_URL = import.meta.env.VITE_API_URL || "";
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+});
 
-// Hàm tạo mới access token
-async function refreshAccessToken() {
-  try {
-    const res = await axios.post(buildUrl("/auth/refresh-token"), {}, { withCredentials: true });
-    const newToken = res.data?.token; // api trả về token
-    if (newToken) {
-      useAuthStore.getState().setAccessToken(newToken); // cập nhật store
-      return newToken;
-    }
-  } catch (err) {
-    // Nếu lỗi là 401 do thiếu token (trường hợp chưa đăng nhập)
-    if (err.response?.status === 401) {
-      // KHÔNG IN RA LOG LỖI NÀY. Chỉ cần gọi logout để xóa sạch trạng thái cũ nếu có
-      useAuthStore.getState().logout?.();
-      // Vẫn throw để hàm gọi (refreshSession/request) biết là thất bại
-      throw err;
-    }
-
-    // In ra các lỗi nghiêm trọng khác
-    console.error("Refresh token failed unexpectedly:", err);
-    useAuthStore.getState().logout?.();
-    throw err;
+//Gắn accessToken vào header Authorization nếu có
+api.interceptors.request.use((config) => {
+  const { accessToken } = useAuthStore.getState();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
-}
+  return config;
+});
 
+// Tự động refresh accessToken nếu hết hạn
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const originalRequest = error.config;
 
+    // Không refresh cho các API auth đặc biệt
+    if (
+      originalRequest.url?.includes("/auth/login") ||
+      originalRequest.url?.includes("/auth/refresh-token") ||
+      originalRequest.url?.includes("/landing") ||
+      originalRequest.url?.includes("/auth/forgot-password")
+    ) {
+      return Promise.reject(error);
+    }
 
+    originalRequest._retryCount = originalRequest._retryCount || 0;
+    if (error.response?.status === 401 && originalRequest._retryCount < 4) {
+      originalRequest._retryCount += 1;
+      try {
+        // Gọi refresh token
+        const res = await api.post("/auth/refresh-token", {}, { withCredentials: true });
+        const newToken = res.data?.token;
+        if (newToken) {
+          useAuthStore.getState().setAccessToken(newToken);
+          originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (err) {
+        useAuthStore.getState().signOut?.();
+        return Promise.reject(err);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Hàm request giữ nguyên logic cũ, chỉ thay axios bằng api instance
 export async function request(
   path,
   { method = "GET", body, headers = {}, credentials = "include", isFormData = false, responseType, isPublicRoute = false } = {}
 ) {
   try {
-
     // Thêm header Authorization nếu không phải public route
     if (!isPublicRoute) {
-      // Lấy token từ store nếu có
       let token = useAuthStore?.getState()?.accessToken;
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    let res = await axios({
-      url: buildUrl(path),
+    let res = await api({
+      url: path,
       method,
       headers: isFormData ? headers : { "Content-Type": "application/json", ...headers },
       data: body,
       withCredentials: credentials === "include",
-      validateStatus: () => true,
+      //validateStatus: () => true,
       responseType,
     });
 
-    //  Nếu token hết hạn → thử refresh
-    if (res.status === 401 && !path.includes("/auth/refresh-token")) {
-      console.warn("Access token expired, attempting refresh...");
-      try {
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          headers["Authorization"] = `Bearer ${newToken}`;
-          res = await axios({
-            url: buildUrl(path),
-            method,
-            headers: isFormData ? headers : { "Content-Type": "application/json", ...headers },
-            data: body,
-            withCredentials: credentials === "include",
-            validateStatus: () => true,
-            responseType,
-          });
-        }
-      } catch {
-        // nếu refresh fail thì logout
-        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
-      }
-    }
+    // if (res.status === 204) return null;
 
-    if (res.status === 204) return null;
+    // if (res.status < 200 || res.status >= 300) {
+    //   const backendMsg =
+    //     res.data?.error ||
+    //     res.data?.message ||
+    //     res.statusText ||
+    //     `HTTP ${res.status}`;
 
-    if (res.status < 200 || res.status >= 300) {
-      const backendMsg =
-        res.data?.error ||
-        res.data?.message ||
-        res.statusText ||
-        `HTTP ${res.status}`;
-
-      const error = new Error(backendMsg);
-      error.status = res.status;
-      error.data = res.data;
-      throw error;
-    }
+    //   const error = new Error(backendMsg);
+    //   error.status = res.status;
+    //   error.data = res.data;
+    //   throw error;
+    // }
 
     return res.data;
   } catch (err) {

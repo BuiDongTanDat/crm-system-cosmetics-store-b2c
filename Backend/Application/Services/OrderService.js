@@ -3,6 +3,7 @@ const OrderDetailService = require('./OrderDetailService');
 const LeadService = require('./LeadService');
 const { OrderRequestDTO, OrderResponseDTO } = require('../DTOs/OrderDTO');
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
+const productRepository = require('../../Infrastructure/Repositories/ProductRepository');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 
 class OrderService {
@@ -206,6 +207,22 @@ class OrderService {
 		}
 		// Lấy details từ đơn hàng này
 		let details = await OrderDetailService.getByOrderId(orderId);
+		// Lấy product_name cho từng detail
+		details = await Promise.all(
+			details.map(async (detail) => {
+				if (detail.product_id) {
+					const product = await productRepository.findNameAndImageById(detail.product_id);
+					if (product) {
+						detail.product_name = product.name; // gán lại
+						detail.image = product.image || null;
+					}
+				}
+				return detail;
+			})
+		);
+		// Lấy image
+
+		console.log('Details after adding product_name:', details);
 		return OrderResponseDTO.fromEntity(order, details);
 	}
 
@@ -381,6 +398,22 @@ class OrderService {
 		} catch (err) {
 			await t.rollback();
 			throw err;
+		}
+	}
+
+	async getOrdersByDateRange(from, to) {
+		try {
+			const orders = await OrderRepo.getOrdersByDateRange(from, to);
+			if (!orders || orders.length === 0) return [];
+			const results = await Promise.all(
+				orders.map(async (o) => {
+					const details = await OrderDetailService.getByOrderId(o.order_id);
+					return OrderResponseDTO.fromEntity(o, details);
+				})
+			);
+			return results;
+		} catch (err) {
+			throw new Error(`Lấy đơn hàng theo khoảng ngày thất bại: ${err.message}`);
 		}
 	}
 }
