@@ -21,7 +21,10 @@ import DropdownOptions from '@/components/common/DropdownOptions';
 import Toggle from "./components/flow/Toggle";
 import { Block } from "./components/flow/Block";
 import InspectorPanel from "./components/flow/InspectorPanel";
-
+import {
+  getEventTypes,
+  getActionTypes,
+} from "@/services/automationCatalog";
 // ==== SERVICES ====
 import {
   createFlow,
@@ -136,33 +139,51 @@ export default function FlowBuilderPage() {
   // NEW: lưu snapshot ban đầu để tính phần xóa
   const [initialServer, setInitialServer] = useState({ triggers: [], actions: [] });
   // catalog
-  const CATALOG_TRIGGERS = [
-    { key: "signup", label: "Đăng ký mới (Tất cả kênh)", icon: UserPlus },
-    { key: "tag_added", label: "Được gắn Tag", icon: Tags },
-    { key: "tag_removed", label: "Bị xóa Tag", icon: Tags },
-    { key: "seq_join", label: "Đăng ký Sequence", icon: UserPlus },
-    { key: "seq_cancel", label: "Hủy đăng ký Sequence", icon: UserPlus },
-    { key: "field_changed", label: "Trường tuỳ chỉnh thay đổi", icon: Settings },
-    { key: "lead_created", label: "Lead được tạo", icon: UserPlus },
-  ];
-  const CATALOG_ACTIONS = [
-    { key: "msg", label: "Gửi tin Messenger", icon: Bell },
-    { key: "sms", label: "Gửi SMS", icon: Bell },
-    { key: "send_email", label: "Gửi Email", icon: Mail },
-    { key: "goto_flow", label: "Bắt đầu một Flow khác", icon: MoveRight },
-    { key: "condition", label: "Điều kiện", icon: Settings },
-    { key: "zns", label: "Gửi tin Zalo ZNS", icon: Bell },
-    { key: "time", label: "Chờ trong giây lát", icon: Clock },
-  ];
+  const [eventCatalog, setEventCatalog] = useState([]);   // trigger catalog từ DB
+  const [actionCatalog, setActionCatalog] = useState([]); // action catalog từ DB
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const TRIGGER_ICON_MAP = {
+    "lead.created": UserPlus,
+    "lead.updated": Settings,
+    "tag.added": Tags,
+    "tag.removed": Tags,
+    "order.created": Bell,
+    "order.paid": Bell,
+    "order.refunded": Bell,
+    "segment.scheduled": Clock,
+    "engagement.email_opened": Mail,
+    "engagement.link_clicked": MoveRight,
+    "engagement.video_played": Bell,
+    "campaign.run": Bell,
+    "campaign.approved": CheckCircle2,
+    "campaign.pause": Clock,
+    "campaign.end": Trash2,
+    "zalo.message": Bell,
+  };
 
+  const ACTION_ICON_MAP = {
+    "send_email": Mail,
+    "send_zalo": Bell,
+    "post_facebook": Bell,
+    "add_interaction": Bell,
+    "update_status_if": Settings,
+    "tag_update": Tags,
+    "create_task": Bell,
+    "schedule": Clock,
+    "log": Settings,
+    "campaign.run": MoveRight,
+    "campaign.stop": Trash2,
+  };
   const getTriggerIcon = (event_type) => {
-    const found = CATALOG_TRIGGERS.find(t => t.key === event_type);
+    const found = eventCatalog.find(t => t.key === event_type);
     return found ? found.icon : UserPlus;
   };
+
   const getActionIcon = (action_type) => {
-    const found = CATALOG_ACTIONS.find(a => a.key === action_type);
+    const found = actionCatalog.find(a => a.key === action_type);
     return found ? found.icon : Bell;
   };
+
 
   // ===== Load data (prefill khi Chỉnh sửa) =====
   useEffect(() => {
@@ -207,37 +228,92 @@ export default function FlowBuilderPage() {
     })();
     return () => { alive = false; };
   }, [id]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setCatalogLoading(true);
+      try {
+        const [evRes, acRes] = await Promise.all([
+          getEventTypes({ is_active: true }),
+          getActionTypes({ is_active: true }),
+        ]);
 
+        // tùy API bạn trả shape nào, normalize nhẹ:
+        const evItems = evRes?.data?.data || evRes?.data || evRes?.items || [];
+        const acItems = acRes?.data?.data || acRes?.data || acRes?.items || [];
+
+        const evNormalized = (evItems || []).map((e) => ({
+          key: e.event_type,                         // dùng event_type làm key
+          label: e.name || e.event_type,             // label hiển thị
+          icon: TRIGGER_ICON_MAP[e.event_type] || UserPlus,
+          description: e.description || "",
+          default_conditions: e.default_conditions || {},
+        }));
+
+        const acNormalized = (acItems || []).map((a) => ({
+          key: a.action_type,                        // dùng action_type làm key
+          label: a.name || a.action_type,
+          icon: ACTION_ICON_MAP[a.action_type] || Bell,
+          description: a.description || "",
+          default_content: a.default_content || {},
+          default_channel: a.default_channel || undefined,
+        }));
+
+        if (!alive) return;
+        setEventCatalog(evNormalized);
+        setActionCatalog(acNormalized);
+      } catch (e) {
+        console.error("[FlowBuilder] load catalog failed:", e);
+        if (alive) {
+          setEventCatalog([]);
+          setActionCatalog([]);
+        }
+      } finally {
+        if (alive) setCatalogLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, []);
   // đồng bộ UI list khi automation đổi
   useEffect(() => {
     if (!automation) return;
+
     setTriggers(
       Array.isArray(automation.triggers)
-        ? automation.triggers.map(t => ({
-          ...t,
-          key: t.event_type || t.key,
-          icon: getTriggerIcon(t.event_type || t.key),
-          label: CATALOG_TRIGGERS.find(i => i.key === (t.event_type || t.key))?.label
-            || t.event_type || t.key || "Trigger",
-          enabled: t.is_active ?? t.enabled ?? true,
-        }))
+        ? automation.triggers.map(t => {
+          const k = t.event_type || t.key;
+          const cat = eventCatalog.find(i => i.key === k);
+          return {
+            ...t,
+            key: k,
+            icon: cat?.icon || getTriggerIcon(k),
+            label: cat?.label || k || "Trigger",
+            enabled: t.is_active ?? t.enabled ?? true,
+          };
+        })
         : []
     );
+
     setActions(
       Array.isArray(automation.actions)
-        ? automation.actions.map((a, idx) => ({
-          ...a,
-          key: a.action_type || a.key,
-          icon: getActionIcon(a.action_type || a.key),
-          label: CATALOG_ACTIONS.find(i => i.key === (a.action_type || a.key))?.label
-            || a.action_type || a.key || "Action",
-          config: a.content || a.config || {},
-          order_index: a.order_index ?? idx,
-          delay_minutes: a.delay_minutes ?? 0,
-        }))
+        ? automation.actions.map((a, idx) => {
+          const k = a.action_type || a.key;
+          const cat = actionCatalog.find(i => i.key === k);
+          return {
+            ...a,
+            key: k,
+            icon: cat?.icon || getActionIcon(k),
+            label: cat?.label || k || "Action",
+            config: a.content || a.config || {},
+            order_index: a.order_index ?? idx,
+            delay_minutes: a.delay_minutes ?? 0,
+          };
+        })
         : []
     );
-  }, [automation]);
+  }, [automation, eventCatalog, actionCatalog]);
+
 
   // UI states
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
@@ -248,13 +324,15 @@ export default function FlowBuilderPage() {
 
   const filteredTriggerCatalog = useMemo(() => {
     const q = qTrigger.trim().toLowerCase();
-    return q ? CATALOG_TRIGGERS.filter(i => i.label.toLowerCase().includes(q)) : CATALOG_TRIGGERS;
-  }, [qTrigger]);
+    const src = eventCatalog;
+    return q ? src.filter(i => (i.label || "").toLowerCase().includes(q)) : src;
+  }, [qTrigger, eventCatalog]);
 
   const filteredActionCatalog = useMemo(() => {
     const q = qAction.trim().toLowerCase();
-    return q ? CATALOG_ACTIONS.filter(i => i.label.toLowerCase().includes(q)) : CATALOG_ACTIONS;
-  }, [qAction]);
+    const src = actionCatalog;
+    return q ? src.filter(i => (i.label || "").toLowerCase().includes(q)) : src;
+  }, [qAction, actionCatalog]);
 
   const currentTrigger = useMemo(
     () => selected?.type === "trigger" ? (triggers.find(t => t.key === selected.key) || null) : null,
@@ -284,12 +362,22 @@ export default function FlowBuilderPage() {
   };
 
   const addTrigger = (item) => {
-    setTriggers(prev => [...prev, { ...item, enabled: true }]);
+    setTriggers(prev => [
+      ...prev,
+      {
+        ...item,
+        event_type: item.key,
+        conditions: item.default_conditions || {},
+        enabled: true,
+        is_active: true,
+      },
+    ]);
     setSelected({ type: "trigger", key: item.key });
     setShowTriggerPicker(false);
     setQTrigger("");
     setSaved(false);
   };
+
 
   const deleteTrigger = (itemKey) => {
     setTriggers(prev => prev.filter(t => t.key !== itemKey));
@@ -298,14 +386,29 @@ export default function FlowBuilderPage() {
   };
 
   const addAction = (item) => {
-    const base = { ...item };
-    if (item.key === "send_email") base.config = { subject: "", body: "" };
-    setActions(prev => [...prev, { ...base, order_index: prev.length, delay_minutes: 0 }]);
+    const action_type = item.key;
+
+    const base = {
+      ...item,
+      action_type,
+      channel: item.default_channel || (action_type === "send_email" ? "email" : undefined),
+      config: item.default_content || {},
+      order_index: actions.length,
+      delay_minutes: 0,
+    };
+
+    // nếu muốn đảm bảo email luôn có subject/body
+    if (action_type === "send_email") {
+      base.config = { subject: "", body: "", ...(base.config || {}) };
+    }
+
+    setActions(prev => [...prev, base]);
     setSelected({ type: "action", key: item.key });
     setShowActionPicker(false);
     setQAction("");
     setSaved(false);
   };
+
 
   const deleteAction = (itemKey) => {
     setActions(prev => prev.filter(a => a.key !== itemKey));
@@ -788,7 +891,16 @@ export default function FlowBuilderPage() {
     </div>
   );
 }
-
+const updateActionConfig = (actionKey, patch) => {
+  setActions(prev =>
+    prev.map(a =>
+      a.key === actionKey
+        ? { ...a, config: { ...(a.config || {}), ...patch } }
+        : a
+    )
+  );
+  setSaved(false);
+};
 // Section helper
 const Section = ({ title, subtitle, footer, children }) => (
   <div className="bg-white rounded-2xl border p-4 space-y-3">

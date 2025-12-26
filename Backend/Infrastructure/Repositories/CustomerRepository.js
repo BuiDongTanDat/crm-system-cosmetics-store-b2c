@@ -96,6 +96,31 @@ class CustomerRepository {
     if (exist) return exist;
     return await Customer.create(payload, { transaction }); // trả instance, không phải [inst, created]
   }
+  async listEmails({ limit = 5000 } = {}) {
+    const rows = await Customer.findAll({
+      attributes: ['email'],
+      where: { email: { [Op.ne]: null } },
+      limit,
+    });
+    return rows.map(r => r.email).filter(Boolean);
+  }
+  async findEmailsByIds(ids = []) {
+    const rows = await Customer.findAll({
+      attributes: ['email'],
+      where: { customer_id: ids },
+    });
+    return rows.map(r => r.email).filter(Boolean);
+  }
+  async findEmailsByConditions(cond = {}, { limit = 5000 } = {}) {
+    const where = {};
+    if (cond.is_active != null) where.is_active = !!cond.is_active;
+    const rows = await Customer.findAll({
+      attributes: ['email'],
+      where,
+      limit,
+    });
+    return rows.map(r => r.email).filter(Boolean);
+  }
 }
 
 module.exports = new CustomerRepository();

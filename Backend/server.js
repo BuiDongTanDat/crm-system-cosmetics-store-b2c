@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-
+const { startCronDaily } = require('./Infrastructure/scheduler/cronDaily');
 
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
@@ -17,6 +17,8 @@ const productRoutes = require('./API/routes/productRoutes');
 const DataManager = require('./Infrastructure/database/postgres');
 const CampaignRoute = require('./API/routes/CampaignRoutes')
 const OrderRoutes = require('./API/routes/OrderRoutes');
+const automationCatalogRoutes = require('./API/routes/automationCatalogRoutes');
+const paymentRoutes = require('./API/routes/paymentRoutes');
 // const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 const StreamingRoutes = require('./API/routes/streamingRoutes');
@@ -26,7 +28,6 @@ const AutomationService = require('./Application/Services/AutomationService');
 const protectedRoute = require('./API/Middleware/authMiddleware');
 
 // cron utils & domain events
-require('./Infrastructure/scheduler/automationCron');
 require('./Domain/Events/LeadEvents');
 require('./Domain/Events/OrderEvents');
 require('./Domain/Events/EngagementEvents');
@@ -57,12 +58,7 @@ app.use('/auth',authRoutes);
 app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
 app.use('/stream', StreamingRoutes);
 
-// Vì cần api checkout public nên router này để ở ngoài
-//Các route private sẽ được xử lý bên trong OrderRoute luôn
-app.use('/orders', OrderRoutes);
-
-
-app.use(protectedRoute);
+// app.use(protectedRoute);
 
 app.use('/users', userRoutes);
 app.use('/automation', flowRoutes);
@@ -71,11 +67,12 @@ app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
-
+app.use('/orders', OrderRoutes);
+app.use('/automation-event', automationCatalogRoutes);
 // app.use('/order_details', OrderDetailRoutes); // không cần route riêng cho order details
 app.use('/customers', CustomerRoutes);
 app.use('/campaign', CampaignRoute)
-
+app.use('/payment', paymentRoutes);
 
 
 // Diagnostics
@@ -129,37 +126,20 @@ async function startRabbitWithRetry(retries = 12, delayMs = 5000) {
 }
 
 async function startAutomationIfEnabled() {
-  const mode = (process.env.AUTOMATION_MODE || 'tick').toLowerCase(); // tick | cron | off
+  const mode = (process.env.AUTOMATION_MODE || 'cron').toLowerCase(); // cron | off
+
   if (mode === 'off') {
     console.log('[BOOT] Automation disabled (AUTOMATION_MODE=off).');
     return;
   }
 
-  if (mode === 'tick') {
-    const intervalMs = Number(process.env.AUTOMATION_INTERVAL_MS || 60 * 60 * 1000); // default 1h
-    const limitPerFlow = Number(process.env.AUTOMATION_LIMIT || 5000);
-    const dryRun = process.env.AUTOMATION_DRYRUN === 'true';
-
-    // first tick on startup (unless disabled)
-    if (process.env.AUTOMATION_STARTUP_RUN !== 'false') {
-      AutomationService.runDailyAutomation({ dryRun, limitPerFlow })
-        .catch(e => console.error('[BOOT] First automation tick failed:', e));
-    }
-
-    automationInterval = setInterval(() => {
-      AutomationService.runDailyAutomation({ dryRun, limitPerFlow })
-        .catch(e => console.error('[Automation] Tick error:', e));
-    }, intervalMs);
-
-    console.log(`[BOOT] Automation tick scheduled every ${intervalMs}ms`);
-  } else if (mode === 'cron') {
-    // Nếu bạn có register per-flow cron, gọi ở đây
-    // const { registerFlowCrons } = require('./Infrastructure/scheduler/registerFlowCrons');
-    // await registerFlowCrons();
-    console.log('[BOOT] Automation mode=cron (implement registerFlowCrons if needed).');
-  } else {
-    console.warn(`[BOOT] Unknown AUTOMATION_MODE=${mode}. Use 'tick' | 'cron' | 'off'.`);
+  if (mode === 'cron') {
+    startCronDaily();
+    console.log('[BOOT] Automation mode=cron: cron.daily enabled.');
+    return;
   }
+
+  console.warn(`[BOOT] Unknown AUTOMATION_MODE=${mode}. Use 'cron' | 'off'.`);
 }
 
 async function main() {
@@ -170,10 +150,8 @@ async function main() {
 
     // 2) Rabbit consumer with retry (đảm bảo rabbit sẵn sàng)
     await startRabbitWithRetry();
-
     // 3) Start automation scheduler (tick/cron)
     await startAutomationIfEnabled();
-
     // 4) Start HTTP server (single listen)
     server = app.listen(PORT, () => {
       console.log('------------------------------------------');
@@ -189,9 +167,6 @@ async function main() {
   }
 }
 
-/* =========================
-   Graceful shutdown
-========================= */
 async function shutdown(signal) {
   try {
     console.log(`\n[SHUTDOWN] Received ${signal}. Closing resources...`);

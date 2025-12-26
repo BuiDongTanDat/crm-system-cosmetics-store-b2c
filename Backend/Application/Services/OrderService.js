@@ -4,6 +4,8 @@ const LeadService = require('./LeadService');
 const { OrderRequestDTO, OrderResponseDTO } = require('../DTOs/OrderDTO');
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
 const productRepository = require('../../Infrastructure/Repositories/ProductRepository');
+const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
+
 class OrderService {
 
 	async createQuickOrder(payload = {}) {
@@ -168,6 +170,22 @@ class OrderService {
 			}
 
 			await transaction.commit();
+			// ---- Publish event after commit (optional) ----
+			try {
+				await Rabbit.publish('order.created', {
+					order_id: createdOrder.order_id,
+					customer_id: createdOrder.customer_id,
+					lead_id: createdOrder.lead_id || null,
+					total_amount: createdOrder.total_amount,
+					currency: createdOrder.currency || 'VND',
+					status: createdOrder.status,
+					channel: createdOrder.channel,
+					order_date: createdOrder.order_date,
+					item_count: Array.isArray(createDetails) ? createDetails.length : 0,
+				});
+			} catch (e) {
+				console.error('[RabbitMQ] Failed to publish order.created:', e?.message || e);
+			}
 			return OrderResponseDTO.fromEntity(createdOrder, createDetails);
 
 		} catch (err) {
@@ -292,9 +310,29 @@ class OrderService {
 		try {
 			await OrderRepo.updateStatus(orderId, newStatus, transaction);
 			await transaction.commit();
-
 			// Fetch updated order after commit
 			const updated = await OrderRepo.findById(orderId);
+			// ---- Publish event after commit ----
+			try {
+				const statusNorm = String(newStatus || '').toLowerCase();
+				if (statusNorm === 'paid' || statusNorm === 'payment_success' || statusNorm === 'completed') {
+					const payload = {
+						order_id: updated.order_id,
+						customer_id: updated.customer_id,
+						lead_id: updated.lead_id || null,
+						total_amount: updated.total_amount,
+						currency: updated.currency || 'VND',
+						payment_method: updated.payment_method || null,
+						channel: updated.channel || null,
+						order_date: updated.order_date || null,
+						status: updated.status,
+					};
+					await Rabbit.publish('order.paid', payload);
+					console.log('[RabbitMQ] Published order.paid event for order:', payload);
+				}
+			} catch (e) {
+				console.error('[RabbitMQ] Failed to publish order status event:', e?.message || e);
+			}
 			return OrderResponseDTO.fromEntity(updated);
 		} catch (err) {
 			await transaction.rollback();

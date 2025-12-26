@@ -127,20 +127,20 @@ class OrderController {
         return res.status(400).json({ message: 'Status không hợp lệ' });
       }
 
-      // (tuỳ chọn) kiểm soát chuyển trạng thái sai flow
-      try {
-        const current = await OrderService.getOrderById(id);
-        if (!current) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-        const allowed = VALID_TRANSITIONS[current.status] || [];
-        if (allowed.length && !allowed.includes(status)) {
-          return res.status(409).json({
-            message: `Không thể chuyển từ ${current.status} -> ${status}`,
-            allowed,
-          });
-        }
-      } catch {
-        // bỏ qua nếu bạn chưa muốn ràng buộc
-      }
+      // // (tuỳ chọn) kiểm soát chuyển trạng thái sai flow
+      // try {
+      //   const current = await OrderService.getOrderById(id);
+      //   if (!current) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      //   const allowed = VALID_TRANSITIONS[current.status] || [];
+      //   if (allowed.length && !allowed.includes(status)) {
+      //     return res.status(409).json({
+      //       message: `Không thể chuyển từ ${current.status} -> ${status}`,
+      //       allowed,
+      //     });
+      //   }
+      // } catch {
+      //   // bỏ qua nếu bạn chưa muốn ràng buộc
+      // }
 
       const updated = await OrderService.updateStatus(id, status);
       return res.json(updated);

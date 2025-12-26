@@ -1,8 +1,5 @@
 const express = require('express');
 const router = express.Router();
-
-
-
 const AutomationFlowController = require('../Controller/AutomationFlowController');
 const AutomationTriggerController = require('../Controller/AutomationTriggerController');
 const AutomationActionController = require('../Controller/AutomationActionController');
@@ -19,11 +16,12 @@ router.post('/trigger', AutomationController.trigger);
 router.get('/run-daily', AutomationController.runDaily);
 router.get('/trigger-now', AutomationController.triggerNow);
 // Validate & chuyển trạng thái
-router.post('/flows/:flow_id/validate', AutomationFlowController.validate);     
-router.post('/flows/:flow_id/activate', AutomationFlowController.activate);
-router.post('/flows/:flow_id/deactivate', AutomationFlowController.deactivate);
+router.post('/flows/:flow_id/validate', AutomationFlowController.validate);
+// router.post('/flows/:flow_id/activate', AutomationFlowController.activate);
+// router.post('/flows/:flow_id/deactivate', AutomationFlowController.deactivate);
 router.get('/flows/:flow_id/editor', AutomationFlowController.getEditor);
 router.put('/flows/:flow_id/editor', AutomationFlowController.saveEditor);
+router.patch('/flows/:flow_id/active', AutomationFlowController.active);
 router.post('/flows/:flow_id/publish', AutomationFlowController.publish);
 
 // // TRIGGER
