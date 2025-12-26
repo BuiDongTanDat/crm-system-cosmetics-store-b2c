@@ -1,7 +1,8 @@
 
 const nunjucks = require('nunjucks');
 const axios = require('axios');
-
+const { randomUUID } = require('crypto');
+const { URLSearchParams } = require('url');
 const LeadService = require('./LeadService');
 const leadRepo = require('../../Infrastructure/Repositories/LeadRepository');
 const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository');
@@ -17,6 +18,62 @@ const customerRepository = require('../../Infrastructure/Repositories/CustomerRe
 const ZaloService = require('../Services/campaign_runners/ZaloRunner');
 const FacebookService = require('../Services/campaign_runners/FacebookRunner');
 const { createPaymentLink } = require('../../Infrastructure/utils/paymentLink');
+const { renderTemplate } = require('../../Infrastructure/external/email_templates/TemplateRenderer');
+function trackUrl({ mid, to, url, templateKey, ctx }) {
+  const base = process.env.TRACK_BASE_URL;
+  if (!base) return url;
+
+  const q = new URLSearchParams({
+    mid,
+    to,
+    url,
+    template_key: templateKey || '',
+    flow_id: String(ctx?.trigger?.flow_id || ''),
+    order_id: String(ctx?.order?.order_id || ''),
+    customer_id: String(ctx?.customer?.customer_id || ''),
+    lead_id: String(ctx?.lead?.lead_id || ''),
+  });
+
+  return `${base}/v1/track/click?${q.toString()}`;
+}
+
+/**
+ * Inject open pixel into HTML
+ */
+function injectOpenPixel({ html, mid, to, templateKey, ctx }) {
+  const base = process.env.TRACK_BASE_URL;
+  if (!base) return html;
+
+  const q = new URLSearchParams({
+    mid,
+    to,
+    template_key: templateKey || '',
+    flow_id: String(ctx?.trigger?.flow_id || ''),
+    order_id: String(ctx?.order?.order_id || ''),
+    customer_id: String(ctx?.customer?.customer_id || ''),
+    lead_id: String(ctx?.lead?.lead_id || ''),
+  });
+
+  const pixel = `<img src="${base}/v1/track/open.gif?${q.toString()}" width="1" height="1" style="display:none!important" alt="" />`;
+
+  if (typeof html !== 'string') return pixel;
+  return html.includes('</body>') ? html.replace('</body>', `${pixel}</body>`) : `${html}\n${pixel}`;
+}
+function rewriteLinksForClickTracking({ html, mid, to, templateKey, ctx }) {
+  if (!process.env.TRACK_BASE_URL) return html;
+  if (!html || typeof html !== 'string') return html;
+
+  return html.replace(/href\s*=\s*"(.*?)"/gi, (m, href) => {
+    if (!href) return m;
+    const v = String(href).trim();
+
+    // skip non http(s)
+    if (!/^https?:\/\//i.test(v)) return m;
+
+    const tracked = trackUrl({ mid, to, url: v, templateKey, ctx });
+    return `href="${tracked}"`;
+  });
+}
 class AutomationService {
   render(str, ctx) {
     if (!str || typeof str !== 'string') return str;
@@ -444,69 +501,119 @@ const ACTION_HANDLERS = Object.freeze({
   send_email: async (svc, action, ctx) => {
     const cfg = action.content || {};
 
-    // 1) Resolve recipient (single)
-    const to = svc.render(
+    // 0) current entity (for_each / batch)
+    const currentEntity =
+      ctx.item ||
+      ctx.customer ||
+      ctx.lead ||
+      ctx.order ||
+      (cfg.item_key ? ctx?.[cfg.item_key] : null) ||
+      null;
+
+    // 1) Resolve recipient
+    const rawTo =
       cfg.to ||
       action.to ||
-      ctx.lead?.email ||
+      currentEntity?.email ||
       ctx.customer?.email ||
-      ctx.order?.email ||
-      ctx.item?.email ||            // nếu đang chạy trong for_each (item là customer/lead)
-      ctx.item?.customer?.email,    // fallback
-      ctx
-    );
+      ctx.lead?.email ||
+      ctx.order?.email;
 
+    const to = svc.render(rawTo, ctx);
     if (!to) {
-      return console.warn('[Automation] send_email: missing recipient `to`');
+      console.warn('[Automation] send_email: missing recipient `to`');
+      return;
     }
 
-    // 2) Subject
-    const subject = svc.render(cfg.subject || '', ctx);
-    const templateName = cfg.template?.name || null;
-    // 4) Template context (đưa mọi thứ cần thiết cho template)
+    // 2) subject
+    const subject = svc.render(cfg.subject || '', ctx) || '(no-subject)';
+
+    // 3) template data
+    const email = cfg.email ? svc.renderConditions(cfg.email, ctx) : {};
+    const theme = cfg.theme ? svc.renderConditions(cfg.theme, ctx) : {};
+
+    const templateKey =
+      cfg.template_key ||
+      cfg.template?.key ||
+      cfg.templateName ||
+      cfg.template?.name ||
+      null;
+
     const templateCtx = {
-      ...ctx, // lead/customer/order/trigger/now...
+      ...ctx,
       to,
       subject,
-      preheader: svc.render(cfg.preheader || '', ctx),
-      headline: svc.render(cfg.headline || '', ctx),
-      subheadline: svc.render(cfg.subheadline || '', ctx),
-      body_text: svc.render(cfg.body_text || '', ctx),
-      cta_url: svc.render(cfg.cta_url || ctx.trigger?.campaign_link || '#', ctx),
-      cta_text: svc.render(cfg.cta_text || 'Xem ưu đãi', ctx),
-      image_url: svc.render(cfg.image_url || '', ctx),
-      product_name: svc.render(cfg.product_name || ctx.lead?.product_interest || '', ctx),
-      footnote: svc.render(cfg.footnote || '', ctx),
-      now_year: new Date().getFullYear(),
+      email,
+      theme,
+      now: ctx.now || new Date(),
+      brand: ctx.brand || { name: 'MyShop' },
+      item: currentEntity,
+      lead: ctx.lead ?? null,
+      customer: ctx.customer ?? null,
+      order: ctx.order ?? null,
     };
-    const fallbackBody =
-      svc.render(cfg.body || '', ctx) ||
-      (templateCtx.body_text
-        ? `<div style="font-family:Arial,sans-serif;line-height:1.5">
-           ${templateCtx.image_url ? `<img src="${templateCtx.image_url}" alt="" style="max-width:100%;border-radius:12px;margin-bottom:12px"/>` : ''}
-           ${templateCtx.headline ? `<h2 style="margin:0 0 8px">${templateCtx.headline}</h2>` : ''}
-           ${templateCtx.subheadline ? `<p style="margin:0 0 12px;color:#555">${templateCtx.subheadline}</p>` : ''}
-           <div style="white-space:pre-wrap">${templateCtx.body_text}</div>
-           ${templateCtx.cta_url && templateCtx.cta_url !== '#'
-          ? `<p style="margin-top:16px">
-                  <a href="${templateCtx.cta_url}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#111;color:#fff">
-                    ${templateCtx.cta_text || 'Xem ưu đãi'}
-                  </a>
-                </p>`
-          : ''
-        }
-           ${templateCtx.footnote ? `<p style="margin-top:16px;color:#777;font-size:12px">${templateCtx.footnote}</p>` : ''}
-         </div>`
-        : ''
-      );
 
-    // 6) Send (single)
+    // 4) render HTML
+    let bodyHtml = '';
+    if (templateKey) {
+      try {
+        bodyHtml = renderTemplate(templateKey, templateCtx);
+      } catch (e) {
+        console.error('[Automation] renderTemplate failed:', e?.message || e);
+        bodyHtml = '';
+      }
+    }
+
+    // fallback legacy
+    if (!bodyHtml || String(bodyHtml).trim() === '') {
+      const legacy = svc.render(cfg.body || '', templateCtx);
+      bodyHtml =
+        legacy && legacy.trim()
+          ? legacy
+          : `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f6f7fb;font-family:Arial,sans-serif;">
+    <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
+      <h3 style="margin:0 0 10px 0;">${subject}</h3>
+      <div style="font-size:14px;line-height:1.6;color:#111827;">
+        ${email?.body_text ? String(email.body_text) : 'Thông báo từ hệ thống.'}
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:#6b7280;">
+        © ${new Date().getFullYear()} ${templateCtx.brand?.name || 'MyShop'}
+      </div>
+    </div>
+  </body>
+</html>`;
+    }
+
+    // 5) tracking id for this email
+    const mid = randomUUID();
+
+    // 6) rewrite links (click tracking)
+    bodyHtml = rewriteLinksForClickTracking({
+      html: bodyHtml,
+      mid,
+      to,
+      templateKey,
+      ctx: templateCtx,
+    });
+
+    // 7) inject open pixel
+    bodyHtml = injectOpenPixel({
+      html: bodyHtml,
+      mid,
+      to,
+      templateKey,
+      ctx: templateCtx,
+    });
+
+    // 8) send
     return await emailSvc.send({
       to,
       subject,
-      body: fallbackBody,
+      body: bodyHtml, // HTML
       channel: action.channel || cfg.channel || 'email',
-      template: templateName ? { name: templateName, ctx: templateCtx } : null,
+      template: templateKey ? { key: templateKey } : null,
     });
   },
 
