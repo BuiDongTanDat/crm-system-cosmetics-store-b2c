@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import { PaymentMethod } from "@/lib/data";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/helper";
-import { getOrders, createOrder, updateOrder, deleteOrder } from "@/services/orders";
+import { getOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus } from "@/services/orders";
 import { getCustomers } from "@/services/customers";
 import { getProducts } from "@/services/products";
 import DropdownOptions from '@/components/common/DropdownOptions'; // same component used in ProductPage
@@ -143,7 +143,30 @@ export default function OrderPage() {
     const handleEdit = (order) => setModal({ open: true, mode: "edit", order });
     const handleCreate = () => setModal({ open: true, mode: "create", order: null });
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
+    const isOnlyStatusUpdate = (originalOrder, payload) => {
+        if (!originalOrder?.order_id || !payload?.order_id) return false;
 
+        // các field mà form có thể gửi lên
+        const keys = Object.keys(payload || {});
+
+        // Bắt buộc có status
+        if (!keys.includes("status")) return false;
+
+        // Không cho phép update items/total ở nhánh status-only
+        const forbiddenKeys = ["items", "total_amount", "currency", "order_date", "payment_method", "channel", "notes", "lead_id", "customer_id"];
+        if (keys.some(k => forbiddenKeys.includes(k) && payload[k] !== (originalOrder[k] ?? null))) {
+            return false;
+        }
+
+        // status khác thật sự mới gọi
+        const statusChanged = String(payload.status) !== String(originalOrder.status);
+
+        // Các key còn lại (order_id, status) được phép
+        const allowedKeys = new Set(["order_id", "status"]);
+        const hasOtherKeys = keys.some(k => !allowedKeys.has(k));
+
+        return statusChanged && !hasOtherKeys;
+    };
     const handleSave = async (payload) => {
         const customerMap = Object.fromEntries(
             (customers || []).map(c => [c.customer_id || c.id, c.full_name || c.fullName || c.name || ""])
@@ -154,6 +177,21 @@ export default function OrderPage() {
 
         try {
             if (payload.order_id) {
+                const original = orders.find(o => String(o.order_id) === String(payload.order_id));
+                if (original && isOnlyStatusUpdate(original, payload)) {
+                    const res = await updateOrderStatus(payload.order_id, { status: payload.status });
+                    const saved = res?.data || res || { ...original, status: payload.status };
+                    // Update state tối thiểu cho bảng
+                    setOrders(prev =>
+                        prev.map(o =>
+                            String(o.order_id) === String(payload.order_id)
+                                ? { ...o, status: saved.status, _updatedAt: Date.now() }
+                                : o
+                        )
+                    );
+                    toast.success("Cập nhật trạng thái đơn hàng thành công!");
+                    return;
+                }
                 // Update
                 const res = await updateOrder(payload.order_id, payload);
                 const saved = res?.data || res || payload;

@@ -5,7 +5,6 @@ flowRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository.j
 // const IAutomationActionService = require('../Interfaces/IAutomationActionService');
 class AutomationActionService {
   async createAction(dto) {
-    // optional: verify trigger & flow tồn tại
     if (dto.trigger_id) {
       const trig = await this.triggers.findById(dto.trigger_id);
       if (!trig) throw new Error('Trigger not found');
@@ -23,7 +22,6 @@ class AutomationActionService {
     if (!a) throw new Error('Action not found');
     return a;
   }
-
   async listActions(params) {
     return await this.actions.list(params);
   }

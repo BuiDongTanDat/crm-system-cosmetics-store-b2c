@@ -7,6 +7,7 @@ const campaignRepository = require('../../Infrastructure/Repositories/CampaignRe
 const stateMachine = require('../../Domain/Entities/leadStateMachine.js');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 const aiClient = require('../../Infrastructure/external/AIClient.js');
+const { LEAD_CREATED } = require('../../Domain/Events/LeadEvents.js');
 const { ImportLeadFromCSVDTO } = require('../DTOs/LeadDTO.js');
 const { AppError, asAppError, ok, fail } = require('../helpers/errors.js');
 const csv = require('csvtojson');
@@ -165,7 +166,7 @@ class LeadService {
       });
 
       try {
-        await Rabbit.publish('lead_created', {
+        await Rabbit.publish(LEAD_CREATED, {
           lead_id: result.lead_id,
           campaign_id: result.campaign_id,
           source: result.source,
