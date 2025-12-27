@@ -5,7 +5,6 @@ const sequelize = DataManager.getSequelize();
 
 class Role extends Model {
   hasPermission(permission) {
-    if (!Array.isArray(this.permissions)) return false;
     return this.permissions.includes(permission);
   }
 }
@@ -17,8 +16,12 @@ Role.init(
       primaryKey: true,
       allowNull: false,
     },
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     permissions: {
-      type: DataTypes.ARRAY(DataTypes.STRING), // mảng quyền, ví dụ: ["read", "write"]
+      type: DataTypes.JSONB, // mảng quyền, ví dụ: {name: product, create: true, read: true, update: false, delete: false}
       allowNull: false,
       defaultValue: [],
     },

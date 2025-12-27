@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "@/services/customers";
 import { Input } from "@/components/ui/input";
 import DropdownOptions from "@/components/common/DropdownOptions"; // <-- added
+import PermissionGuard from "@/components/auth/PermissionGuard"; // <-- add this line
 
 export default function CustomerListPage() {
 
@@ -205,7 +206,7 @@ export default function CustomerListPage() {
     // Handlers
     const handleView = (customer) => setModal({ open: true, mode: 'view', customer });
     const handleEdit = (customer) => setModal({ open: true, mode: 'edit', customer });
-    const handleCreate = () => setModal({ open: true, mode: 'edit', customer: null });
+    const handleCreate = () => setModal({ open: true, mode: 'create', customer: null });
     const closeModal = () => setModal({ open: false, mode: 'view', customer: null, showHistory: false });
 
     const handleViewHistory = (customer) => setModal({ open: true, mode: 'view', customer, showHistory: true });
@@ -336,10 +337,12 @@ export default function CustomerListPage() {
 
 
                         {/* Add Customer */}
-                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Thêm KH
-                        </Button>
+                        <PermissionGuard module="customer" action="create">
+                            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                                <Plus className="w-4 h-4" />
+                                Thêm KH
+                            </Button>
+                        </PermissionGuard>
 
                     </div>
                 </div>
@@ -396,46 +399,52 @@ export default function CustomerListPage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleViewHistory(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <History className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleView(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionUpdate"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={
-                                                        <>
-                                                            Bạn có chắc chắn muốn xóa khách hàng{" "}
-                                                            <span className="font-semibold text-black">{customer.name}</span>?
-                                                        </>
-                                                    }
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(customer.id)}
-                                                >
-                                                    <Button variant="actionDelete" size="icon" className="h-8 w-8">
-                                                        <Trash2 className="w-4 h-4" />
+                                                <PermissionGuard module="customer" action="read">
+                                                    <Button
+                                                        variant="actionRead"
+                                                        size="icon"
+                                                        onClick={() => handleViewHistory(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <History className="w-4 h-4" />
                                                     </Button>
-                                                </ConfirmDialog>
+                                                    <Button
+                                                        variant="actionRead"
+                                                        size="icon"
+                                                        onClick={() => handleView(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="customer" action="update">
+                                                    <Button
+                                                        variant="actionUpdate"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="customer" action="delete">
+                                                    <ConfirmDialog
+                                                        title="Xác nhận xóa"
+                                                        description={
+                                                            <>
+                                                                Bạn có chắc chắn muốn xóa khách hàng{" "}
+                                                                <span className="font-semibold text-black">{customer.name}</span>?
+                                                            </>
+                                                        }
+                                                        confirmText="Xóa"
+                                                        cancelText="Hủy"
+                                                        onConfirm={() => handleDelete(customer.id)}
+                                                    >
+                                                        <Button variant="actionDelete" size="icon" className="h-8 w-8">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </ConfirmDialog>
+                                                </PermissionGuard>
                                             </div>
                                         </td>
                                     </tr>
@@ -467,13 +476,15 @@ export default function CustomerListPage() {
                     onClose={closeModal}
                     title={{
                         view: 'Chi tiết khách hàng',
-                        edit: modal.customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'
+                        edit: 'Chỉnh sửa khách hàng',
+                        create: 'Thêm khách hàng mới'
                     }}
                     mode={modal.mode}
                     FormComponent={CustomerForm}
                     data={modal.customer}
                     onSave={handleSave}
                     onDelete={handleDelete}
+                    onCancel={closeModal}
                     showHistory={modal.showHistory}
                     onBackFromHistory={handleBackFromHistory}
                     onShowHistoryChange={handleShowHistoryChange}

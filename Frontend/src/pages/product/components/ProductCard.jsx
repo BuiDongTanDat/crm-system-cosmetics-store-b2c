@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Eye, Edit, Trash2, Star } from 'lucide-react'
 import { formatCurrency } from '@/utils/helper'
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog'
+import PermissionGuard from '@/components/auth/PermissionGuard'
 
 const ProductCard = ({ product, onView, onEdit, onDelete }) => {
   const [hovered, setHovered] = useState(false);
@@ -81,27 +82,29 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
           {/* Action buttons - only visible for this hovered card */}
           {hovered && (
             <div className="justify-center flex gap-2 animate-slide-up duration-200 absolute inset-0 items-center">
-              <Button variant="actionRead" size="icon" onClick={() => onView(product)}>
-                <Eye className="w-4 h-4" />
-              </Button>
-              <Button variant="actionUpdate" size="icon" onClick={() => onEdit(product)}>
-                <Edit className="w-4 h-4" />
-              </Button>
-
-              <ConfirmDialog
-                title="Xác nhận xóa"
-                description={<>
-                  Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{product?.name}</span>?
-                </>}
-                confirmText="Xóa"
-                cancelText="Hủy"
-                onConfirm={() => onDelete?.(product?.product_id || product?.id)}
-              >
-                <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
-                  <Trash2 className="w-4 h-4" />
+              <PermissionGuard module="product" action="read">
+                <Button variant="actionRead" size="icon" onClick={() => onView(product)}>
+                  <Eye className="w-4 h-4" />
                 </Button>
-              </ConfirmDialog>
-
+              </PermissionGuard>
+              <PermissionGuard module="product" action="update">
+                <Button variant="actionUpdate" size="icon" onClick={() => onEdit(product)}>
+                  <Edit className="w-4 h-4" />
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard module="product" action="delete">
+                <ConfirmDialog
+                  title="Xác nhận xóa"
+                  description={<>Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{product?.name}</span>?</>}
+                  confirmText="Xóa"
+                  cancelText="Hủy"
+                  onConfirm={() => onDelete?.(product?.product_id || product?.id)}
+                >
+                  <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </ConfirmDialog>
+              </PermissionGuard>
             </div>
           )}
         </div>

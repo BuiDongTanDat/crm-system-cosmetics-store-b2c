@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
-import { toast } from 'sonner';
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { Edit, Plus, Save, Trash2, X, History, ArrowLeft } from "lucide-react";
 import { CustomerTypes, CustomerSources, Industries } from "@/lib/data";
 import InteractionHistory from "@/pages/customer/components/InteractionHistory";
 import { Input } from "@/components/ui/input";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export function CustomerForm({
   mode = "view",
   data = null,
   onSave,
   onDelete,
+  onCancel,
   setMode,
   onViewInteractions,
   showHistory = false,
@@ -34,8 +36,8 @@ export function CustomerForm({
   });
 
   const [tagInput, setTagInput] = useState("");
-  const [showInteractionHistory, setShowInteractionHistory] = useState(showHistory);
-
+  const [showInteractionHistory, setShowInteractionHistory] =
+    useState(showHistory);
 
   useEffect(() => {
     if (data) {
@@ -43,16 +45,18 @@ export function CustomerForm({
       const formatBirth = (b) => {
         if (!b) return "";
         try {
-          return b.split('T')[0];
+          return b.split("T")[0];
         } catch (e) {
           return b;
         }
       };
       const socialToString = (s) => {
         if (!s) return "";
-        if (typeof s === 'string') return s;
-        if (typeof s === 'object') {
-          return Object.entries(s).map(([k, v]) => `${k}:${v}`).join(', ');
+        if (typeof s === "string") return s;
+        if (typeof s === "object") {
+          return Object.entries(s)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(", ");
         }
         return String(s);
       };
@@ -97,18 +101,18 @@ export function CustomerForm({
 
   const handleAddTag = () => {
     if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
-        tags: [...prev.tags, tagInput.trim()]
+        tags: [...prev.tags, tagInput.trim()],
       }));
       setTagInput("");
     }
   };
 
   const handleRemoveTag = (tagToRemove) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
   };
 
@@ -127,8 +131,10 @@ export function CustomerForm({
         notes: data.notes || "",
         tags: data.tags || [],
       });
+      setMode?.("view");
+    } else {
+      onCancel?.();
     }
-    setMode?.("view");
   };
 
   const handleSubmit = () => {
@@ -183,13 +189,13 @@ export function CustomerForm({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="space-y-4">
-          
-
           <div className="grid grid-cols-1 gap-3">
             {/* Tên và phân loại */}
             <div className="flex gap-3">
               <div className="flex-2">
-                <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
+                <label className="block text-sm font-medium mb-1">
+                  Tên khách hàng
+                </label>
                 <Input
                   disabled={mode === "view"}
                   value={form.name}
@@ -199,12 +205,17 @@ export function CustomerForm({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Phân loại</label>
+                <label className="block text-sm font-medium mb-1">
+                  Phân loại
+                </label>
                 <div className="w-full">
                   <DropdownOptions
-                    options={Object.values(CustomerTypes).map(t => ({ value: t, label: t }))}
+                    options={Object.values(CustomerTypes).map((t) => ({
+                      value: t,
+                      label: t,
+                    }))}
                     value={form.type}
-                    onChange={(val) => setForm(f => ({ ...f, type: val }))}
+                    onChange={(val) => setForm((f) => ({ ...f, type: val }))}
                     disabled={mode === "view"}
                     placeholder="Chọn phân loại"
                     width="w-full"
@@ -216,7 +227,9 @@ export function CustomerForm({
             {/* Ngày sinh và giới tính */}
             <div className="flex gap-3">
               <div className="flex-2">
-                <label className="block text-sm font-medium mb-1">Ngày sinh</label>
+                <label className="block text-sm font-medium mb-1">
+                  Ngày sinh
+                </label>
                 <Input
                   disabled={mode === "view"}
                   type="date"
@@ -226,16 +239,18 @@ export function CustomerForm({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Giới tính</label>
+                <label className="block text-sm font-medium mb-1">
+                  Giới tính
+                </label>
                 <div className="w-full">
                   <DropdownOptions
                     options={[
-                      { value: 'male', label: 'Nam' },
-                      { value: 'female', label: 'Nữ' },
-                      { value: 'other', label: 'Khác' }
+                      { value: "male", label: "Nam" },
+                      { value: "female", label: "Nữ" },
+                      { value: "other", label: "Khác" },
                     ]}
                     value={form.gender}
-                    onChange={(val) => setForm(f => ({ ...f, gender: val }))}
+                    onChange={(val) => setForm((f) => ({ ...f, gender: val }))}
                     disabled={mode === "view"}
                     placeholder="Chọn giới tính"
                     width="w-full"
@@ -243,8 +258,6 @@ export function CustomerForm({
                 </div>
               </div>
             </div>
-
-
 
             {/* Email và SĐT */}
             <div className="flex gap-3">
@@ -287,7 +300,9 @@ export function CustomerForm({
             {/* Mạng xã hội và nguồn khách hàng */}
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Mạng xã hội / Kênh liên lạc</label>
+                <label className="block text-sm font-medium mb-1">
+                  Mạng xã hội / Kênh liên lạc
+                </label>
                 <Input
                   disabled={mode === "view"}
                   value={form.socialMedia}
@@ -297,7 +312,9 @@ export function CustomerForm({
                 />
               </div>
               <div className="w-40">
-                <label className="block text-sm font-medium mb-1">Nguồn KH</label>
+                <label className="block text-sm font-medium mb-1">
+                  Nguồn KH
+                </label>
                 <Input
                   disabled={mode === "view"}
                   value={form.source}
@@ -313,26 +330,39 @@ export function CustomerForm({
               <label className="block text-sm font-medium mb-1">Tags</label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {form.tags.map((tag, index) => (
-                  <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                  >
                     {tag}
-                    {mode === "edit" && (
-                      <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:text-blue-600">
+                    {(mode === "edit" || mode === "create") && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="hover:text-blue-600"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     )}
                   </span>
                 ))}
               </div>
-              {mode === "edit" && (
+              {(mode === "edit" || mode === "create") && (
                 <div className="flex gap-2">
                   <Input
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                    onKeyPress={(e) =>
+                      e.key === "Enter" && (e.preventDefault(), handleAddTag())
+                    }
                     placeholder="Nhập tag và nhấn Enter"
                     variant="normal"
                   />
-                  <Button type="button" onClick={handleAddTag} variant="actionUpdate" >
+                  <Button
+                    type="button"
+                    onClick={handleAddTag}
+                    variant="actionUpdate"
+                  >
                     <Plus className="w-4 h-4" />
                     Thêm
                   </Button>
@@ -363,14 +393,16 @@ export function CustomerForm({
           <div>
             {/* Chỉ hiển thị nút Lịch sử tương tác ở chế độ view */}
             {data?.id && (
-              <Button
-                variant="actionUpdate"
-                onClick={handleViewInteractions}
-                className="flex items-center gap-2"
-              >
-                <History className="w-4 h-4" />
-                Lịch sử tương tác
-              </Button>
+              <PermissionGuard module="customer" action="read">
+                <Button
+                  variant="actionUpdate"
+                  onClick={handleViewInteractions}
+                  className="flex items-center gap-2"
+                >
+                  <History className="w-4 h-4" />
+                  Lịch sử tương tác
+                </Button>
+              </PermissionGuard>
             )}
           </div>
 
@@ -378,47 +410,60 @@ export function CustomerForm({
           <div className="flex gap-3">
             {mode === "view" ? (
               <>
-                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
-                  <Edit className="w-4 h-4" />
-                  Chỉnh sửa
-                </Button>
-
-                <ConfirmDialog
-                  title="Xác nhận xóa"
-                  description={
-                    <>
-                      Bạn có chắc chắn muốn xóa khách hàng{" "}
-                      <span className="font-semibold text-black">{data?.name}</span>?
-                    </>
-                  }
-                  confirmText="Xóa"
-                  cancelText="Hủy"
-                  onConfirm={() => onDelete?.(data?.id)}
-                >
-                  <Button variant="actionDelete">
-                    <Trash2 className="w-4 h-4" />
-                    Xóa
+                <PermissionGuard module="customer" action="update">
+                  <Button
+                    variant="actionUpdate"
+                    onClick={() => setMode?.("edit")}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Chỉnh sửa
                   </Button>
-                </ConfirmDialog>
+                </PermissionGuard>
+
+                <PermissionGuard module="customer" action="delete">
+                  <ConfirmDialog
+                    title="Xác nhận xóa"
+                    description={
+                      <>
+                        Bạn có chắc chắn muốn xóa khách hàng{" "}
+                        <span className="font-semibold text-black">
+                          {data?.name}
+                        </span>
+                        ?
+                      </>
+                    }
+                    confirmText="Xóa"
+                    cancelText="Hủy"
+                    onConfirm={() => onDelete?.(data?.id)}
+                  >
+                    <Button variant="actionDelete">
+                      <Trash2 className="w-4 h-4" />
+                      Xóa
+                    </Button>
+                  </ConfirmDialog>
+                </PermissionGuard>
               </>
             ) : (
               <>
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   Hủy
                 </Button>
-                <Button onClick={handleSubmit} variant="actionUpdate">
-                  <Save className="w-4 h-4" />
-                  Lưu thay đổi
-                </Button>
+                <PermissionGuard
+                  module="customer"
+                  action={mode === "create" ? "create" : "update"}
+                >
+                  <Button onClick={handleSubmit} variant="actionUpdate">
+                    <Save className="w-4 h-4" />
+                    {mode === "create" ? "Thêm khách hàng" : "Lưu thay đổi"}
+                  </Button>
+                </PermissionGuard>
               </>
             )}
           </div>
         </div>
       </div>
     </div>
-
   );
 }
-
 
 export default CustomerForm;

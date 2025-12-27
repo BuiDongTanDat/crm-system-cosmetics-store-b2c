@@ -4,6 +4,7 @@ import DropdownOptions from "@/components/common/DropdownOptions";
 import { Edit, Save, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 const STATUS_OPTIONS = [
     { value: "ACTIVE", label: "ACTIVE" },
@@ -167,38 +168,47 @@ export default function CategoryForm({
                 <div className="flex justify-end gap-3">
                     {isView ? (
                         <>
-                            <Button variant="actionUpdate" onClick={() => (propSetMode || setMode)("edit")}>
-                                <Edit className="w-4 h-4" />
-                                Chỉnh sửa
-                            </Button>
-
-                            {/* <ConfirmDialog
-                                title="Xác nhận xóa"
-                                description={
-                                    <>
-                                        Bạn có chắc chắn muốn xóa danh mục{" "}
-                                        <span className="font-semibold text-black">{data?.name}</span>?
-                                    </>
-                                }
-                                confirmText="Xóa"
-                                cancelText="Hủy"
-                                onConfirm={() => onDelete?.(data?.category_id || data?.id)}
-                            >
-                                <Button variant="actionDelete">
-                                    <Trash2 className="w-4 h-4" />
-                                    Xóa
+                            <PermissionGuard module="category" action="update">
+                                <Button variant="actionUpdate" onClick={() => (propSetMode || setMode)("edit")}>
+                                    <Edit className="w-4 h-4" />
+                                    Chỉnh sửa
                                 </Button>
-                            </ConfirmDialog> */}
+                            </PermissionGuard>
+
+                            {/* <PermissionGuard module="category" action="delete">
+                                <ConfirmDialog
+                                    title="Xác nhận xóa"
+                                    description={
+                                        <>
+                                            Bạn có chắc chắn muốn xóa danh mục{" "}
+                                            <span className="font-semibold text-black">{data?.name}</span>?
+                                        </>
+                                    }
+                                    confirmText="Xóa"
+                                    cancelText="Hủy"
+                                    onConfirm={() => onDelete?.(data?.category_id || data?.id)}
+                                >
+                                    <Button variant="actionDelete">
+                                        <Trash2 className="w-4 h-4" />
+                                        Xóa
+                                    </Button>
+                                </ConfirmDialog>
+                            </PermissionGuard> */}
                         </>
                     ) : (
                         <>
                             <Button type="button" variant="outline" onClick={handleCancel}>
                                 Hủy
                             </Button>
-                            <Button type="submit" onClick={handleSubmit} variant="actionUpdate" disabled={isSubmitting}>
-                                <Save className="w-4 h-4" />
-                                Lưu thay đổi
-                            </Button>
+                            <PermissionGuard
+                                module="category"
+                                action={mode === "add" || mode === "create" ? "create" : "update"}
+                            >
+                                <Button type="submit" onClick={handleSubmit} variant="actionUpdate" disabled={isSubmitting}>
+                                    <Save className="w-4 h-4" />
+                                    {mode === "create" || mode === "add" ? "Tạo danh mục" : "Lưu thay đổi"}
+                                </Button>
+                            </PermissionGuard>
                         </>
                     )}
                 </div>

@@ -1,25 +1,26 @@
 const express = require('express');
 const StreamingController = require('../Controller/StreamingController.js');
+const permissionRoute = require('../Middleware/permissionMiddleware');
 
 const router = express.Router();
 
 // Tạo streamId mới
-router.post('/', StreamingController.createStream.bind(StreamingController));
+router.post('/', permissionRoute('youtube', 'create'), StreamingController.createStream.bind(StreamingController));
 
 // Prepare YouTube live cho streamId
-router.post('/:streamId/youtube', StreamingController.prepareYoutube.bind(StreamingController));
+router.post('/:streamId/youtube', permissionRoute('youtube', 'create'), StreamingController.prepareYoutube.bind(StreamingController));
 
 // Upload video
 router.post(
-  '/:streamId/upload',
+  '/:streamId/upload',permissionRoute('youtube', 'create'), 
   StreamingController.upload,
   StreamingController.uploadVideo.bind(StreamingController)
 );
 
 // Start / Pause / Resume / Stop streaming file
-router.post('/:streamId/start-file', StreamingController.startStreamFile.bind(StreamingController));
-router.post('/:streamId/pause-file', StreamingController.pauseStreamFile.bind(StreamingController));
-router.post('/:streamId/resume-file', StreamingController.resumeStreamFile.bind(StreamingController));
-router.post('/:streamId/stop-file', StreamingController.stopStreamFile.bind(StreamingController));
+router.post('/:streamId/start-file', permissionRoute('youtube', 'create'), StreamingController.startStreamFile.bind(StreamingController));
+router.post('/:streamId/pause-file', permissionRoute('youtube', 'create'), StreamingController.pauseStreamFile.bind(StreamingController));
+router.post('/:streamId/resume-file', permissionRoute('youtube', 'create'), StreamingController.resumeStreamFile.bind(StreamingController));
+router.post('/:streamId/stop-file', permissionRoute('youtube', 'create'), StreamingController.stopStreamFile.bind(StreamingController));
 
 module.exports = router;

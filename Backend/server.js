@@ -62,7 +62,7 @@ app.use('/stream', StreamingRoutes);
 app.use('/orders', OrderRoutes);
 
 
-app.use(protectedRoute);
+app.use(protectedRoute); // Áp dụng middleware bảo vệ từ đây trở xuống
 
 app.use('/users', userRoutes);
 app.use('/automation', flowRoutes);

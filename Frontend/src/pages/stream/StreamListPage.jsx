@@ -10,6 +10,7 @@ import AppDialog from "@/components/dialogs/AppDialog";
 import MarketingForm from "@/pages/marketing/components/MarketingForm";
 import SelectStreamOptionDialog from "@/pages/stream/components/SelectStreamOptionDialog";
 import { isAuthenticated, getYoutubeAuthUrl } from "@/services/youtube";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function StreamListPage() {
     const navigate = useNavigate();
@@ -238,10 +239,12 @@ export default function StreamListPage() {
                                                 <Button variant="actionRead" size="icon" onClick={() => openEditModal(c)}>
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
-                                                {/* Sửa: mở dialog chọn kiểu stream */}
-                                                <Button variant="actionUpdate" size="icon" onClick={() => openSelectStreamDialog(c)}>
-                                                    <TvMinimalPlay className="w-4 h-4" />
-                                                </Button>
+                                                {/* Sửa: mở dialog chọn kiểu stream, bọc PermissionGuard */}
+                                                <PermissionGuard  module="role" action="create" >
+                                                    <Button variant="actionUpdate" size="icon" onClick={() => openSelectStreamDialog(c)}>
+                                                        <TvMinimalPlay className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
                                             </div>
                                         </td>
                                     </tr>

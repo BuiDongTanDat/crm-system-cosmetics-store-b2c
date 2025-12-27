@@ -6,6 +6,7 @@ import { Edit, Save, Trash2 } from "lucide-react";
 import { StatusList } from "@/lib/data";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export function EmployeeForm({
   mode = "view",
@@ -172,29 +173,32 @@ export function EmployeeForm({
         <div className="flex justify-end gap-3">
           {mode === "view" ? (
             <>
-              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
-                <Edit className="w-4 h-4" />
-                Chỉnh sửa
-              </Button>
-
-              {/* Bọc nút Xóa bằng ConfirmDialog */}
-              <ConfirmDialog
-                title="Xác nhận xóa"
-                description={
-                  <>
-                    Bạn có chắc chắn muốn xóa nhân viên{" "}
-                    <span className="font-semibold text-black">{data?.name}</span>?
-                  </>
-                }
-                confirmText="Xóa"
-                cancelText="Hủy"
-                onConfirm={() => onDelete?.(data?.id)}
-              >
-                <Button variant="actionDelete">
-                  <Trash2 className="w-4 h-4" />
-                  Xóa
+              <PermissionGuard module="user" action="update">
+                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
+                  <Edit className="w-4 h-4" />
+                  Chỉnh sửa
                 </Button>
-              </ConfirmDialog>
+              </PermissionGuard>
+              {/* Bọc nút Xóa bằng ConfirmDialog */}
+              <PermissionGuard module="user" action="delete">
+                <ConfirmDialog
+                  title="Xác nhận xóa"
+                  description={
+                    <>
+                      Bạn có chắc chắn muốn xóa nhân viên{" "}
+                      <span className="font-semibold text-black">{data?.name}</span>?
+                    </>
+                  }
+                  confirmText="Xóa"
+                  cancelText="Hủy"
+                  onConfirm={() => onDelete?.(data?.id)}
+                >
+                  <Button variant="actionDelete">
+                    <Trash2 className="w-4 h-4" />
+                    Xóa
+                  </Button>
+                </ConfirmDialog>
+              </PermissionGuard>
             </>
           ) : (
             <>
@@ -203,7 +207,7 @@ export function EmployeeForm({
               </Button>
               <Button onClick={handleSubmit} variant="actionUpdate">
                 <Save className="w-4 h-4" />
-                Lưu thay đổi
+                {mode === "create" ? "Tạo nhân viên" : "Lưu thay đổi"}
               </Button>
             </>
           )}

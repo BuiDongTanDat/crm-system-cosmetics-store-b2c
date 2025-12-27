@@ -17,6 +17,7 @@ import DropdownOptions from '@/components/common/DropdownOptions'; // same compo
 import { ChevronDown } from "lucide-react";
 import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 import { Input } from "@/components/ui/input";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
@@ -45,55 +46,51 @@ export default function OrderPage() {
     // Danh sách trạng thái đơn hàng bind từ status_labels
     const ORDER_STATUSES_LIST = Object.keys(STATUS_LABELS);
 
-    // Load Customer + Orders + Products and enrich orders with customer full_name & product info
     useEffect(() => {
-        let mounted = true;
-        Promise.all([getCustomers(), getOrders(), getProducts()])
-            .then(([custRes, ordersRes, productsRes]) => {
-                if (!mounted) return;
-                const custList = custRes?.data || custRes || [];
-                setCustomers(custList);
+  let mounted = true;
 
-                const map = Object.fromEntries(
-                    (custList || []).map(c => [c.customer_id, c.full_name || ""])
-                );
+  Promise.all([ getOrders(), getProducts()])
+    .then(([ordersRes, productsRes]) => {
+      if (!mounted) return;
 
-                const prods = productsRes?.data || productsRes || [];
-                setProducts(prods);
-                const productMap = Object.fromEntries(
-                    (prods || []).map(p => [p.product_id || p.id, p])
-                );
+      const ordersList = Array.isArray(ordersRes)
+        ? ordersRes
+        : ordersRes?.data || [];
 
-                const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
-                const enriched = (ordersList || []).map(o => ({
-                    ...o,
-                    customer_name: map[o.customer_id] || o.customer_name || o.customer_id,
-                    items: (o.items || []).map(it => {
-                        const prod = productMap[it.product_id];
-                        // normalize discount to decimal (0..1). Accept backend returning decimal or percent.
-                        let rawDisc = it.discount ?? it.discount_percent ?? prod?.discount_percent ?? prod?.discount ?? 0;
-                        let disc = Number(rawDisc) || 0;
-                        if (disc > 1) disc = disc / 100;
-                        return {
-                            ...it,
-                            product_name: it.product_name || prod?.name || "",
-                            price: it.price || it.price_unit || prod?.price_current || 0,
-                            discount: disc
-                        };
-                    })
-                }));
-                setOrders(enriched);
-            })
-            .catch((err) => {
-                console.error("Lỗi khi lấy dữ liệu orders/customers:", err);
-                if (!mounted) {
-                    return;
-                }
-                setCustomers([]);
-                setOrders([]);
-            });
-        return () => { mounted = false; };
-    }, []);
+      const products = productsRes?.data || productsRes || [];
+      setProducts(products);
+
+      const productMap = Object.fromEntries(
+        products.map(p => [p.product_id || p.id, p])
+      );
+
+      const enrichedOrders = ordersList.map(o => ({
+        ...o,
+        customer_name: o.customer_name || o.customer_id, // dùng trực tiếp
+        items: (o.items || []).map(it => {
+          const prod = productMap[it.product_id];
+          let disc = Number(it.discount ?? it.discount_percent ?? 0);
+          if (disc > 1) disc = disc / 100;
+
+          return {
+            ...it,
+            product_name: it.product_name || prod?.name || '',
+            price: it.price_unit || prod?.price_current || 0,
+            discount: disc,
+          };
+        }),
+      }));
+
+      setOrders(enrichedOrders);
+    })
+    .catch(err => {
+      console.error('Load orders failed:', err);
+      setOrders([]);
+    });
+
+  return () => { mounted = false; };
+}, []);
+
 
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: "view", order: null });
@@ -144,7 +141,7 @@ export default function OrderPage() {
     // CRUD handlers
     const handleView = (order) => setModal({ open: true, mode: "view", order });
     const handleEdit = (order) => setModal({ open: true, mode: "edit", order });
-    const handleCreate = () => setModal({ open: true, mode: "edit", order: null });
+    const handleCreate = () => setModal({ open: true, mode: "create", order: null });
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
 
     const handleSave = async (payload) => {
@@ -338,11 +335,12 @@ export default function OrderPage() {
                             />
                         </div>
                         <div className="flex items-center gap-2 self-end md:self-auto">
-                            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                                <Plus className="w-4 h-4" />
-                                Thêm Đơn hàng
-                            </Button>
-
+                            <PermissionGuard module="order" action="create">
+                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                                    <Plus className="w-4 h-4" />
+                                    Thêm Đơn hàng
+                                </Button>
+                            </PermissionGuard>
                             {/* Import/Export Dropdown */}
                             <ImportExportDropdown
                                 data={orders}
@@ -355,8 +353,6 @@ export default function OrderPage() {
                             />
                         </div>
                     </div>
-
-
                 </div>
 
                 {/* Filters row */}
@@ -455,37 +451,43 @@ export default function OrderPage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleView(order)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionUpdate"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(order)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.order_id}</span>?</>}
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(order.order_id)}
-                                                >
+                                                <PermissionGuard module="order" action="read">
                                                     <Button
-                                                        variant="actionDelete"
+                                                        variant="actionRead"
                                                         size="icon"
+                                                        onClick={() => handleView(order)}
                                                         className="h-8 w-8"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Eye className="w-4 h-4" />
                                                     </Button>
-                                                </ConfirmDialog>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="order" action="update">
+                                                    <Button
+                                                        variant="actionUpdate"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(order)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="order" action="delete">
+                                                    <ConfirmDialog
+                                                        title="Xác nhận xóa"
+                                                        description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.order_id}</span>?</>}
+                                                        confirmText="Xóa"
+                                                        cancelText="Hủy"
+                                                        onConfirm={() => handleDelete(order.order_id)}
+                                                    >
+                                                        <Button
+                                                            variant="actionDelete"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </ConfirmDialog>
+                                                </PermissionGuard>
                                             </div>
                                         </td>
                                     </tr>
@@ -493,7 +495,7 @@ export default function OrderPage() {
                                 {/* Trạng thái rỗng */}
                                 {currentOrders.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có Đơn hàng</td>
+                                        <td colSpan={6} className="text-center py-8 text-gray-500">Không có Đơn hàng</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -511,34 +513,43 @@ export default function OrderPage() {
                 />
 
                 {/* Dialog */}
-                <AppDialog
-                    open={modal.open}
-                    onClose={closeModal}
-                    title={{
-                        view: `Chi tiết đơn hàng #${modal.order?.order_id || ''}`,
-                        edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.order_id}` : 'Thêm đơn hàng mới'
-                    }}
-                    mode={modal.mode}
-                    FormComponent={OrderForm}
-                    data={modal.order}
-                    onSave={handleSave}
-                    onDelete={handleDelete}
-                    // pass label maps for UI-only display to the form
-                    paymentLabels={PAYMENT_LABELS}
-                    statusLabels={STATUS_LABELS}
-                    maxWidth="sm:max-w-5xl"
-                    //  pass custom setMode so that when the form sets mode="view"
-                    // while creating a NEW order (modal.order === null), we CLOSE the dialog.
-                    setMode={(m) =>
-                        setModal((prev) => {
-                            if (m === "view" && prev.order == null) {
-                                // close modal when cancelling a new order form
-                                return { open: false, mode: "view", order: null };
-                            }
-                            return { ...prev, mode: m };
-                        })
+                <PermissionGuard
+                    module="order"
+                    action={
+                        modal.mode === "create"
+                            ? "create"
+                            : modal.mode === "edit"
+                            ? "update"
+                            : "read"
                     }
-                />
+                >
+                    <AppDialog
+                        open={modal.open}
+                        onClose={closeModal}
+                        title={{
+                            view: `Chi tiết đơn hàng`,
+                            edit: `Chỉnh sửa đơn hàng `,
+                            create: "Tạo đơn hàng mới",
+                        }}
+                        mode={modal.mode}
+                        FormComponent={OrderForm}
+                        data={modal.order}
+                        onSave={handleSave}
+                        onDelete={handleDelete}
+                        paymentLabels={PAYMENT_LABELS}
+                        statusLabels={STATUS_LABELS}
+                        maxWidth="sm:max-w-5xl"
+                        setMode={(m) =>
+                            setModal((prev) => {
+                                if (m === "view" && prev.order == null) {
+                                    // close modal when cancelling a new order form
+                                    return { open: false, mode: "view", order: null };
+                                }
+                                return { ...prev, mode: m };
+                            })
+                        }
+                    />
+                </PermissionGuard>
             </div>
         </div>
     );

@@ -49,7 +49,7 @@ export default function SelectStreamOptionDialog({
               type="button"
               onClick={() => handleSelect('video')}
               
-              className="flex-1 border rounded-lg p-4 text-left transition hover:bg-blue-100 focus:outline-none active:scale-95 transistion "
+              className="cursor-pointer flex-1 border rounded-lg p-4 text-left transition hover:bg-blue-100 focus:outline-none active:scale-95 transistion "
               aria-label="Stream bằng video"
             >
               <div className="flex items-center gap-3">
@@ -64,8 +64,8 @@ export default function SelectStreamOptionDialog({
             <button
               type="button"
               onClick={() => handleSelect('cam')}
-              
-              className="flex-1 border rounded-lg p-4 text-left transition focus:outline-none hover:bg-red-100 active:scale-95 transistion"
+              disabled = {true}
+              className="flex-1 border rounded-lg p-4 text-left transition focus:outline-none bg-red-100   active:scale-95 transistion"
               aria-label="Stream bằng webcam"
             >
               <div className="flex items-center gap-3">
@@ -73,6 +73,7 @@ export default function SelectStreamOptionDialog({
                 <div>
                   <div className="font-medium text-sm">Stream bằng webcam</div>
                   <div className="text-xs text-muted-foreground">Phát trực tiếp từ webcam của bạn</div>
+<div className="text-xs text-muted-foreground"><i>(Tính năng đang phát triển)</i></div>
                 </div>
               </div>
             </button>

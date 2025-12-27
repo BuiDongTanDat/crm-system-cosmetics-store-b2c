@@ -7,6 +7,7 @@ import { getCategories } from "@/services/categories";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from '@/components/ui/input'; // <-- added import
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export function ProductForm({
   mode = "view",
@@ -291,41 +292,48 @@ export function ProductForm({
         <div className="flex justify-end gap-3">
           {mode === "view" ? (
             <>
-              <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
-                <Edit className="w-4 h-4" />
-                Chỉnh sửa
-              </Button>
-
-              {/* Bọc nút Xóa bằng ConfirmDialog */}
-              <ConfirmDialog
-                title="Xác nhận xóa"
-                description={
-                  <>
-                    Bạn có chắc chắn muốn xóa sản phẩm{" "}
-                    <span className="font-semibold text-black">{data?.name}</span>?
-                  </>
-                }
-                confirmText="Xóa"
-                cancelText="Hủy"
-                onConfirm={() => onDelete?.(data?.product_id)}
-              >
-                <Button
-                  variant="actionDelete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Xóa
+              <PermissionGuard module="product" action="update">
+                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
+                  <Edit className="w-4 h-4" />
+                  Chỉnh sửa
                 </Button>
-              </ConfirmDialog>
+              </PermissionGuard>
+              <PermissionGuard module="product" action="delete">
+                <ConfirmDialog
+                  title="Xác nhận xóa"
+                  description={
+                    <>
+                      Bạn có chắc chắn muốn xóa sản phẩm{" "}
+                      <span className="font-semibold text-black">{data?.name}</span>?
+                    </>
+                  }
+                  confirmText="Xóa"
+                  cancelText="Hủy"
+                  onConfirm={() => onDelete?.(data?.product_id)}
+                >
+                  <Button
+                    variant="actionDelete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Xóa
+                  </Button>
+                </ConfirmDialog>
+              </PermissionGuard>
             </>
           ) : (
             <>
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Hủy
               </Button>
-              <Button type="button" onClick={handleSubmit} variant="actionUpdate">
-                <Save className="w-4 h-4" />
-                Lưu thay đổi
-              </Button>
+              <PermissionGuard
+                module="product"
+                action={mode === "add" ? "create" : "update"}
+              >
+                <Button type="button" onClick={handleSubmit} variant="actionUpdate">
+                  <Save className="w-4 h-4" />
+                  {mode === "add" ? "Thêm sản phẩm" : "Lưu thay đổi"}
+                </Button>
+              </PermissionGuard>
             </>
           )}
         </div>

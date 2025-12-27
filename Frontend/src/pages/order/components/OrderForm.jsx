@@ -562,7 +562,7 @@ export default function OrderForm({
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Chi tiết đơn hàng</h3>
-              {mode === "edit" && (
+              {(mode === "edit" || mode === "create") && (
                 <DropdownWithSearch
                   items={products}
                   itemKey={(p) => p.product_id ?? p.id}
@@ -696,7 +696,7 @@ export default function OrderForm({
 
                   {/* Delete */}
                   <div className="col-span-1">
-                    {mode === "edit" && (
+                    {(mode === "edit" || mode === "create") && (
                       <Button type="button" variant="actionDelete" size="sm" onClick={() => removeOrderDetail(index)} className="w-full h-10">
                         <X className="w-4 h-4" />
                       </Button>
@@ -750,7 +750,7 @@ export default function OrderForm({
                 </Button>
                 <Button onClick={handleSubmit} variant="actionUpdate">
                   <Save className="w-4 h-4" />
-                  Lưu thay đổi
+                  {mode === "create" ? "Tạo đơn hàng" : "Lưu thay đổi"}
                 </Button>
               </>
             )}

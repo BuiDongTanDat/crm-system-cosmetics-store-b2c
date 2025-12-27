@@ -1,183 +1,175 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { useAuthStore } from '@/store/useAuthStore'; // dùng Zustand
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+import { useAuthStore } from "@/store/useAuthStore";
+import { Blocks, Lock, Mail, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [suggestion, setSuggestion] = useState("");
-  const inputRef = useRef(null);
-  const [form, setForm] = useState({ email: '', password: '', rememberMe: false });
-
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, loading } = useAuthStore(); 
+  const { signIn } = useAuthStore();
 
-
-  // email-specific input handling and suggestion behavior
-  const handleEmailChange = (e) => {
-    const val = e.target.value;
-    setForm(prev => ({ ...prev, email: val }));
-    // Show suggestion only when user types '@' and there's nothing after it
-    if (val.endsWith('@')) {
-      setSuggestion('gmail.com');
-    } else {
-      setSuggestion('');
-    }
-  };
-
-
-  const handleEmailKeyDown = (e) => {
-    if (!suggestion) return;
-    if (e.key === 'Tab' || e.key === 'Enter') {
-      e.preventDefault();
-      const newEmail = (form.email || '') + suggestion;
-      setForm(prev => ({ ...prev, email: newEmail }));
-      setSuggestion('');
-      // move caret to end
-      requestAnimationFrame(() => {
-        if (inputRef.current) {
-          inputRef.current.selectionStart = inputRef.current.selectionEnd = newEmail.length;
-        }
-      });
-    }
-  };
-
-  // generic handler for other fields
   const handleFieldChange = (field) => (e) => {
-    const value = field === 'rememberMe' ? e.target.checked : e.target.value;
-    setForm(prev => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!form.email || !form.password) {
-      toast.error('Vui lòng nhập đầy đủ thông tin');
-      return;
+    let newErrors = {};
+    if (!form.email) {
+      newErrors.email = "Vui lòng nhập email";
+      //toast.error("Vui lòng nhập email");
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      newErrors.email = "Email không hợp lệ";
+      //toast.error("Email không hợp lệ");
     }
+    if (!form.password) {
+      newErrors.password = "Vui lòng nhập mật khẩu";
+      //toast.error("Vui lòng nhập mật khẩu");
+    }
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
+    setIsSubmitting(true);
     try {
-      const { email, password } = form;
-      await signIn(email, password);
-      navigate('/'); // Chuyển hướng sau khi đăng nhập thành công
+      await signIn(form.email, form.password);
+      navigate("/");
     } catch (err) {
-      // toast lỗi đã hiển thị bên trong signIn
-      toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      //toast.error("Đăng nhập thất bại");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <>
+      {/* Background with overlay */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-20"
-        style={{ backgroundImage: 'url("/images/background/bg.jpg")' }}
+        style={{
+          backgroundImage: 'url("/images/background/bg.jpg")',
+        }}
       />
-      <div className="relative z-10 w-full max-w-md">
-        <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex items-center justify-center space-x-3">
-              <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-foreground">Đăng nhập</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Nhập thông tin để truy cập vào hệ thống
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+      <div className=" flex flex-col gap-6 min-h-screen justify-center items-center relative z-10">
+        <Card className="animate-fade-in transition duration-200 overflow-hidden p-0 border-border w-full max-w-2xl shadow-2xl">
+          <CardContent className="grid p-0 md:grid-cols-2">
+            <form
+              className="p-6 md:p-8 gap-4 flex flex-col"
+              onSubmit={handleSubmit}
+            >
+              <div className="flex flex-col items-center text-center gap-0">
+                <a href="/" className="mx-auto block w-fit text-center">
+                  <img
+                    src="/images/logo/Logo.svg"
+                    alt="Logo"
+                    className="h-10 w-10"
+                  />
+                </a>
+                <h1 className="text-2xl font-semibold">Đăng nhập</h1>
+                <div className="text-sm text-slate-400">Đăng nhập để truy cập hệ thống</div>
+              </div>
               {/* Email */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Email</label>
+                <label className="text-sm font-medium text-foreground">
+                  Email
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    ref={inputRef}
+                    id="email"
                     type="email"
                     placeholder="Nhập email của bạn"
                     value={form.email}
-                    onChange={handleEmailChange}
-                    onKeyDown={handleEmailKeyDown}
+                    onChange={handleFieldChange("email")}
                     className="pl-10"
-                    disabled={loading}
-                    variant="project"
                     autoComplete="email"
-                    name="email"
+                    disabled={isSubmitting}
                   />
-                  {/* Suggestion shown only when user typed '@' at end */}
-                  {suggestion ? (
-                    <div className="absolute right-3 top-1.5 text-sm text-muted-foreground select-none pointer-events-none">
-                      {suggestion} <span className="text-[10px] border p-1 rounded-sm bg-gray-100">Tab | Enter</span>
-                    </div>
-                  ) : null}
+                  {errors.email && (
+                  <p className="text-xs text-red-600">{errors.email}</p>
+                )}
                 </div>
+                
               </div>
-
               {/* Password */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Mật khẩu</label>
+                <label className="text-sm font-medium text-foreground">
+                  Mật khẩu
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Nhập mật khẩu"
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Mật khẩu"
                     value={form.password}
-                    onChange={handleFieldChange('password')}
-                    className="pl-10 pr-10"
-                    disabled={loading}
+                    onChange={handleFieldChange("password")}
                     autoComplete="current-password"
+                    disabled={isSubmitting}
+                    className="pl-10 pr-10"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-                    disabled={loading}
+                    tabIndex={-1}
+                    className="absolute top-2.5 right-3 text-muted-foreground cursor-pointer hover:text-blue-500"
+                    onClick={() => setShowPassword((v) => !v)}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
+                  {errors.password && (
+                    <p className="text-xs text-red-600">{errors.password}</p>
+                  )}
                 </div>
-              </div>
 
-              {/* Remember & Forgot */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="rememberMe"
-                    checked={form.rememberMe}
-                    onChange={handleFieldChange('rememberMe')}
-                    className="h-4 w-4 text-primary border-border rounded focus:ring-ring"
-                    disabled={loading}
-                  />
-                  <label htmlFor="rememberMe" className="text-sm text-muted-foreground">
-                    Ghi nhớ đăng nhập
-                  </label>
-                </div>
+                
+              </div>
+              {/* Forgot password */}
+              <div className="flex justify-end">
                 <Link
                   to="/auth/forgot-password"
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors underline"
                 >
                   Quên mật khẩu?
                 </Link>
               </div>
-
-              {/* Submit */}
-              <Button type="submit" className="w-full" disabled={loading} variant="actionCreate">
-                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              <Button
+                type="submit"
+                variant ="actionCreate"
+                className="mt-2 w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
               </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-              </div>
             </form>
+            <div className="bg-white relative hidden md:block">
+              <img
+                src="/images/background/Login.png"
+                alt="Image"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover w-full h-auto"
+              />
+            </div>
           </CardContent>
         </Card>
+        <div className="text-xs text-balance px-6 text-center *:[a]:hover:text-primary text-muted-foreground *:[a]:underline *:[a]:underline-offset-4">
+          Bằng cách nhấn tiếp tục, bạn đồng ý với{" "}
+          <a href="#">Điều khoản dịch vụ</a> và{" "}
+          <a href="#">Chính sách bảo mật</a>.
+        </div>
       </div>
-    </div>
+    </>
   );
 }

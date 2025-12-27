@@ -9,17 +9,19 @@ export const useAuthStore = create(
     accessToken: null,
     user: null,
     loading: false,
+    permissions: [],
 
     setAccessToken: (accessToken) => set({ accessToken }),
     setUser: (user) => set({ user }),
-    clearState: () => set({ accessToken: null, user: null, loading: false }),
+    setPermissions: (permissions) => set({ permissions }),
+    clearState: () => set({ accessToken: null, user: null, permissions: null, loading: false }),
     // Hàm đăng nhập
     signIn: async (email, password) => {
       try {
         set({ loading: true });
 
         //Call api đăng nhập
-        const { token} = await authService.login(email, password);
+        const { token } = await authService.login(email, password);
         get().setAccessToken(token);
 
         await get().fetchMe();
@@ -27,6 +29,7 @@ export const useAuthStore = create(
         toast.success('Đăng nhập thành công!');
         return true;
       } catch (error) {
+        console.log('Login error:', error);
         toast.error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
         throw error; // ném lỗi
       } finally {
@@ -40,6 +43,8 @@ export const useAuthStore = create(
         get().clearState();
         await authService.logout();
         toast.success('Đăng xuất thành công!');
+        // Thêm chuyển hướng về trang login
+        window.location.href = "/auth/login";
       } catch (error) {
         toast.error(error.message || 'Đăng xuất thất bại.');
       } finally {
@@ -51,14 +56,15 @@ export const useAuthStore = create(
     fetchMe: async () => {
       try {
         set({ loading: true });
-        const user = await authMe(); // From user service
-        set({ user }); // cập nhật isAuthenticated
+        const res = await authMe(); // From user service
+        get().setUser(res.user);
+        get().setPermissions(res.permissions || []);
       } catch (error) {
         console.error('Fetch me failed', error);
         set({ user: null, accessToken: null });
         toast.error(error.message || 'Lấy thông tin người dùng thất bại. Vui lòng thử lại.');
       } finally {
-        set ({loading: false});
+        set({ loading: false });
       }
     },
 
@@ -80,7 +86,7 @@ export const useAuthStore = create(
         return false;
       }
       finally {
-        set({loading: false});
+        set({ loading: false });
       }
     },
 
