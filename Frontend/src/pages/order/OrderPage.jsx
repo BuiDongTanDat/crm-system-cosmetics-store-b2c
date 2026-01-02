@@ -355,32 +355,72 @@ export default function OrderPage() {
     return (
         <div className=" flex flex-col">
             {/* Sticky header*/}
-            <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-                <div className="flex justify-between w-full mb-2">
-                    <h1 className="text-xl font-bold mb-2">
-                        Danh sách đơn hàng ({filteredOrders.length})
-                    </h1>
-                    {/* Search + Actions Row */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-end gap-3 mb-2">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm đơn hàng..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+            <div
+                className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
+                style={{ backdropFilter: "blur" }}
+            >
+                {/* Header: */}
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Cụm trái: Tiêu đề */}
+                    <div className="flex items-center gap-2 mb-2 lg:mb-0">
+                        <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
+                            Danh sách đơn hàng ({filteredOrders.length})
+                        </h1>
+                    </div>
+                    {/* Cụm phải: Search, Filter, Thêm, Import/Export */}
+                    <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+                        <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+                            {/* Search */}
+                            <div className="relative w-full lg:w-56">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                    type="text"
+                                    placeholder="Tìm kiếm đơn hàng..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 pr-3 py-2 w-full"
+                                />
+                            </div>
+                            {/* Filter row: Trạng thái + Khách hàng */}
+                            <div className="flex flex-row gap-2 w-full lg:w-auto">
+                                <DropdownOptions
+                                    options={[
+                                        { value: '', label: 'Tất cả trạng thái' },
+                                        ...ORDER_STATUSES_LIST.map(s => ({ value: s, label: STATUS_LABELS[s] || String(s).toUpperCase() }))
+                                    ]}
+                                    value={selectedStatus || ''}
+                                    onChange={(val) => setSelectedStatus(val || null)}
+                                    width="w-full flex-1 lg:w-auto "
+                                    placeholder="Trạng thái"
+                                />
+                                <DropdownWithSearch
+                                    items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
+                                    itemKey={(c) => c.customer_id || c.id}
+                                    renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
+                                    filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                                    onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
+                                    placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                                    searchPlaceholder="Tìm kiếm khách hàng..."
+                                    contentClassName="max-h-64 overflow-y-auto"
+                                >
+                                    <div className="h-9 lg:w-auto flex flex-1 items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                                        <div className="text-sm truncate">
+                                            {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                </DropdownWithSearch>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 self-end md:self-auto">
+                        <div className="flex gap-2 w-full lg:w-auto">
                             <PermissionGuard module="order" action="create">
-                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2 w-full lg:w-auto">
                                     <Plus className="w-4 h-4" />
-                                    Thêm Đơn hàng
+                                    <span className="">Thêm Đơn hàng</span>
                                 </Button>
                             </PermissionGuard>
                             {/* Import/Export Dropdown */}
-                            <ImportExportDropdown
+                            {/* <ImportExportDropdown
                                 data={orders}
                                 filename="orders"
                                 fieldMapping={orderFieldMapping}
@@ -388,51 +428,15 @@ export default function OrderPage() {
                                 onImportError={handleImportError}
                                 trigger="icon"
                                 variant="actionNormal"
-                            />
+                                className="w-10 h-10 shrink"
+                            /> */}
                         </div>
-                    </div>
-                </div>
-
-                {/* Filters row */}
-                <div className="flex items-center justify-between gap-3 mt-2 w-full">
-                    <div /> {/* left placeholder to mirror product page layout */}
-                    <div className="flex items-center gap-3">
-                        {/* Status dropdown */}
-                        <DropdownOptions
-                            options={[
-                                { value: '', label: 'Tất cả trạng thái' },
-                                ...ORDER_STATUSES_LIST.map(s => ({ value: s, label: STATUS_LABELS[s] || String(s).toUpperCase() }))
-                            ]}
-                            value={selectedStatus || ''}
-                            onChange={(val) => setSelectedStatus(val || null)}
-                            width="w-48"
-                            placeholder="Trạng thái"
-                        />
-
-                        {/* Customer dropdown with search (custom) */}
-                        <DropdownWithSearch
-                            items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
-                            itemKey={(c) => c.customer_id || c.id}
-                            renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
-                            filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
-                            onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
-                            placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                            searchPlaceholder="Tìm kiếm khách hàng..."
-                            contentClassName="max-h-64 overflow-y-auto"
-                        >
-                            <div className="w-56 flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                                <div className="text-sm truncate">
-                                    {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                                </div>
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
-                            </div>
-                        </DropdownWithSearch>
                     </div>
                 </div>
             </div>
 
             {/* Scrollable content: */}
-            <div className="flex-1 p-0 mt-4">
+            <div className="flex-1 p-0 ">
                 {/* Table */}
                 <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
                     <div className="w-full">

@@ -68,8 +68,16 @@ export default function ProductPage() {
 
   // Check render option
   const permissions = useAuthStore((s) => s.permissions);
-  const canImport = PermissionService.hasPermission(permissions, "product", "import");
-  const canExport = PermissionService.hasPermission(permissions, "product", "export");
+  const canImport = PermissionService.hasPermission(
+    permissions,
+    "product",
+    "import"
+  );
+  const canExport = PermissionService.hasPermission(
+    permissions,
+    "product",
+    "export"
+  );
 
   //Lấy danh sách sản phẩm (simplified: use API response directly, no mapping)
   const fetchProducts = async () => {
@@ -262,150 +270,151 @@ export default function ProductPage() {
   };
 
   return (
-    <div className=" flex flex-col">
+    <div className="flex flex-col">
       {/* Sticky header */}
       <div
-        className="sticky top-[70px] z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
         style={{ backdropFilter: "blur" }}
       >
-        {/* Cụm tiêu đề  */}
-        <div className="flex items-center justify-between">
-          {/* Tiêu đề bên trái */}
-          <div className="flex items-center gap-1">
+        {/* Header: */}
+        <div className="flex flex-col gap-2  lg:flex-row lg:items-center lg:justify-between">
+          {/* Cụm trái: Tiêu đề và nút đổi chế độ */}
+          <div className="flex items-center gap-2 justify-between w-full lg:justify-start">
             <h1 className="text-xl font-bold text-gray-900">
               Quản lý Sản phẩm ({filtered.length})
             </h1>
-          </div>
-
-          {/* Các nút bên phải */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Tìm kiếm sản phẩm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <PermissionGuard module="product" action="create">
+            <div className="flex gap-0 ml-2">
               <Button
-                onClick={openAdd}
-                variant="actionCreate"
-                className="gap-2"
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                onClick={() => setViewMode("card")}
+                size="icon"
+                className="rounded-none rounded-tl-md rounded-bl-md"
               >
-                <Plus className="w-4 h-4" /> Thêm SP
+                <Square className="w-4 h-4" />
               </Button>
-            </PermissionGuard>
-
-            {/* Import/Export Dropdown - chỉ hiển thị nếu có ít nhất 1 quyền */}
-            {(canImport || canExport) && (
-              <>
-                <ImportExportDropdown
-                  menuItems={[
-                    ...(canImport
-                      ? [
-                          {
-                            label: "Nhập CSV",
-                            icon: Upload,
-                            action: () => fileInputRef.current?.click(),
-                          },
-                        ]
-                      : []),
-                    ...(canExport
-                      ? [
-                          {
-                            label: "Xuất CSV",
-                            icon: Download,
-                            action: async () => {
-                              try {
-                                const csvBlob = await exportProductsCSV();
-                                if (!csvBlob) {
-                                  toast.error("Không có dữ liệu để xuất CSV.");
-                                  return;
-                                }
-                                const url = window.URL.createObjectURL(csvBlob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = "products.csv";
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                                window.URL.revokeObjectURL(url);
-                              } catch (err) {
-                                console.error("Export error:", err);
-                                toast.error("Lỗi khi xuất CSV.");
-                              }
-                            },
-                          },
-                        ]
-                      : []),
-                  ]}
-                  trigger="icon"
-                  className="px-2 py-1"
+              <Button
+                variant={viewMode === "list" ? "actionCreate" : "actionNormal"}
+                onClick={() => setViewMode("list")}
+                size="icon"
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          {/* Cụm phải: */}
+          <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+            {/* Search + Filter row: LUÔN cùng 1 hàng từ md trở xuống */}
+            <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+              {/* Search */}
+              <div className="relative w-full lg:w-56">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Tìm kiếm sản phẩm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-3 py-2 w-full"
                 />
-                {/* hidden file input for import */}
-                {canImport && (
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    onChange={handleImportFile}
-                    name="file"
+              </div>
+              {/* Filter row: Category + Status filter */}
+              <div className="flex flex-row gap-2 w-full lg:w-auto">
+                <DropdownOptions
+                  options={categoryOptions}
+                  value={selectedCategory}
+                  onChange={(val) => setSelectedCategory(val)}
+                  width="w-full lg:w-44"
+                  placeholder="Danh mục"
+                />
+                <DropdownOptions
+                  options={STATUS_FILTER_OPTIONS}
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val)}
+                  width="w-full lg:w-36"
+                  placeholder="Trạng thái"
+                />
+              </div>
+            </div>
+            {/* Nút thêm và import/export */}
+            <div className="flex  gap-2 w-full md:w-auto">
+              <PermissionGuard module="product" action="create">
+                <Button
+                  onClick={openAdd}
+                  variant="actionCreate"
+                  className="gap-2 flex-1 lg:w-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="">Thêm Sản phẩm</span>
+                </Button>
+              </PermissionGuard>
+              {(canImport || canExport) && (
+                <>
+                  <ImportExportDropdown
+                    menuItems={[
+                      ...(canImport
+                        ? [
+                            {
+                              label: "Nhập CSV",
+                              icon: Upload,
+                              action: () => fileInputRef.current?.click(),
+                            },
+                          ]
+                        : []),
+                      ...(canExport
+                        ? [
+                            {
+                              label: "Xuất CSV",
+                              icon: Download,
+                              action: async () => {
+                                try {
+                                  const csvBlob = await exportProductsCSV();
+                                  if (!csvBlob) {
+                                    toast.error(
+                                      "Không có dữ liệu để xuất CSV."
+                                    );
+                                    return;
+                                  }
+                                  const url =
+                                    window.URL.createObjectURL(csvBlob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = "products.csv";
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  window.URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  console.error("Export error:", err);
+                                  toast.error("Lỗi khi xuất CSV.");
+                                }
+                              },
+                            },
+                          ]
+                        : []),
+                    ]}
+                    trigger="icon"
+                    className="px-2 py-2 min-w-0  lg:w-auto lg:h-auto shrink-0"
                   />
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Cụm nằm dưới */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-0">
-            <Button
-              variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
-              onClick={() => setViewMode("card")}
-              size="icon"
-              className="rounded-none rounded-tl-md rounded-bl-md"
-            >
-              <Square className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "actionCreate" : "actionNormal"}
-              onClick={() => setViewMode("list")}
-              size="icon"
-              className="rounded-none rounded-tr-md rounded-br-md"
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Category filter */}
-            <DropdownOptions
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={(val) => setSelectedCategory(val)}
-              width="w-49"
-              placeholder="Danh mục"
-            />
-
-            {/* Status filter */}
-            <DropdownOptions
-              options={STATUS_FILTER_OPTIONS}
-              value={statusFilter}
-              onChange={(val) => setStatusFilter(val)}
-              width="w-40"
-              placeholder="Trạng thái"
-            />
+                  {/* hidden file input for import */}
+                  {canImport && (
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleImportFile}
+                      name="file"
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Scrollable content: product cards / list, pagination, dialog */}
-      <div className="flex-1 overflow-auto pt-4">
+      <div className="flex-1 overflow-auto">
         <div className="mx-2">
           {/* Main content card (Flow-like) */}
           <div className="flex-1 overflow-auto pt-4">

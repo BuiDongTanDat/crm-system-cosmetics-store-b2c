@@ -112,11 +112,16 @@ export default function MarketingPage() {
 
   // Dropdown options for campaign types
   const CAMPAIGN_TYPE_OPTIONS = [
-    { value: 'all', label: 'Loại chiến dịch' },
+    { value: 'all', label: 'Tất cả loại chiến dịch' },
     { value: 'Email', label: 'Email' },
-    { value: 'Social', label: 'Social' },
+    { value: 'SMS', label: 'SMS' },
+    { value: 'Ads', label: 'Ads' },
+    { value: 'Social Media', label: 'Social Media' },
+    { value: 'Content Marketing', label: 'Content Marketing' },
+    { value: 'SEO', label: 'SEO' },
+    { value: 'LiveStream', label: 'LiveStream' },
     { value: 'Paid', label: 'Paid' },
-    { value: 'LiveStream', label: 'LiveStream' } // <-- thêm LiveStream
+    { value: 'Social', label: 'Social' }
   ];
 
   // Filtered campaigns
@@ -211,84 +216,74 @@ export default function MarketingPage() {
 
   return (
     <div className="flex flex-col">
-      {/* Sticky header: two-row (title/actions) like ProductPage */}
+      {/* Sticky header: responsive layout, bỏ nút lọc và ba chấm */}
       <div
-        className="sticky top-[70px] z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        className="my-3 z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-bl-lg rounded-md"
         style={{ backdropFilter: 'blur' }}
       >
-        {/* First row: title (left) and search/add/import (right) */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          {/* Cụm trái: Tiêu đề và nút đổi chế độ */}
+          <div className="flex items-center gap-2 justify-between w-full lg:justify-start">
             <h1 className="text-2xl font-bold text-gray-900">
               Chiến dịch Marketing ({filtered.length})
             </h1>
+            <div className="flex gap-0 ml-2">
+              <Button
+                variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
+                onClick={() => setViewMode('card')}
+                size="icon"
+                className="rounded-none rounded-tl-md rounded-bl-md"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
+                onClick={() => setViewMode('list')}
+                size="icon"
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Tìm kiếm chiến dịch..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+          {/* Cụm phải: Search, Filter, Thêm, Import/Export */}
+          <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+            <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+              {/* Search */}
+              <div className="relative w-full lg:w-56">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Tìm kiếm chiến dịch..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-3 py-2 w-full"
+                />
+              </div>
+              {/* Filter loại chiến dịch */}
+              <DropdownOptions
+                options={CAMPAIGN_TYPE_OPTIONS}
+                value={selectedType}
+                onChange={(val) => setSelectedType(val)}
+                width="w-full flex-1 lg:w-44"
+                placeholder="Loại chiến dịch"
               />
             </div>
-
-            <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Thêm chiến dịch
-            </Button>
-
-            <ImportExportDropdown
-              data={campaigns}
-              filename="campaigns"
-              fieldMapping={campaignFieldMapping}
-              onImportSuccess={handleImportSuccess}
-              onImportError={handleImportError}
-              trigger="icon"
-              variant="actionNormal"
-            />
-          </div>
-        </div>
-
-        {/* Second row: view toggles (left) and filters/actions (right) */}
-        <div className="flex items-center justify-between">
-          <div className="flex">
-            <Button
-              variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
-              onClick={() => setViewMode('card')}
-              size="icon"
-              className="rounded-none rounded-tl-md rounded-bl-md"
-            >
-              <Square className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
-              onClick={() => setViewMode('list')}
-              size="icon"
-              className="rounded-none rounded-tr-md rounded-br-md"
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Keep existing filter button (you can replace with a dropdown later) */}
-            <Button variant="actionNormal" className="gap-2">
-              <Filter className="w-5 h-5" />
-              Lọc
-            </Button>
-
-            {/* Type selector using DropdownOptions */}
-            <DropdownOptions
-              options={CAMPAIGN_TYPE_OPTIONS}
-              value={selectedType}
-              onChange={(val) => setSelectedType(val)}
-              width="w-40"
-              placeholder="Loại chiến dịch"
-            />
+            <div className="flex gap-2 w-full lg:w-auto">
+              <Button onClick={openAdd} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                <Plus className="w-4 h-4" />
+                Thêm chiến dịch
+              </Button>
+              {/* <ImportExportDropdown
+                data={campaigns}
+                filename="campaigns"
+                fieldMapping={campaignFieldMapping}
+                onImportSuccess={handleImportSuccess}
+                onImportError={handleImportError}
+                trigger="icon"
+                variant="actionNormal"
+              /> */}
+            </div>
           </div>
         </div>
       </div>

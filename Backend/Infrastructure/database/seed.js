@@ -13,7 +13,8 @@ const AutomationFlowService = require('../../Application/Services/AutomationFlow
 
 const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository');
 const { seedAutomationCatalog } = require('./seed_automation_catalog');
-
+const {seedRole} = require('./seedRole');
+const {seedUser} = require('./seedUser');
 const Category = require('../../Domain/Entities/Category');
 const Campaign = require('../../Domain/Entities/Campaign');
 const Lead = require('../../Domain/Entities/Lead');
@@ -27,6 +28,7 @@ const productService = ProductService;
 
 // =========================
 // USERS / ROLES
+// Dùng 2 file riêng lẻ nằm cùng thư mục
 // =========================
 async function seedRolesAndUsers() {
   console.log('Seeding admin user qua service...');
@@ -823,7 +825,12 @@ async function seedTagAddedZaloFlow() {
 // MAIN SEED
 // =========================
 async function seedDatabase() {
-  await seedRolesAndUsers();
+  //await seedRolesAndUsers();
+
+  // Roles, Users
+  await seedRole();
+  await seedUser();
+
   await seedCategories();
   await seedProductsFromCSV();
 

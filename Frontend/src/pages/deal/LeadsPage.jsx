@@ -162,7 +162,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
     <div className="flex flex-col">
       {/* Header + Stats: render only when showHeader is true */}
       {showHeader && (
-        <div className="sticky top-[70px] z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className=" z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
             <div className="flex gap-3">

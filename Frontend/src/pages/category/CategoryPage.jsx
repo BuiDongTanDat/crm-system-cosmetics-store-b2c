@@ -155,45 +155,50 @@ export default function CategoryPage() {
     };
 
     return (
-        <div className=" flex flex-col">
+        <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="border sticky top-[70px] z-20 flex justify-between gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-5"
+                className="border  z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md my-3 md:flex-row md:justify-between md:items-center"
                 style={{ backdropFilter: 'blur' }}
             >
                 {/* Header */}
-                <div className="flex items-center gap-3">
-                    <h1 className="text-xl font-bold text-gray-900">
+                <div className="flex items-center gap-2 mb-2 md:mb-0">
+                    <h1 className="text-lg font-bold text-gray-900 md:text-xl">
                         Quản lý Danh mục ({filteredCategories.length})
                     </h1>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative w-full md:w-auto">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input
                             type="text"
                             placeholder="Tìm kiếm danh mục..."
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-3 py-2 w-full md:w-56"
                         />
                     </div>
 
                     {/* Filter dropdown */}
-                    <div className="flex items-center">
+                    <div className="flex items-center w-full md:w-auto">
                         <DropdownOptions
                             options={FILTER_OPTIONS}
                             value={filterStatus}
                             onChange={handleFilterChange}
-                            width="w-36"
+                            width="w-full md:w-36"
                             placeholder="Trạng thái"
                         />
                     </div>
 
                     {/* Thêm Danh mục chỉ khi có quyền create */}
                     <PermissionGuard module="category" action="create">
-                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+                        <Button
+                            onClick={handleCreate}
+                            variant="actionCreate"
+                            className="gap-2 w-full md:w-auto"
+                        >
                             <Plus className="w-4 h-4" />
-                            Thêm Danh mục
+                            <span className="">Thêm Danh mục</span>
                         </Button>
                     </PermissionGuard>
                 </div>

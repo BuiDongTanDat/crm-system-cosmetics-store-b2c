@@ -14,3 +14,6 @@ export const updateRole = (role_name, payload) => request(`/roles/${role_name}`,
 
 // Xóa role theo role_name
 export const deleteRole = (role_name) => request(`/roles/${role_name}`, { method: 'DELETE' });
+
+//Lấy danh sách module và quyền
+export const getModules = () => request('/roles/modules', { method: 'GET' });

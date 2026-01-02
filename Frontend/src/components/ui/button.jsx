@@ -1,8 +1,8 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -21,30 +21,44 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
 
         // Thêm variant mới cho menu
-        menuItem: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-103 active:scale-95",
-        menuSubmenu: "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-103 active:scale-95",
-        subMenuItem: "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold  active:scale-95",
-        menuLanding: "w-full justify-start rounded-0 text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  active:scale-95",
+        menuItem:
+          "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  hover:scale-103 active:scale-95",
+        menuSubmenu:
+          "w-full justify-start text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white hover:scale-103 active:scale-95",
+        subMenuItem:
+          "w-full justify-between font-normal text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand data-[active=true]:font-semibold  active:scale-95",
+        menuLanding:
+          "w-full justify-start rounded-0 text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  active:scale-95",
 
         //Variant action button
         // Thêm variant mới cho action button
-        actionNormal: "active:bg-brand active:text-white bg-white hover:border-brand hover:text-brand transition-colors border border-white text-gray-700",
+        actionNormal:
+          "active:bg-brand active:text-white bg-white hover:border-brand hover:text-brand transition-colors border border-white text-gray-700",
 
         // CRUD Action Variants
         actionCreate: "bg-blue-600 text-white hover:bg-blue-700",
-        actionRead: "bg-brand/10   hover:bg-brand text-brand hover:text-brand-foreground",
-        actionUpdate: "bg-brand/10  active:bg-brand active:text-white hover:bg-brand text-brand hover:text-brand-foreground",
-        actionDelete: "bg-red-100 text-destructive hover:bg-red-500 hover:text-white",
+        actionRead:
+          "bg-brand/10   hover:bg-brand text-brand hover:text-brand-foreground",
+        actionUpdate:
+          "bg-brand/10  active:bg-brand active:text-white hover:bg-brand text-brand hover:text-brand-foreground",
+        actionDelete:
+          "bg-red-100 text-destructive hover:bg-red-500 hover:text-white",
 
-        actionMore: " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0",
+        actionMore:
+          " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0",
 
-        actionAI: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
-        actionDashboardDeepBlue: "rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
-        actionDashboardLightBlue: "rounded-md bg-gradient-to-r from-cyan-400 to-blue-400 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
-        
-        actionActivePage: "bg-white shadow text-accent-foreground dark:bg-accent/80 hover:bg-accent hover:shadow-md hover:text-accent-foreground dark:hover:bg-accent/90  active:scale-90",
-        actionHoverPage: "hover:bg-accent/90 hover:shadow hover:text-accent-foreground dark:hover:bg-accent/50 active:scale-95 active:dark:hover:bg-accent/90 "
-      
+        actionAI:
+          "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
+        actionDashboardDeepBlue:
+          "rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
+        actionDashboardLightBlue:
+          "rounded-md bg-gradient-to-r from-cyan-400 to-blue-400 px-6 py-3 text-white hover:translate-y-[-4px] hover:shadow-lg hover:scale-105 active:scale-95 transition-all",
+
+        actionActivePage:
+          "bg-white shadow text-accent-foreground dark:bg-accent/80 hover:bg-accent hover:shadow-md hover:text-accent-foreground dark:hover:bg-accent/90  active:scale-90",
+        actionHoverPage:
+          "hover:bg-accent/90 hover:shadow hover:text-accent-foreground dark:hover:bg-accent/50 active:scale-95 active:dark:hover:bg-accent/90 ",
+        actionStar: "bg-yellow-100 text-yellow-600 border border-yellow-300 hover:bg-yellow-200 hover:text-yellow-700",
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",
@@ -59,7 +73,7 @@ const buttonVariants = cva(
 
         // Size cho product
         productAction: "h-8 px-3 py-1 text-xs",
-        productCard: "w-full h-full p-4"
+        productCard: "w-full h-full p-4",
       },
     },
     defaultVariants: {
@@ -67,23 +81,18 @@ const buttonVariants = cva(
       size: "default",
     },
   }
-)
+);
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot : "button"
+function Button({ className, variant, size, asChild = false, ...props }) {
+  const Comp = asChild ? Slot : "button";
 
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props} />
+      {...props}
+    />
   );
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

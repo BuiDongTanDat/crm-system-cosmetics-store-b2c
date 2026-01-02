@@ -277,62 +277,63 @@ export default function EmployeePage() {
         <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="flex-col sticky top-[70px] z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
+                className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
                 style={{ backdropFilter: 'blur' }}
             >
-                <div className="flex justify-between">
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold text-gray-900">
+                {/* Header: */}
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Cụm trái: Tiêu đề */}
+                    <div className="flex items-center gap-2 mb-2 lg:mb-0">
+                        <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
                             Quản lý Nhân viên({filteredEmployees.length})
                         </h1>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm nhân viên..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10" // ensure search text doesn't overlap icon
-                            />
+                    {/* Cụm phải: Search, Filter, Thêm */}
+                    <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+                        <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+                            {/* Search */}
+                            <div className="relative w-full lg:w-56">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                    type="text"
+                                    placeholder="Tìm kiếm nhân viên..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 pr-3 py-2 w-full"
+                                />
+                            </div>
+                            {/* Filter row: Vai trò + Trạng thái */}
+                            <div className="flex flex-row gap-2 w-full lg:w-auto">
+                                <DropdownOptions
+                                    options={[
+                                        { value: "", label: "Tất cả vai trò" },
+                                        ...roles
+                                    ]}
+                                    value={filterRole}
+                                    onChange={setFilterRole}
+                                    width="w-full flex-1 md:w-auto"
+                                />
+                                <DropdownOptions
+                                    options={[
+                                        { value: "", label: "Tất cả trạng thái" },
+                                        { value: "active", label: "ACTIVE" },
+                                        { value: "inactive", label: "INACTIVE" }
+                                    ]}
+                                    value={filterStatus}
+                                    onChange={setFilterStatus}
+                                    width="w-full flex-1 md:w-50"
+                                />
+                            </div>
                         </div>
-
-                        {/* Add Employee */}
-                        <PermissionGuard module="user" action="create">
-                            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                                <Plus className="w-4 h-4" />
-                                Thêm Nhân viên
-                            </Button>
-                        </PermissionGuard>
+                        <div className="flex gap-2 w-full lg:w-auto">
+                            <PermissionGuard module="user" action="create">
+                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                                    <Plus className="w-4 h-4" />
+                                    Thêm Nhân viên
+                                </Button>
+                            </PermissionGuard>
+                        </div>
                     </div>
-                </div>
-                <div className="flex gap-3 items-center justify-end w-full">
-                    {/* Filter by Role */}
-                    <DropdownOptions
-                        options={[
-                            { value: "", label: "Tất cả vai trò" },
-                            ...roles
-                        ]}
-                        value={filterRole}
-                        onChange={setFilterRole}
-                        width="w-40"
-                    />
-
-                    {/* Filter by Status */}
-                    <DropdownOptions
-                        options={[
-                            { value: "", label: "Tất cả trạng thái" },
-                            { value: "active", label: "ACTIVE" },
-                            { value: "inactive", label: "INACTIVE" }
-                        ]}
-                        value={filterStatus}
-                        onChange={setFilterStatus}
-                        width="w-40"
-                    />
                 </div>
             </div>
 

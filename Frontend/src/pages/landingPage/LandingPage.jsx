@@ -1,10 +1,12 @@
 // LandingPage.jsx
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, PhoneCall } from "lucide-react";
-import IntroPage from "./IntroPage";
-import AllProductPage from "./AllProductPage";
+import { Menu, PhoneCall, ShoppingCart } from "lucide-react";
+import IntroPage from "./pages/IntroPage";
+import AllProductPage from "./pages/AllProductPage";
 import ContactModal from "./components/ContactModal";
+import CartPage from "./pages/CartPage";
+import { Input } from "@/components/ui/input";
 
 // Footer component
 const Footer = () => (
@@ -50,13 +52,14 @@ const Footer = () => (
             alert("Đã đăng ký nhận tin!");
           }}
         >
-          <input
+          <Input
+          variant="normal"
             type="email"
             required
             placeholder="Email của bạn"
             className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <Button type="submit">Đăng ký</Button>
+          <Button type="submit" variant ="actionCreate" >Đăng ký</Button>
         </form>
       </div>
     </div>
@@ -67,11 +70,12 @@ const Footer = () => (
 );
 
 const LandingPage = () => {
-  const [route, setRoute] = useState("intro"); // intro | products
+  const [route, setRoute] = useState("intro");
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactPrefill, setContactPrefill] = useState({}); // notes, productInterest
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
 
   const openContact = (prefill = {}) => {
     setContactPrefill(prefill);
@@ -89,14 +93,40 @@ const LandingPage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Hàm cập nhật số lượng giỏ hàng từ localStorage
+  const updateCartCount = () => {
+    try {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      setCartCount(cart.length);
+    } catch {
+      setCartCount(0);
+    }
+  };
+
+  // Lắng nghe sự kiện storage và cập nhật khi route/cart thay đổi
+  useEffect(() => {
+    updateCartCount();
+    const onStorage = (e) => {
+      if (e.key === "cart") updateCartCount();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  useEffect(() => {
+    updateCartCount();
+  }, [route]);
+
+
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-white to-blue-50">
+    <div className=" relative min-h-screen">
       {/* Header */}
       <header
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300
+        className={` px-3 fixed top-0 left-0 right-0 z-40 transition-all duration-300
   ${isScrolled ? "bg-white/90 backdrop-blur shadow-md" : "bg-transparent"}`}
       >
-        <div className="flex items-center justify-between px-6 py-3 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between px-3 py-3  mx-auto">
+          {/* px-6 -> px-3 để giảm padding */}
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => setRoute("intro")}
@@ -111,7 +141,7 @@ const LandingPage = () => {
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-gray-700">
             <button
               onClick={() => setRoute("intro")}
-              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95 ${
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${
                 route === "intro"
                   ? "text-blue-600 underline underline-offset-10"
                   : ""
@@ -121,7 +151,7 @@ const LandingPage = () => {
             </button>
             <button
               onClick={() => setRoute("products")}
-              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95 ${
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${
                 route === "products"
                   ? "text-blue-600 underline underline-offset-10"
                   : ""
@@ -131,10 +161,11 @@ const LandingPage = () => {
             </button>
             <button
               onClick={() => openContact()}
-              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95`}
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95 cursor-pointer `}
             >
               LIÊN HỆ
             </button>
+
           </nav>
 
           {/* Mobile Menu Button */}
@@ -148,13 +179,19 @@ const LandingPage = () => {
             </Button>
           </div>
 
-          {/* Desktop Contact Button */}
+          {/* Desktop Cart Button */}
           <Button
-            onClick={() => openContact()}
+            id = {"myCart"}
+            onClick={() => setRoute("cart")}
             variant="actionUpdate"
             className="hidden md:flex items-center gap-2"
           >
-            <PhoneCall size={16} /> Liên hệ ngay
+            <ShoppingCart size={16} /> Giỏ hàng
+            {cartCount >= 0 && (
+              <span className="ml-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-blue-500 bg-white rounded-full">
+                {cartCount}
+              </span>
+            )}
           </Button>
         </div>
 
@@ -190,6 +227,16 @@ const LandingPage = () => {
             >
               LIÊN HỆ
             </Button>
+            <Button
+              variant="menuLanding"
+              onClick={() => {
+                setRoute("cart");
+                setMobileMenuOpen(false);
+              }}
+              data-active={route === "cart"}
+            >
+              GIỎ HÀNG
+            </Button>
           </div>
         )}
       </header>
@@ -203,7 +250,14 @@ const LandingPage = () => {
           />
         )}
         {route === "products" && (
-          <AllProductPage onContact={(prefill) => openContact(prefill)} />
+          <AllProductPage
+            onContact={(prefill) => openContact(prefill)}
+            onCartChange={updateCartCount}
+          />
+        )}
+        {route === "like" && <LikePage />}
+        {route === "cart" && (
+          <CartPage onCartChange={updateCartCount} />
         )}
       </main>
 

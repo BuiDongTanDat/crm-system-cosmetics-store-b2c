@@ -20,6 +20,7 @@ const badgeVariants = cva(
               data-[state=active]:bg-white \
               data-[state=active]:text-white \
               data-[state=active]:shadow-sm",
+        status: "flex items-center gap-1.5 text-sm bg-transparent rounded-full border border-green-500 hover:transparent shadow-none ",
       },
     },
     defaultVariants: {

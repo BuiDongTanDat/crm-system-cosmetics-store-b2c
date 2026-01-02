@@ -3,6 +3,9 @@ const router = express.Router();
 const permissionRoute = require('../Middleware/permissionMiddleware');
 const RoleController = require('../Controller/RoleController');
 
+// Lấy danh sách module và quyền
+router.get('/modules', RoleController.getModules);
+
 router.get('/', permissionRoute('role', 'read'), RoleController.getAll);
 router.get('/:name', permissionRoute('role', 'read'), RoleController.getByName);
 router.post('/', permissionRoute('role', 'create'), RoleController.create);

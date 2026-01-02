@@ -11,6 +11,7 @@ import {
   createRole,
   updateRole,
   deleteRole,
+  getModules,
 } from "@/services/roles"; // Thêm dòng này
 import { formatDate, formatDateTime } from "@/utils/helper";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
@@ -18,47 +19,11 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
 
-// Danh sách phân quyền cho role
-const PERMISSIONS_LIST = [
-  {
-    name: "user",
-    create: true,
-    read: true,
-    update: true,
-    delete: true,
-  },
-  { name: "customer", create: true, read: true, update: true, delete: true },
-  { name: "role", create: true, read: true, update: true, delete: true },
-  { name: "lead", create: true, read: true, update: true, delete: true},
-  { name: "campaign", create: true, read: true, update: true, delete: true },
-  { name: "automation", create: true, read: true, update: true, delete: true },
-  { name: "order", create: true, read: true, update: true, delete: true },
-  {
-    name: "product",
-    create: true,
-    read: true,
-    update: true,
-    delete: true,
-    import: true,
-    export: true,
-  },
-  { name: "category", create: true, read: true, update: true, delete: true },
-  { name: "youtube", create: true}
-
-];
-
-// Tạo danh sách tất cả các hành động từ PERMISSIONS_LIST
-// Lấy ra các key trừ name, rồi loại trùng bằng Set
-const ALL_ACTION = Array.from(
-  new Set(
-    PERMISSIONS_LIST.flatMap((perm) =>
-      Object.keys(perm).filter((key) => key !== "name")
-    )
-  )
-);
 
 export default function RolePage() {
   const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [actions, setActions] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState({ open: false, mode: "view", role: null });
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -91,6 +56,8 @@ export default function RolePage() {
   const handlePrev = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const handlePageChange = (page) => setCurrentPage(page);
 
+
+
   // Fetch roles từ API
   const fetchRoles = async () => {
     try {
@@ -108,8 +75,22 @@ export default function RolePage() {
     }
   };
 
+  //Fetch module và permission
+  const fetchModulesAndPermissions = async () => {
+    try {
+      const res = await getModules();
+      const modules = res?.permissions;
+      const actionList = res?.actions;
+      setModules(modules);
+      setActions(actionList);
+    } catch (error) {
+      
+    }
+  }
+
   useEffect(() => {
     fetchRoles();
+    fetchModulesAndPermissions();
   }, []);
 
   // Handlers
@@ -193,10 +174,10 @@ export default function RolePage() {
     <div className=" flex flex-col">
       {/* Sticky header */}
       <div
-        className="sticky top-[70px] z-20 flex  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
+        className="my-3 z-20 flex  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
         style={{ backdropFilter: "blur" }}
       >
-        <div className="flex justify-between w-full">
+        <div className="flex md:justify-between w-full flex-col md:flex-row gap-3">
           {/* Header */}
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-gray-900">
@@ -204,9 +185,9 @@ export default function RolePage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row w-full md:w-auto items-center gap-3">
             {/* Search */}
-            <div className="relative">
+            <div className="relative w-full md:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 type="text"
@@ -221,7 +202,7 @@ export default function RolePage() {
               <Button
                 onClick={handleCreate}
                 variant="actionCreate"
-                className="gap-2"
+                className="gap-2 w-full md:w-auto"
               >
                 <Plus className="w-4 h-4" />
                 Thêm vai trò
@@ -232,7 +213,7 @@ export default function RolePage() {
       </div>
 
       {/* Scrollable content: table, pagination, dialog */}
-      <div className="flex-1  pt-4">
+      <div className="flex-1">
         {/* Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
           <div className="overflow-x-auto">
@@ -380,8 +361,8 @@ export default function RolePage() {
           onSave={handleSave}
           onDelete={handleDelete}
           maxWidth="sm:max-w-2xl"
-          permissionsList={PERMISSIONS_LIST}
-          actionsList={ALL_ACTION}
+          permissionsList={modules}
+          actionsList={actions}
           onCancel={closeModal}
         />
       </div>

@@ -1,58 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   BarChart3,
   TrendingUp,
   Users,
-  ShoppingCart,
-  Target,
-  MessageCircle,
   Star,
-  UserX
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import SimpleBarChart from '@/pages/report/charts/SimpleBarChart';
-import SimpleLineChart from '@/pages/report/charts/SimpleLineChart';
-import MetricCard from '@/pages/report/charts/MetricCard';
-import { reportData } from '@/lib/data';
+  UserX,
+  MessageCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import MetricCard from "@/pages/report/charts/MetricCard";
+import { reportData } from "@/lib/data";
+import ProductReport from "@/pages/report/components/ProductReport";
+import RevenueReport from "@/pages/report/components/RevenueReport";
+import LeadCustomerReport from "@/pages/report/components/LeadCustomerReport";
 
 export default function ReportPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [selectedTab, setSelectedTab] = useState('overview');
+  const [selectedTab, setSelectedTab] = useState("overview");
+  const [filters, setFilters] = useState({
+    from: "",
+    to: "",
+    status: "",
+    productType: "",
+    customerType: "",
+    campaignType: "",
+  });
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      minimumFractionDigits: 0
-    }).format(amount);
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  const handleExportExcel = () => {
+    alert("Xuất file Excel thành công!");
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col">
       {/* Sticky header */}
-      <div
-        className="sticky top-[70px] z-20 flex  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
-        style={{ backdropFilter: 'blur' }}
-      >
+      <div className="my-3 z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
         <div className="flex-col items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Báo cáo & Phân tích</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Báo cáo & Phân tích
+            </h1>
           </div>
-          {/* Tabs row */}
           <div className="flex gap-2 overflow-x-auto pt-2">
             {[
-              { id: 'overview', label: 'Tổng quan', icon: TrendingUp },
-              { id: 'sales', label: 'Doanh số', icon: ShoppingCart },
-              { id: 'csat_nps', label: 'CSAT / NPS', icon: Star },
-              { id: 'churn', label: 'Churn', icon: UserX },
-              { id: 'campaigns', label: 'Chiến dịch', icon: Target },
-              { id: 'interaction', label: 'Tương tác', icon: MessageCircle }
-            ].map(tab => {
+              {
+                id: "overview",
+                label: "Tổng quan",
+                icon: TrendingUp,
+              },
+              {
+                id: "product",
+                label: "Báo cáo Sản phẩm",
+                icon: BarChart3,
+              },
+              {
+                id: "revenue",
+                label: "Báo cáo Doanh thu",
+                icon: TrendingUp,
+              },
+              {
+                id: "customer_lead",
+                label: "Thống kê KH/Lead",
+                icon: Users,
+              },
+            ].map((tab) => {
               const Icon = tab.icon;
               return (
                 <Button
                   key={tab.id}
-                  variant={selectedTab === tab.id ? 'actionCreate' : 'actionNormal'}
+                  variant={
+                    selectedTab === tab.id ? "actionCreate" : "actionNormal"
+                  }
                   size="sm"
                   onClick={() => setSelectedTab(tab.id)}
                   className="flex items-center gap-1"
@@ -64,13 +84,74 @@ export default function ReportPage() {
             })}
           </div>
         </div>
-
-
       </div>
 
-      {/* Scrollable content: tab panels */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {selectedTab === 'overview' && (
+      {/* Bộ lọc cho các báo cáo chi tiết */}
+      {selectedTab !== "overview" && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-center mb-4">
+          <div>
+            <label className="text-sm text-gray-600 mr-2">Từ ngày:</label>
+            <input
+              type="date"
+              name="from"
+              value={filters.from}
+              onChange={handleFilterChange}
+              className="border rounded px-2 py-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-600 mr-2">Đến ngày:</label>
+            <input
+              type="date"
+              name="to"
+              value={filters.to}
+              onChange={handleFilterChange}
+              className="border rounded px-2 py-1"
+            />
+          </div>
+          {selectedTab === "product" && (
+            <div>
+              <label className="text-sm text-gray-600 mr-2">
+                Loại sản phẩm:
+              </label>
+              <select
+                name="productType"
+                value={filters.productType}
+                onChange={handleFilterChange}
+                className="border rounded px-2 py-1"
+              >
+                <option value="">Tất cả</option>
+                <option value="A">Sản phẩm A</option>
+                <option value="B">Sản phẩm B</option>
+              </select>
+            </div>
+          )}
+          {selectedTab === "customer_lead" && (
+            <div>
+              <label className="text-sm text-gray-600 mr-2">
+                Loại khách hàng:
+              </label>
+              <select
+                name="customerType"
+                value={filters.customerType}
+                onChange={handleFilterChange}
+                className="border rounded px-2 py-1"
+              >
+                <option value="">Tất cả</option>
+                <option value="customer">Khách hàng</option>
+                <option value="lead">Lead</option>
+              </select>
+            </div>
+          )}
+          <Button variant="actionNormal" size="sm" onClick={handleExportExcel}>
+            Xuất Excel
+          </Button>
+        </div>
+      )}
+
+      {/* Nội dung các tab */}
+      <div className="flex-1 p-6 space-y-6">
+        {selectedTab === "overview" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
@@ -103,186 +184,12 @@ export default function ReportPage() {
                 color="blue"
               />
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SimpleLineChart
-                data={reportData.salesByTime}
-                title="Xu hướng Doanh số theo Thời gian"
-                dataKey="sales"
-                nameKey="month"
-              />
-              <SimpleLineChart
-                data={reportData.churnData.prediction}
-                title="Dự đoán Tỷ lệ Rời bỏ"
-                dataKey="predicted"
-                nameKey="month"
-              />
-            </div>
           </>
         )}
-
-        {selectedTab === 'sales' && (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SimpleBarChart
-                data={reportData.salesByEmployee}
-                title="Doanh số theo Nhân viên"
-                dataKey="sales"
-                nameKey="name"
-                color="#3B82F6"
-              />
-              <SimpleBarChart
-                data={reportData.salesByProduct}
-                title="Doanh số theo Sản phẩm"
-                dataKey="sales"
-                nameKey="name"
-                color="#10B981"
-              />
-            </div>
-            <div className="mt-2">
-              <SimpleLineChart
-                data={reportData.salesByTime}
-                title="Xu hướng Doanh số (chi tiết theo thời gian)"
-                dataKey="sales"
-                nameKey="month"
-              />
-            </div>
-          </>)
-        }
-
-        {selectedTab === 'csat_nps' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Chi tiết CSAT theo Danh mục</h3>
-              <div className="space-y-4">
-                {reportData.csatData.breakdown.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">{item.category}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-4 h-4 ${star <= item.score ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-sm font-medium">{item.score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Phân bố NPS</h3>
-              <div className="space-y-4">
-                {reportData.npsData.segments.map((segment, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{segment.type}</span>
-                      <span className="text-sm text-gray-600">{segment.percentage}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${segment.type === 'Promoters' ? 'bg-green-500' :
-                          segment.type === 'Passives' ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                        style={{ width: `${segment.percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>)
-        }
-
-        {selectedTab === 'churn' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SimpleLineChart
-              data={reportData.churnData.prediction}
-              title="Dự đoán Tỷ lệ Rời bỏ theo Thời gian"
-              dataKey="predicted"
-              nameKey="month"
-            />
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Danh sách khách hàng có nguy cơ</h3>
-              <p className="text-sm text-gray-600">AI chỉ dẫn những khách hàng có dấu hiệu rời bỏ theo mô hình. (Danh sách mẫu)</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {(reportData.churnData?.atRiskCustomers || []).slice(0, 6).map((c, i) => (
-                  <li key={i} className="flex justify-between">
-                    <span>{c.name || `Khách hàng ${i + 1}`}</span>
-                    <span className="text-xs text-red-600 font-medium">{c.riskScore}%</span>
-                  </li>
-                ))}
-                {!reportData.churnData?.atRiskCustomers?.length && <li className="text-gray-500">Không có dữ liệu khách hàng mẫu</li>}
-              </ul>
-            </div>
-          </div>)
-        }
-
-        {selectedTab === 'campaigns' && (
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4">Hiệu quả Chiến dịch Marketing</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chiến dịch</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROI (%)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leads mới</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doanh thu</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chi phí</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {reportData.campaignPerformance.map((campaign, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{campaign.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${campaign.roi >= 200 ? 'bg-green-100 text-green-800' :
-                          campaign.roi >= 150 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                          }`}>{campaign.roi}%</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{campaign.leads.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(campaign.revenue)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(campaign.cost)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>)
-        }
-
-        {selectedTab === 'interaction' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SimpleBarChart
-              data={reportData.customerInteraction.frequency}
-              title="Tần suất tương tác theo Kênh"
-              dataKey="interactions"
-              nameKey="channel"
-              color="#8B5CF6"
-            />
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Chất lượng Tương tác</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Tỷ lệ giải quyết</span>
-                  <span className="text-lg font-semibold text-green-600">{reportData.customerInteraction.quality.resolutionRate}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Giải quyết lần đầu</span>
-                  <span className="text-lg font-semibold text-blue-600">{reportData.customerInteraction.quality.firstContactResolution}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Thời gian phản hồi TB</span>
-                  <span className="text-lg font-semibold text-orange-600">{reportData.customerInteraction.quality.responseTime}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {selectedTab === "product" && <ProductReport filters={filters} />}
+        {selectedTab === "revenue" && <RevenueReport />}
+        {selectedTab === "customer_lead" && (
+          <LeadCustomerReport filters={filters} />
         )}
       </div>
     </div>

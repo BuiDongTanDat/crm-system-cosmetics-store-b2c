@@ -24,7 +24,7 @@ import { getUserById, changePassword, updateUser, updateAvatar } from '@/service
 import AppDialog from '@/components/dialogs/AppDialog';
 import ChangePasswordForm from './components/ChangePasswordForm';
 import AvatarForm from './components/AvatarForm';
-
+import {getInitials} from '@/utils/helper';
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore(); // dùng user từ zustand
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
@@ -54,7 +54,7 @@ export default function ProfilePage() {
           email: res.email || '',
           phone: res.phone || '',
           role: res.role_name || '',
-          avatar: res.avatar_url || '/images/user/Tom.jpg',
+          avatar: res.avatar_url,
           bio: res.bio || '',
         });
       } catch (err) {
@@ -66,7 +66,7 @@ export default function ProfilePage() {
     };
 
     fetchUser();
-  }, [user]);
+  }, []);
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -90,31 +90,23 @@ export default function ProfilePage() {
       toast.success('Thông tin đã được cập nhật thành công!');
       setMode('view');
 
-      setUser((prev) => ({
-        ...prev,
-        name: updatedUser.full_name ?? updatedUser.name ?? prev?.name,
-        email: updatedUser.email ?? prev?.email,
-        avatar:
-          updatedUser.avatar_url ?? updatedUser.avatar ?? prev?.avatar,
-        role: updatedUser.role_name ?? updatedUser.role ?? prev?.role,
-        user_id:
-          updatedUser.user_id ??
-          updatedUser.id ??
-          prev?.user_id ??
-          prev?.id,
-        id:
-          updatedUser.id ??
-          updatedUser.user_id ??
-          prev?.id ??
-          prev?.user_id,
-      }));
+      setUser({
+        ...user,
+        name: updatedUser.full_name ?? updatedUser.name ?? user?.name,
+        email: updatedUser.email ?? user?.email,
+        avatar: updatedUser.avatar_url ?? updatedUser.avatar ?? user?.avatar,
+        role: updatedUser.role_name ?? updatedUser.role ?? user?.role,
+        user_id: updatedUser.user_id ?? updatedUser.id ?? user?.user_id ?? user?.id,
+        id: updatedUser.id ?? updatedUser.user_id ?? user?.id ?? user?.user_id,
+        // add/override other fields
+      });
 
       setForm({
         fullName: updatedUser.full_name || '',
         email: updatedUser.email || '',
         phone: updatedUser.phone || '',
         role: updatedUser.role_name || '',
-        avatar: updatedUser.avatar_url || '/images/user/Tom.jpg',
+        avatar: updatedUser.avatar_url,
         bio: updatedUser.bio || '',
       });
     } catch (error) {
@@ -168,9 +160,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="p-0">
+    <div className="p-0 min-h-screen">
       {/* Header */}
-      <div className="flex-col sticky top-[70px] z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
+      <div className="flex-col my-3 z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Thông tin cá nhân</h1>
           <p className="text-gray-600">Quản lý thông tin tài khoản của bạn</p>

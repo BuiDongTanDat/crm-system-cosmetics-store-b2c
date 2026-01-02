@@ -119,6 +119,52 @@ class RoleService {
         }
         return await this.roleRepository.deleteRole(roleName);
     }
+
+    async getModules() {
+        // Danh sách phân quyền cho role
+        const PERMISSIONS_LIST = [
+            {
+                name: "user",
+                create: true,
+                read: true,
+                update: true,
+                delete: true,
+            },
+            { name: "customer", create: true, read: true, update: true, delete: true },
+            { name: "role", create: true, read: true, update: true, delete: true },
+            { name: "lead", create: true, read: true, update: true, delete: true },
+            { name: "campaign", create: true, read: true, update: true, delete: true },
+            { name: "automation", create: true, read: true, update: true, delete: true },
+            { name: "order", create: true, read: true, update: true, delete: true },
+            {
+                name: "product",
+                create: true,
+                read: true,
+                update: true,
+                delete: true,
+                import: true,
+                export: true,
+            },
+            { name: "category", create: true, read: true, update: true, delete: true },
+            { name: "youtube", create: true }
+
+        ];
+
+        // Tạo danh sách tất cả các hành động từ PERMISSIONS_LIST
+        // Lấy ra các key trừ name, rồi loại trùng bằng Set
+        const ALL_ACTION = Array.from(
+            new Set(
+                PERMISSIONS_LIST.flatMap((perm) =>
+                    Object.keys(perm).filter((key) => key !== "name")
+                )
+            )
+        );
+
+        return {
+            permissions: PERMISSIONS_LIST,
+            actions: ALL_ACTION,
+        }
+    }
 }
 
-module.exports = RoleService;
+module.exports = new RoleService();

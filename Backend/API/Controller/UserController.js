@@ -1,7 +1,7 @@
 const UserService = require('../../Application/Services/UserService');
 const userService = new UserService();
 const RoleService = require('../../Application/Services/RoleService');
-const roleService = new RoleService();
+
 class UserController {
   static async getAll(req, res) {
     try {
@@ -75,7 +75,7 @@ class UserController {
   static async authMe(req, res) {
     try {
       const user = req.user; // Đã được gán trong middleware
-      const permissions = user.role_name ? await roleService.getPermissionsByRoleName(user.role_name) : [];
+      const permissions = user.role_name ? await RoleService.getPermissionsByRoleName(user.role_name) : [];
       res.status(200).json({
         user, 
         permissions
