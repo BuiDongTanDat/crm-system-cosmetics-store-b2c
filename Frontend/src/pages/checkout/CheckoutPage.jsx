@@ -31,8 +31,8 @@ const PAYMENT_LABELS = {
   cash_on_delivery: "Thanh toán khi nhận hàng",
 };
 
-const SHIPPING_COST = 65000;
-const COUPON_DISCOUNT = 65000;
+const SHIPPING_COST = 0;
+const COUPON_DISCOUNT = 0;
 
 export default function CheckoutPage() {
   const params = new URLSearchParams(location.search);
@@ -106,7 +106,7 @@ export default function CheckoutPage() {
     localItems?.reduce((sum, item) => sum + item.price_unit * item.quantity, 0) ||
     0;
 
-  const totalPayable = subtotal + SHIPPING_COST - discount;
+  const totalPayable = subtotal - discount;
 
   const handlePlaceOrder = async () => {
     if (!orderId) {
@@ -141,7 +141,7 @@ export default function CheckoutPage() {
       await updateOrderStatus(orderId, {
         status: "paid",
         payment_method: paymentMethod,
-        // total_amount: totalPayable, // bật nếu backend cần
+        total_amount: totalPayable, // bật nếu backend cần
         // currency: order.currency || "VND",
       });
 
@@ -160,7 +160,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="flex flex-col min-h-screen ">
-      <div className="flex flex-col lg:flex-row max-w-6xl mx-auto w-full gap-2 py-8 px-2">
+      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-2 py-8 px-2">
         {/* Cart */}
         <div className="flex-2 bg-white rounded-xl shadow p-6">
           <h2 className="text-2xl font-semibold mb-4 flex gap-2">
@@ -219,12 +219,20 @@ export default function CheckoutPage() {
 
               {/* Product Table */}
               <div className="overflow-x-auto">
-                <table className="w-full mb-4">
+                <table className="w-full mb-4 table-fixed">
+                  <colgroup>
+                    <col className="w-[35%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[15%]" />
+                  </colgroup>
                   <thead>
                     <tr className="text-left text-gray-500 text-sm border-b">
                       <th className="py-2">Sản phẩm</th>
                       <th className="py-2 text-right">Giá gốc</th>
-                      <th className="py-2 text-right">Chiết khấu</th>
+                      <th className="py-2 text-right">CK</th>
                       <th className="py-2 text-right">Giá</th>
                       <th className="py-2 text-center">Số lượng</th>
                       <th className="py-2 text-right">Thành tiền</th>
@@ -234,52 +242,51 @@ export default function CheckoutPage() {
                     {(localItems || []).map((item, idx) => (
                       <tr
                         key={item.order_detail_id}
-                        className="border-b align-top"
+                        className="border-b"
                       >
-                        <td className="py-3 flex items-center gap-3">
-                          <img
-                            src={item.image || "/default-product-image.png"}
-                            alt=""
-                            className="w-10 h-10 rounded object-cover border"
-                          />
-                          <div>
-                            <div className="font-medium text-sm">
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={item.image || "/default-product-image.png"}
+                              alt=""
+                              className="w-10 h-10 rounded object-cover border flex-shrink-0"
+                            />
+                            <div className="font-medium text-sm line-clamp-2 overflow-hidden">
                               {item.product_name}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 font-semibold text-sm text-right">
+                        <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {formatCurrency(item.price_original)}
                         </td>
-                        <td className="py-3 font-semibold text-sm text-right">
+                        <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {(item.discount || 0) * 100}%
                         </td>
-                        <td className="py-3 font-semibold text-sm text-right">
+                        <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {formatCurrency(item.price_unit)}
                         </td>
-                        <td className="py-3 text-center">
-                          <div className="flex items-center gap-2 justify-center">
+                        <td className="py-3">
+                          <div className="flex items-center gap-1 justify-center">
                             <Button
                               size="icon"
                               variant="outline"
-                              className="w-8 h-8"
+                              className="w-7 h-7 flex-shrink-0"
                               onClick={() => handleQuantity(idx, -1)}
                             >
                               -
                             </Button>
-                            <span className="px-2">{item.quantity}</span>
+                            <span className="px-1 min-w-[24px] text-center">{item.quantity}</span>
                             <Button
                               size="icon"
                               variant="outline"
-                              className="w-8 h-8"
+                              className="w-7 h-7 flex-shrink-0"
                               onClick={() => handleQuantity(idx, 1)}
                             >
                               +
                             </Button>
                           </div>
                         </td>
-
-                        <td className="py-3 font-semibold text-sm text-right">
+                        <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {formatCurrency(
                             item.price_unit *
                             item.quantity *
