@@ -1,5 +1,4 @@
-import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/store/useAuthStore";
 import { PermissionService } from "@/utils/PermissionService";
 
@@ -10,6 +9,12 @@ export default function NavigateGuard({ module, children }) {
   // 1. Đợi fetchMe xong
   if (loading) return null; // hoặc spinner
 
+  const isOAuthCallback = useSearchParams("youtube_auth");
+
+  // Nếu là OAuth callback, bỏ qua kiểm tra permission để xử lý callback
+  if (isOAuthCallback) {
+    return children;
+  }
   // 2. Không có quyền nào trong module
   const hasAccess = PermissionService.hasAnyPermission(permissions, module);
 

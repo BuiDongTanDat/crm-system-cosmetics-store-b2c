@@ -10,7 +10,7 @@ import { getCustomers } from "@/services/customers";
 import { getAllleads, getPipelineMetrics } from "@/services/leads";
 import { UserX, Users, Star, TrendingUp } from "lucide-react";
 import MetricCard from "@/pages/report/charts/MetricCard";
-import { formatCurrency } from "@/utils/helper";
+import { formatCurrency, formatDate } from "@/utils/helper";
 import LeadStatusChart from "@/pages/dashboard/components/lead-status-chart";
 
 const chartConfig = {
@@ -249,10 +249,9 @@ export default function LeadCustomerReport() {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold">Thống kê Khách hàng & Lead</h2>
+    <div className="space-y-4">
       {/* Thống kê tổng quan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4  gap-4">
         <MetricCard
           title="Tổng khách hàng"
           value={stats.totalCustomers}
@@ -286,7 +285,7 @@ export default function LeadCustomerReport() {
       </div>
 
       {/* Pie chart khách hàng vs lead + Pie chart loại khách hàng */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
         {/* Card: Khách hàng / Lead */}
         <Card className="flex flex-row items-stretch">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
@@ -473,7 +472,7 @@ export default function LeadCustomerReport() {
       </div>
 
       {/* Pie chart nguồn khách hàng & giới tính */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
         {/* Card: Nguồn khách hàng */}
         <Card className="flex flex-row items-stretch">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
@@ -727,7 +726,7 @@ export default function LeadCustomerReport() {
                 <td className="px-2 py-2 text-left">{item.type}</td>
                 <td className="px-2 py-2 text-left">{item.email}</td>
                 <td className="px-2 py-2 text-left">{item.phone}</td>
-                <td className="px-2 py-2 text-left">{item.created_at ? String(item.created_at).slice(0, 10) : "--"}</td>
+                <td className="px-2 py-2 text-left">{item.created_at ? formatDate(item.created_at): "--"}</td>
               </tr>
             ))}
             {customers.length + leads.length === 0 && (

@@ -6,16 +6,30 @@ import {
   Star,
   UserX,
   MessageCircle,
+  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import CalendarRangePicker from "@/components/common/calendar-range-picker";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 import MetricCard from "@/pages/report/charts/MetricCard";
 import { reportData } from "@/lib/data";
 import ProductReport from "@/pages/report/components/ProductReport";
 import RevenueReport from "@/pages/report/components/RevenueReport";
 import LeadCustomerReport from "@/pages/report/components/LeadCustomerReport";
+import DropdownOptions from "@/components/common/DropdownOptions";
 
 export default function ReportPage() {
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [dateRange, setDateRange] = useState({
+    from: undefined,
+    to: undefined,
+  });
   const [filters, setFilters] = useState({
     from: "",
     to: "",
@@ -27,6 +41,16 @@ export default function ReportPage() {
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
+    // Update filters with formatted dates
+    setFilters({
+      ...filters,
+      from: range?.from ? range.from.toISOString().split('T')[0] : "",
+      to: range?.to ? range.to.toISOString().split('T')[0] : "",
+    });
   };
 
   const handleExportExcel = () => {
@@ -88,69 +112,76 @@ export default function ReportPage() {
 
       {/* Bộ lọc cho các báo cáo chi tiết */}
       {selectedTab !== "overview" && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-center mb-4">
-          <div>
-            <label className="text-sm text-gray-600 mr-2">Từ ngày:</label>
-            <input
-              type="date"
-              name="from"
-              value={filters.from}
-              onChange={handleFilterChange}
-              className="border rounded px-2 py-1"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-600 mr-2">Đến ngày:</label>
-            <input
-              type="date"
-              name="to"
-              value={filters.to}
-              onChange={handleFilterChange}
-              className="border rounded px-2 py-1"
-            />
+        <div className="justify-between items-center bg-white p-4 rounded-lg border border-gray-200 flex flex-wrap gap-4 mb-4">
+          <div className="flex gap-3">
+            <div className="flex flex-col gap-1">
+            {/* <label className="text-sm text-gray-600">Chọn khoảng thời gian:</label> */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-auto justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "dd/MM/yyyy", { locale: vi })} -{" "}
+                        {format(dateRange.to, "dd/MM/yyyy", { locale: vi })}
+                      </>
+                    ) : (
+                      format(dateRange.from, "dd/MM/yyyy", { locale: vi })
+                    )
+                  ) : (
+                    <span>Chọn khoảng thời gian</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarRangePicker
+                  value={dateRange}
+                  onChange={handleDateRangeChange}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           {selectedTab === "product" && (
-            <div>
-              <label className="text-sm text-gray-600 mr-2">
-                Loại sản phẩm:
-              </label>
-              <select
-                name="productType"
-                value={filters.productType}
-                onChange={handleFilterChange}
-                className="border rounded px-2 py-1"
-              >
-                <option value="">Tất cả</option>
-                <option value="A">Sản phẩm A</option>
-                <option value="B">Sản phẩm B</option>
-              </select>
-            </div>
+            <DropdownOptions
+              label="Loại sản phẩm"
+              name="productType"
+              options={[
+                { value: "", label: "Tất cả" },
+                { value: "physical", label: "Vật lý" },
+                { value: "digital", label: "Kỹ thuật số" },
+              ]}
+              value={filters.productType}
+              onChange={handleFilterChange}
+              width="w-auto"
+            />
           )}
           {selectedTab === "customer_lead" && (
-            <div>
-              <label className="text-sm text-gray-600 mr-2">
-                Loại khách hàng:
-              </label>
-              <select
-                name="customerType"
-                value={filters.customerType}
-                onChange={handleFilterChange}
-                className="border rounded px-2 py-1"
-              >
-                <option value="">Tất cả</option>
-                <option value="customer">Khách hàng</option>
-                <option value="lead">Lead</option>
-              </select>
-            </div>
+           <DropdownOptions
+              label="Loại khách hàng"
+              name="customerType"
+              options={[
+                { value: "", label: "Loại khách hàng" },
+                { value: "new", label: "Mới" },
+                { value: "returning", label: "Quay lại" },
+              ]}
+              value={filters.customerType}
+              onChange={handleFilterChange}
+              width="w-auto"
+            />
           )}
-          <Button variant="actionNormal" size="sm" onClick={handleExportExcel}>
+          </div>
+          <Button variant="actionUpdate" size="sm" onClick={handleExportExcel}>
             Xuất Excel
           </Button>
         </div>
       )}
 
       {/* Nội dung các tab */}
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 space-y-6">
         {selectedTab === "overview" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

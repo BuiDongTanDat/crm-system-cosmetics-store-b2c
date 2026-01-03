@@ -10,6 +10,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { formatDate } from "@/utils/helper";
+import { data } from "react-router";
 
 const STATUS_LABELS = {
   AVAILABLE: "Còn hàng",
@@ -40,6 +42,7 @@ export default function ProductReport({ filters }) {
     setLoading(true);
     getProducts().then((res) => {
       let data = Array.isArray(res) ? res : res?.data || [];
+      console.log("Fetched products:", data);
       setProducts(data);
       setLoading(false);
     });
@@ -155,9 +158,9 @@ export default function ProductReport({ filters }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Thống kê tổng quan sản phẩm */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Tổng số sản phẩm"
           value={stats.total}
@@ -184,7 +187,7 @@ export default function ProductReport({ filters }) {
         />
       </div>
       {/* Pie chart trạng thái & Pie chart danh mục */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
         {/* Pie trạng thái */}
         <div className="flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
@@ -401,17 +404,14 @@ export default function ProductReport({ filters }) {
                 Tồn kho
               </th>
               <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                Ngày nhập
-              </th>
-              <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                Ngày xuất
+                Ngày tạo
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {stats.products.map((p, idx) => (
               <tr key={idx}>
-                <td className="px-2 py-2 text-left">{p.name}</td>
+                <td className="px-2 py-2 text-left line-clamp-2 max-w-sm">{p.name}</td>
                 <td className="px-2 py-2 text-left">{p.category}</td>
                 <td className="px-2 py-2 text-center">
                   <span
@@ -428,10 +428,7 @@ export default function ProductReport({ filters }) {
                 </td>
                 <td className="px-2 py-2 text-center">{p.inventory_qty}</td>
                 <td className="px-2 py-2 text-center">
-                  {p.import_date || "--"}
-                </td>
-                <td className="px-2 py-2 text-center">
-                  {p.export_date || "--"}
+                  {formatDate(p.created_at) || "--"}
                 </td>
               </tr>
             ))}

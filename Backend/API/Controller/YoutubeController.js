@@ -1,6 +1,6 @@
 const youtubeService = require("../../Infrastructure/Stream/YoutubeService.js");
 require('dotenv').config();
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 // local pinned message store
 let pinnedMessage = null;
 
@@ -24,6 +24,7 @@ class YoutubeController {
     }
   }
 
+
   static async callback(req, res) {
     try {
       const code = req.query.code;
@@ -31,27 +32,30 @@ class YoutubeController {
 
       await youtubeService.getTokensWithCode(code);
 
-      const returnTo = req.query.state || req.query.returnTo;
-      if (returnTo) {
-        // Nếu returnTo là đường dẫn (bắt đầu bằng /), ghép với FRONTEND_URL
-        if (returnTo.startsWith("/")) {
-          return res.redirect(FRONTEND_URL + returnTo);
-        }
-        // Nếu returnTo là URL đầy đủ, redirect luôn
-        return res.redirect(returnTo);
-      }
-      // Fallback về FRONTEND_URL/streams
-      return res.redirect(FRONTEND_URL + "/streams");
+      // Google sẽ gửi lại tham số state (nếu có) trong redirect
+      const returnTo = req.query.state || req.query.returnTo || '/streams';
+
+      // Redirect về FRONTEND với query param success
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const redirectUrl = `${frontendUrl}${returnTo}?youtube_auth=success`;
+
+      console.log(`[YouTube Callback] Redirecting to: ${redirectUrl}`);
+      return res.redirect(redirectUrl);
     } catch (err) {
-      console.error(err);
-      return res.redirect(FRONTEND_URL + "/streams?error=oauth");
+      console.error('[YouTube Callback] Error:', err);
+
+      // Redirect về frontend với error
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorUrl = `${frontendUrl}/streams?youtube_auth=error&message=${encodeURIComponent(err.message)}`;
+      return res.redirect(errorUrl);
     }
   }
+
   static async checkStatus(req, res) {
     try {
       const creds = youtubeService?.auth?.credentials || {};
       console.log("YouTube credentials:", creds);
-      const authenticated = !!(creds.refresh_token || creds.access_token);
+      const authenticated = ! !(creds.refresh_token || creds.access_token);
 
       res.json({ authenticated });
     } catch (err) {

@@ -56,7 +56,7 @@ export default function AppDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
         aria-describedby={undefined}
-        // CHANGED: set fixed height + flex column so child with h-full can scroll
+        //  set fixed height + flex column so child with h-full can scroll
         className={`${maxWidth} w-full  p-0 overflow-hidden flex flex-col
         animate-in fade-in-80 zoom-in-95 duration-300`}
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -66,7 +66,7 @@ export default function AppDialog({
 
           <DialogClose asChild onClick={onClose}>
             <button
-              className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:text-gray-800 
+              className="cursor-pointer absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:text-gray-800 
               hover:bg-gray-100 transition-colors duration-150"
               aria-label="Đóng"
             >

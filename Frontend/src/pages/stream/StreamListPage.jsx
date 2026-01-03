@@ -190,6 +190,8 @@ export default function StreamListPage() {
     setModal({ open: false, mode: "view", campaign: null });
   };
 
+  
+
   return (
     <div className="flex flex-col">
       {/* Sticky header: responsive layout, giống các trang khác */}

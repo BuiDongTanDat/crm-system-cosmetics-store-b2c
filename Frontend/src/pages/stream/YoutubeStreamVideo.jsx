@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +28,29 @@ export default function YoutubeStreamVideo() {
   const location = useLocation();
   const navigate = useNavigate();
   const campaignFromState = location.state?.campaign;
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  useEffect(() => {
+        const youtubeAuth = searchParams.get('youtube_auth');
+        
+        if (youtubeAuth === 'success') {
+            toast.success('Đăng nhập YouTube thành công!');
+            // Remove query param - use replace to avoid extra history entry
+            const newSearchParams = new URLSearchParams(searchParams);
+            newSearchParams.delete('youtube_auth');
+            setSearchParams(newSearchParams, { replace: true });
+            
+            // Optionally:  auto-trigger upload or prepare
+            // handleUploadOnly();
+        } else if (youtubeAuth === 'error') {
+            const message = searchParams.get('message') || 'Đăng nhập YouTube thất bại';
+            toast.error(message);
+            const newSearchParams = new URLSearchParams(searchParams);
+            newSearchParams.delete('youtube_auth');
+            newSearchParams.delete('message');
+            setSearchParams(newSearchParams, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
   //Đổi mới campaign state logic to handle Promise case
   const [campaign, setCampaign] = useState(() => {
