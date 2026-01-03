@@ -42,7 +42,7 @@ const getKPIObject = (expectedKPI) => {
     return null;
 };
 
-export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge }) {
+export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge, extraActions }) {
     const [hoveredCard, setHoveredCard] = useState(false);
 
     // safe helpers
@@ -193,6 +193,7 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                             <Trash2 className="w-4 h-4" />
                         </Button>
                     </ConfirmDialog>
+                    {extraActions && extraActions}
                 </div>
             )}
         </div>

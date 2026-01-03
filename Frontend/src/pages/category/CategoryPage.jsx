@@ -9,6 +9,7 @@ import { getCategories, getCategory, createCategory, updateCategory, deleteCateg
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function CategoryPage() {
     const [categories, setCategories] = useState([]);
@@ -75,7 +76,7 @@ export default function CategoryPage() {
 
     const handleView = (category) => setModal({ open: true, mode: "view", category });
     const handleEdit = (category) => setModal({ open: true, mode: "edit", category });
-    const handleCreate = () => setModal({ open: true, mode: "edit", category: null });
+    const handleCreate = () => setModal({ open: true, mode: "create", category: null });
     const closeModal = () => setModal({ open: false, mode: "view", category: null });
     const handleSave = async (categoryData) => {
         console.log("Saving categoryData:", categoryData);
@@ -154,46 +155,52 @@ export default function CategoryPage() {
     };
 
     return (
-        <div className=" flex flex-col">
+        <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="border sticky top-[70px] z-20 flex justify-between gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-5"
+                className="border  z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md my-3 md:flex-row md:justify-between md:items-center"
                 style={{ backdropFilter: 'blur' }}
             >
                 {/* Header */}
-                <div className="flex items-center gap-3">
-                    <h1 className="text-xl font-bold text-gray-900">
+                <div className="flex items-center gap-2 mb-2 md:mb-0">
+                    <h1 className="text-lg font-bold text-gray-900 md:text-xl">
                         Quản lý Danh mục ({filteredCategories.length})
                     </h1>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative w-full md:w-auto">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input
                             type="text"
                             placeholder="Tìm kiếm danh mục..."
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-3 py-2 w-full md:w-56"
                         />
                     </div>
 
                     {/* Filter dropdown */}
-                    <div className="flex items-center">
+                    <div className="flex items-center w-full md:w-auto">
                         <DropdownOptions
                             options={FILTER_OPTIONS}
                             value={filterStatus}
                             onChange={handleFilterChange}
-                            width="w-36"
+                            width="w-full md:w-36"
                             placeholder="Trạng thái"
                         />
                     </div>
 
-                    <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Thêm Danh mục
-                    </Button>
-
-
+                    {/* Thêm Danh mục chỉ khi có quyền create */}
+                    <PermissionGuard module="category" action="create">
+                        <Button
+                            onClick={handleCreate}
+                            variant="actionCreate"
+                            className="gap-2 w-full md:w-auto"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span className="">Thêm Danh mục</span>
+                        </Button>
+                    </PermissionGuard>
                 </div>
             </div>
 
@@ -228,44 +235,51 @@ export default function CategoryPage() {
                                     </td>
                                     <td className="px-6 py-2 text-center w-36">
                                         <div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredRow === (category.category_id || category.id) ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
-                                            <Button
-                                                variant="actionRead"
-                                                size="icon"
-                                                onClick={() => handleView(category)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                variant="actionUpdate"
-                                                size="icon"
-                                                onClick={() => handleEdit(category)}
-                                                className="h-8 w-8"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            {/* <ConfirmDialog
-                                                title="Xác nhận xóa"
-                                                description={
-                                                    <>
-                                                        Bạn có chắc chắn muốn xóa danh mục{" "}
-                                                        <span className="font-semibold text-black">{category.name}</span>?
-                                                    </>
-                                                }
-                                                confirmText="Xóa"
-                                                cancelText="Hủy"
-                                                onConfirm={() => handleDelete(category.category_id)}
-                                            >
+                                            {/* Xem chi tiết chỉ khi có quyền read */}
+                                            <PermissionGuard module="category" action="read">
                                                 <Button
-                                                    variant="actionDelete"
+                                                    variant="actionRead"
                                                     size="icon"
+                                                    onClick={() => handleView(category)}
                                                     className="h-8 w-8"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Eye className="w-4 h-4" />
                                                 </Button>
-
-                                            </ConfirmDialog> */}
-
+                                            </PermissionGuard>
+                                            {/* Chỉnh sửa chỉ khi có quyền update */}
+                                            <PermissionGuard module="category" action="update">
+                                                <Button
+                                                    variant="actionUpdate"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(category)}
+                                                    className="h-8 w-8"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                            </PermissionGuard>
+                                            {/* Xóa chỉ khi có quyền delete */}
+                                            {/* <PermissionGuard module="category" action="delete">
+                                                <ConfirmDialog
+                                                    title="Xác nhận xóa"
+                                                    description={
+                                                        <>
+                                                            Bạn có chắc chắn muốn xóa danh mục{" "}
+                                                            <span className="font-semibold text-black">{category.name}</span>?
+                                                        </>
+                                                    }
+                                                    confirmText="Xóa"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => handleDelete(category.category_id)}
+                                                >
+                                                    <Button
+                                                        variant="actionDelete"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </ConfirmDialog>
+                                            </PermissionGuard> */}
                                         </div>
                                     </td>
                                 </tr>
@@ -290,23 +304,26 @@ export default function CategoryPage() {
                 handlePrev={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             />
 
-            <AppDialog
-                open={modal.open}
-                onClose={closeModal}
-                title={{
-                    view: `Chi tiết danh mục - ${modal.category?.name || ""}`,
-                    edit: modal.category
-                        ? `Chỉnh sửa danh mục - ${modal.category.name}`
-                        : "Thêm danh mục mới",
-                }}
-                mode={modal.mode}
-                FormComponent={CategoryForm}
-                data={modal.category}
-                onSave={handleSave}
-                onDelete={handleDelete}
-                maxWidth="sm:max-w-xl"
-            />
-
+            {/* AppDialog chỉ cho phép tạo, sửa, xóa nếu có quyền tương ứng */}
+            <PermissionGuard module="category" action={modal.mode === "create" ? "create" : modal.mode === "edit" ? "update" : "read"}>
+                <AppDialog
+                    open={modal.open}
+                    onClose={closeModal}
+                    title={{
+                        view: `Chi tiết danh mục`,
+                        edit: modal.category
+                            ? `Chỉnh sửa danh mục`
+                            : "Thêm danh mục mới",
+                        create: "Thêm danh mục mới",
+                    }}
+                    mode={modal.mode}
+                    FormComponent={CategoryForm}
+                    data={modal.category}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    maxWidth="sm:max-w-xl"
+                />
+            </PermissionGuard>
         </div>
     );
 }

@@ -242,7 +242,7 @@ export default function YoutubeStreamVideo() {
     return (
         <div className="max-h-screen flex flex-col">
             {/* Sticky header */}
-            <div className="flex-col sticky top-[70px] z-20 flex gap-1 px-3 py-3 bg-brand/10 backdrop-blur-lg rounded-md">
+            <div className="flex-col my-3 z-20 flex gap-1 px-3 py-3 bg-brand/10 backdrop-blur-lg rounded-md">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         {/* Back button: ask confirmation when there's an upload/stream in progress */}
@@ -284,11 +284,11 @@ export default function YoutubeStreamVideo() {
 
             </div>
 
-            {/* Main body with two-column layout */}
+            {/* Main body with responsive layout */}
             <div className="flex-1 pt-4 px-0">
-                <div className="grid grid-cols-12 gap-4">
-                    {/* Left: Preview + metadata moved under preview */}
-                    <div className="col-span-7 bg-white rounded-lg shadow p-4 relative">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    {/* Left: Preview + metadata */}
+                    <div className="lg:col-span-7 col-span-1 bg-white rounded-lg shadow p-4 relative">
                         <div className="mb-2 flex justify-between items-center">
                             <div>
                                 <div className="text-sm font-medium">Video / Preview</div>
@@ -350,7 +350,7 @@ export default function YoutubeStreamVideo() {
                         </div>
 
                         <div className="w-full rounded overflow-hidden relative mt-3">
-                            <div className="w-full h-[320px] bg-white border-2 border-dashed border-gray-200 flex items-center justify-center relative overflow-hidden rounded">
+                            <div className="w-full h-[220px] sm:h-[320px] bg-white border-2 border-dashed border-gray-200 flex items-center justify-center relative overflow-hidden rounded">
                                 {/* If watch URL present embed, else show placeholder / local preview */}
                                 {watchUrlState ? (
                                     (() => {
@@ -400,8 +400,8 @@ export default function YoutubeStreamVideo() {
                     </div>
 
                     {/* Right: Quick actions + chat + local feed */}
-                    <div className="col-span-5 flex flex-col gap-4 ">
-                        <div className="w-full flex justify-center gap-1 bg-red-100 p-2  rounded-md">
+                    <div className="lg:col-span-5 col-span-1 flex flex-col gap-4">
+                        <div className="w-full flex flex-col sm:flex-row justify-center gap-1 bg-red-100 p-2 rounded-md">
                             <Button
                                 onClick={async () => {
                                     try {
@@ -461,8 +461,7 @@ export default function YoutubeStreamVideo() {
                                 Mở Studio
                             </Button>
                         </div>
-
-                        <div className="bg-white rounded-lg shadow p-4 flex-1 flex flex-col">
+                        <div className="bg-white rounded-lg shadow p-4 flex-1 flex flex-col min-h-[200px]">
                             <div className="grid gap-2 flex-1">
                                 {watchUrlState ? (
                                     (() => {

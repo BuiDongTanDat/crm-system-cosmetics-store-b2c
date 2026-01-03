@@ -61,7 +61,12 @@ app.use('/auth', authRoutes);
 app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
 app.use('/stream', StreamingRoutes);
 
-// app.use(protectedRoute);
+// Vì cần api checkout public nên router này để ở ngoài
+//Các route private sẽ được xử lý bên trong OrderRoute luôn
+app.use('/orders', OrderRoutes);
+
+
+app.use(protectedRoute); // Áp dụng middleware bảo vệ từ đây trở xuống
 
 app.use('/users', userRoutes);
 app.use('/automation', flowRoutes);

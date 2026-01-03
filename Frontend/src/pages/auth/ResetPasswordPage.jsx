@@ -112,88 +112,101 @@ export default function ResetPasswordPage() {
                     backgroundImage: 'url("/images/background/bg.jpg")',
                 }}
             />
-            <div className="relative z-10 w-full max-w-md">
-                <Card className="shadow-lg border-0 bg-card/95 backdrop-blur-sm">
-                    <CardHeader className="space-y-1 text-center">
-                        <div className="flex items-center justify-center mb-2">
-                            <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
+            <div className="relative z-10 w-full max-w-2xl">
+                <Card className=" animate-fade-in transition duration-200  shadow-lg border-0 bg-card/95 backdrop-blur-sm overflow-hidden">
+                    <CardContent className="grid p-0 md:grid-cols-2">
+                        {/* Left image (only on md+) */}
+                        <div className="bg-white relative hidden md:block">
+                            <img
+                                src="/images/background/reset.png"
+                                alt="Image"
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover w-full h-auto"
+                            />
                         </div>
-                        <CardTitle className="text-2xl font-bold text-foreground">
-                            Đặt lại mật khẩu
-                        </CardTitle>
-                        <CardDescription className="text-muted-foreground">
-                            Nhập mật khẩu mới của bạn
-                        </CardDescription>
-                    </CardHeader>
-
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-foreground">Mật khẩu mới</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        type={showPasswords.new ? 'text' : 'password'}
-                                        placeholder="Nhập mật khẩu mới"
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        className="pl-10 pr-10"
-                                        disabled={isLoading}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleShowPassword('new')}
-                                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-                                        disabled={isLoading}
-                                    >
-                                        {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
+                        {/* Form */}
+                        <div className="flex flex-col justify-center">
+                            <CardHeader className="space-y-1 text-center">
+                                <div className="flex items-center justify-center mb-2">
+                                    <img src="/images/logo/Logo.svg" alt="LuBoo" className="h-10 w-10" />
                                 </div>
-                            </div>
+                                <CardTitle className="text-2xl font-bold text-foreground">
+                                    Đặt lại mật khẩu
+                                </CardTitle>
+                                <CardDescription className="text-muted-foreground">
+                                    Nhập mật khẩu mới của bạn
+                                </CardDescription>
+                            </CardHeader>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-foreground">Xác nhận mật khẩu</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        type={showPasswords.confirm ? 'text' : 'password'}
-                                        placeholder="Xác nhận mật khẩu mới"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="pl-10 pr-10"
-                                        disabled={isLoading}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleShowPassword('confirm')}
-                                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-                                        disabled={isLoading}
-                                    >
-                                        {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Mật khẩu phải có ít nhất 8 ký tự.
-                                </p>
-                            </div>
+                            <CardContent>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground">Mật khẩu mới</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type={showPasswords.new ? 'text' : 'password'}
+                                                placeholder="Nhập mật khẩu mới"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                className="pl-10 pr-10"
+                                                disabled={isLoading}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleShowPassword('new')}
+                                                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                                                disabled={isLoading}
+                                            >
+                                                {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            <Button 
-                            variant = "actionCreate"
-                            type="submit" 
-                            className="w-full" disabled={isLoading}>
-                                {isLoading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
-                            </Button>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground">Xác nhận mật khẩu</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type={showPasswords.confirm ? 'text' : 'password'}
+                                                placeholder="Xác nhận mật khẩu mới"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                className="pl-10 pr-10"
+                                                disabled={isLoading}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleShowPassword('confirm')}
+                                                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                                                disabled={isLoading}
+                                            >
+                                                {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Mật khẩu phải có ít nhất 8 ký tự.
+                                        </p>
+                                    </div>
 
-                            <div className="text-center">
-                                <Link
-                                    to="/auth/login"
-                                    className="inline-flex items-center text-sm text-primary hover:text-primary/80 transition-colors"
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-1" />
-                                    Quay lại đăng nhập
-                                </Link>
-                            </div>
-                        </form>
+                                    <Button 
+                                    variant = "actionCreate"
+                                    type="submit" 
+                                    className="w-full" disabled={isLoading}>
+                                        {isLoading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
+                                    </Button>
+
+                                    <div className="text-center">
+                                        <Link
+                                            to="/auth/login"
+                                            className="inline-flex items-center text-sm text-primary hover:text-primary/80 transition-colors"
+                                        >
+                                            <ArrowLeft className="h-4 w-4 mr-1" />
+                                            Quay lại đăng nhập
+                                        </Link>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

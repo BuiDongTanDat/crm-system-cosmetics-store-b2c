@@ -17,6 +17,7 @@ import DropdownOptions from '@/components/common/DropdownOptions'; // same compo
 import { ChevronDown } from "lucide-react";
 import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 import { Input } from "@/components/ui/input";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
@@ -45,55 +46,51 @@ export default function OrderPage() {
     // Danh sách trạng thái đơn hàng bind từ status_labels
     const ORDER_STATUSES_LIST = Object.keys(STATUS_LABELS);
 
-    // Load Customer + Orders + Products and enrich orders with customer full_name & product info
     useEffect(() => {
-        let mounted = true;
-        Promise.all([getCustomers(), getOrders(), getProducts()])
-            .then(([custRes, ordersRes, productsRes]) => {
-                if (!mounted) return;
-                const custList = custRes?.data || custRes || [];
-                setCustomers(custList);
+  let mounted = true;
 
-                const map = Object.fromEntries(
-                    (custList || []).map(c => [c.customer_id, c.full_name || ""])
-                );
+  Promise.all([ getOrders(), getProducts()])
+    .then(([ordersRes, productsRes]) => {
+      if (!mounted) return;
 
-                const prods = productsRes?.data || productsRes || [];
-                setProducts(prods);
-                const productMap = Object.fromEntries(
-                    (prods || []).map(p => [p.product_id || p.id, p])
-                );
+      const ordersList = Array.isArray(ordersRes)
+        ? ordersRes
+        : ordersRes?.data || [];
 
-                const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
-                const enriched = (ordersList || []).map(o => ({
-                    ...o,
-                    customer_name: map[o.customer_id] || o.customer_name || o.customer_id,
-                    items: (o.items || []).map(it => {
-                        const prod = productMap[it.product_id];
-                        // normalize discount to decimal (0..1). Accept backend returning decimal or percent.
-                        let rawDisc = it.discount ?? it.discount_percent ?? prod?.discount_percent ?? prod?.discount ?? 0;
-                        let disc = Number(rawDisc) || 0;
-                        if (disc > 1) disc = disc / 100;
-                        return {
-                            ...it,
-                            product_name: it.product_name || prod?.name || "",
-                            price: it.price || it.price_unit || prod?.price_current || 0,
-                            discount: disc
-                        };
-                    })
-                }));
-                setOrders(enriched);
-            })
-            .catch((err) => {
-                console.error("Lỗi khi lấy dữ liệu orders/customers:", err);
-                if (!mounted) {
-                    return;
-                }
-                setCustomers([]);
-                setOrders([]);
-            });
-        return () => { mounted = false; };
-    }, []);
+      const products = productsRes?.data || productsRes || [];
+      setProducts(products);
+
+      const productMap = Object.fromEntries(
+        products.map(p => [p.product_id || p.id, p])
+      );
+
+      const enrichedOrders = ordersList.map(o => ({
+        ...o,
+        customer_name: o.customer_name || o.customer_id, // dùng trực tiếp
+        items: (o.items || []).map(it => {
+          const prod = productMap[it.product_id];
+          let disc = Number(it.discount ?? it.discount_percent ?? 0);
+          if (disc > 1) disc = disc / 100;
+
+          return {
+            ...it,
+            product_name: it.product_name || prod?.name || '',
+            price: it.price_unit || prod?.price_current || 0,
+            discount: disc,
+          };
+        }),
+      }));
+
+      setOrders(enrichedOrders);
+    })
+    .catch(err => {
+      console.error('Load orders failed:', err);
+      setOrders([]);
+    });
+
+  return () => { mounted = false; };
+}, []);
+
 
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: "view", order: null });
@@ -144,7 +141,7 @@ export default function OrderPage() {
     // CRUD handlers
     const handleView = (order) => setModal({ open: true, mode: "view", order });
     const handleEdit = (order) => setModal({ open: true, mode: "edit", order });
-    const handleCreate = () => setModal({ open: true, mode: "edit", order: null });
+    const handleCreate = () => setModal({ open: true, mode: "create", order: null });
     const closeModal = () => setModal({ open: false, mode: "view", order: null });
     const isOnlyStatusUpdate = (originalOrder, payload) => {
         if (!originalOrder?.order_id || !payload?.order_id) return false;
@@ -358,31 +355,72 @@ export default function OrderPage() {
     return (
         <div className=" flex flex-col">
             {/* Sticky header*/}
-            <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-                <div className="flex justify-between w-full mb-2">
-                    <h1 className="text-xl font-bold mb-2">
-                        Danh sách đơn hàng ({filteredOrders.length})
-                    </h1>
-                    {/* Search + Actions Row */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-end gap-3 mb-2">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm đơn hàng..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+            <div
+                className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
+                style={{ backdropFilter: "blur" }}
+            >
+                {/* Header: */}
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Cụm trái: Tiêu đề */}
+                    <div className="flex items-center gap-2 mb-2 lg:mb-0">
+                        <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
+                            Danh sách đơn hàng ({filteredOrders.length})
+                        </h1>
+                    </div>
+                    {/* Cụm phải: Search, Filter, Thêm, Import/Export */}
+                    <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+                        <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+                            {/* Search */}
+                            <div className="relative w-full lg:w-56">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                    type="text"
+                                    placeholder="Tìm kiếm đơn hàng..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 pr-3 py-2 w-full"
+                                />
+                            </div>
+                            {/* Filter row: Trạng thái + Khách hàng */}
+                            <div className="flex flex-row gap-2 w-full lg:w-auto">
+                                <DropdownOptions
+                                    options={[
+                                        { value: '', label: 'Tất cả trạng thái' },
+                                        ...ORDER_STATUSES_LIST.map(s => ({ value: s, label: STATUS_LABELS[s] || String(s).toUpperCase() }))
+                                    ]}
+                                    value={selectedStatus || ''}
+                                    onChange={(val) => setSelectedStatus(val || null)}
+                                    width="w-full flex-1 lg:w-auto "
+                                    placeholder="Trạng thái"
+                                />
+                                <DropdownWithSearch
+                                    items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
+                                    itemKey={(c) => c.customer_id || c.id}
+                                    renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
+                                    filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
+                                    onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
+                                    placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                                    searchPlaceholder="Tìm kiếm khách hàng..."
+                                    contentClassName="max-h-64 overflow-y-auto"
+                                >
+                                    <div className="h-9 lg:w-auto flex flex-1 items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                                        <div className="text-sm truncate">
+                                            {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                </DropdownWithSearch>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 self-end md:self-auto">
-                            <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                                <Plus className="w-4 h-4" />
-                                Thêm Đơn hàng
-                            </Button>
-
+                        <div className="flex gap-2 w-full lg:w-auto">
+                            <PermissionGuard module="order" action="create">
+                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                                    <Plus className="w-4 h-4" />
+                                    <span className="">Thêm Đơn hàng</span>
+                                </Button>
+                            </PermissionGuard>
                             {/* Import/Export Dropdown */}
-                            <ImportExportDropdown
+                            {/* <ImportExportDropdown
                                 data={orders}
                                 filename="orders"
                                 fieldMapping={orderFieldMapping}
@@ -390,53 +428,15 @@ export default function OrderPage() {
                                 onImportError={handleImportError}
                                 trigger="icon"
                                 variant="actionNormal"
-                            />
+                                className="w-10 h-10 shrink"
+                            /> */}
                         </div>
-                    </div>
-
-
-                </div>
-
-                {/* Filters row */}
-                <div className="flex items-center justify-between gap-3 mt-2 w-full">
-                    <div /> {/* left placeholder to mirror product page layout */}
-                    <div className="flex items-center gap-3">
-                        {/* Status dropdown */}
-                        <DropdownOptions
-                            options={[
-                                { value: '', label: 'Tất cả trạng thái' },
-                                ...ORDER_STATUSES_LIST.map(s => ({ value: s, label: STATUS_LABELS[s] || String(s).toUpperCase() }))
-                            ]}
-                            value={selectedStatus || ''}
-                            onChange={(val) => setSelectedStatus(val || null)}
-                            width="w-48"
-                            placeholder="Trạng thái"
-                        />
-
-                        {/* Customer dropdown with search (custom) */}
-                        <DropdownWithSearch
-                            items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
-                            itemKey={(c) => c.customer_id || c.id}
-                            renderItem={(c) => (c.full_name || c.fullName || c.name || c.customer_id)}
-                            filterFn={(c, s) => (c.full_name || c.fullName || c.name || c.customer_id || '').toString().toLowerCase().includes((s || '').toLowerCase())}
-                            onSelect={(c) => { setSelectedCustomer((c?.customer_id || c?.id) === '' ? '' : (c?.customer_id || c?.id)); setCurrentPage(1); }}
-                            placeholder={selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                            searchPlaceholder="Tìm kiếm khách hàng..."
-                            contentClassName="max-h-64 overflow-y-auto"
-                        >
-                            <div className="w-56 flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                                <div className="text-sm truncate">
-                                    {selectedCustomer ? (customers.find(c => (c.customer_id || c.id) === selectedCustomer)?.full_name || selectedCustomer) : 'Tất cả khách hàng'}
-                                </div>
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
-                            </div>
-                        </DropdownWithSearch>
                     </div>
                 </div>
             </div>
 
             {/* Scrollable content: */}
-            <div className="flex-1 p-0 mt-4">
+            <div className="flex-1 p-0 ">
                 {/* Table */}
                 <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
                     <div className="w-full">
@@ -493,37 +493,43 @@ export default function OrderPage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleView(order)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionUpdate"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(order)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.order_id}</span>?</>}
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(order.order_id)}
-                                                >
+                                                <PermissionGuard module="order" action="read">
                                                     <Button
-                                                        variant="actionDelete"
+                                                        variant="actionRead"
                                                         size="icon"
+                                                        onClick={() => handleView(order)}
                                                         className="h-8 w-8"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Eye className="w-4 h-4" />
                                                     </Button>
-                                                </ConfirmDialog>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="order" action="update">
+                                                    <Button
+                                                        variant="actionUpdate"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(order)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="order" action="delete">
+                                                    <ConfirmDialog
+                                                        title="Xác nhận xóa"
+                                                        description={<>Bạn có chắc chắn muốn xóa đơn hàng <span className="font-semibold">{order.order_id}</span>?</>}
+                                                        confirmText="Xóa"
+                                                        cancelText="Hủy"
+                                                        onConfirm={() => handleDelete(order.order_id)}
+                                                    >
+                                                        <Button
+                                                            variant="actionDelete"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </ConfirmDialog>
+                                                </PermissionGuard>
                                             </div>
                                         </td>
                                     </tr>
@@ -531,7 +537,7 @@ export default function OrderPage() {
                                 {/* Trạng thái rỗng */}
                                 {currentOrders.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có Đơn hàng</td>
+                                        <td colSpan={6} className="text-center py-8 text-gray-500">Không có Đơn hàng</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -549,34 +555,43 @@ export default function OrderPage() {
                 />
 
                 {/* Dialog */}
-                <AppDialog
-                    open={modal.open}
-                    onClose={closeModal}
-                    title={{
-                        view: `Chi tiết đơn hàng #${modal.order?.order_id || ''}`,
-                        edit: modal.order ? `Chỉnh sửa đơn hàng #${modal.order.order_id}` : 'Thêm đơn hàng mới'
-                    }}
-                    mode={modal.mode}
-                    FormComponent={OrderForm}
-                    data={modal.order}
-                    onSave={handleSave}
-                    onDelete={handleDelete}
-                    // pass label maps for UI-only display to the form
-                    paymentLabels={PAYMENT_LABELS}
-                    statusLabels={STATUS_LABELS}
-                    maxWidth="sm:max-w-5xl"
-                    //  pass custom setMode so that when the form sets mode="view"
-                    // while creating a NEW order (modal.order === null), we CLOSE the dialog.
-                    setMode={(m) =>
-                        setModal((prev) => {
-                            if (m === "view" && prev.order == null) {
-                                // close modal when cancelling a new order form
-                                return { open: false, mode: "view", order: null };
-                            }
-                            return { ...prev, mode: m };
-                        })
+                <PermissionGuard
+                    module="order"
+                    action={
+                        modal.mode === "create"
+                            ? "create"
+                            : modal.mode === "edit"
+                            ? "update"
+                            : "read"
                     }
-                />
+                >
+                    <AppDialog
+                        open={modal.open}
+                        onClose={closeModal}
+                        title={{
+                            view: `Chi tiết đơn hàng`,
+                            edit: `Chỉnh sửa đơn hàng `,
+                            create: "Tạo đơn hàng mới",
+                        }}
+                        mode={modal.mode}
+                        FormComponent={OrderForm}
+                        data={modal.order}
+                        onSave={handleSave}
+                        onDelete={handleDelete}
+                        paymentLabels={PAYMENT_LABELS}
+                        statusLabels={STATUS_LABELS}
+                        maxWidth="sm:max-w-5xl"
+                        setMode={(m) =>
+                            setModal((prev) => {
+                                if (m === "view" && prev.order == null) {
+                                    // close modal when cancelling a new order form
+                                    return { open: false, mode: "view", order: null };
+                                }
+                                return { ...prev, mode: m };
+                            })
+                        }
+                    />
+                </PermissionGuard>
             </div>
         </div>
     );

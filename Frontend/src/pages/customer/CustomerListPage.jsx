@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "@/services/customers";
 import { Input } from "@/components/ui/input";
 import DropdownOptions from "@/components/common/DropdownOptions"; // <-- added
+import PermissionGuard from "@/components/auth/PermissionGuard"; // <-- add this line
 
 export default function CustomerListPage() {
 
@@ -119,7 +120,7 @@ export default function CustomerListPage() {
 
     // Customer type options for dropdown (includes empty = all)
     const CUSTOMER_TYPE_OPTIONS = [
-        { value: "", label: "Tất cả KH" },
+        { value: "", label: "Tất cả Khách hàng" },
         ...Object.values(CustomerTypes).map((t) => ({ value: t, label: t })),
     ];
 
@@ -205,7 +206,7 @@ export default function CustomerListPage() {
     // Handlers
     const handleView = (customer) => setModal({ open: true, mode: 'view', customer });
     const handleEdit = (customer) => setModal({ open: true, mode: 'edit', customer });
-    const handleCreate = () => setModal({ open: true, mode: 'edit', customer: null });
+    const handleCreate = () => setModal({ open: true, mode: 'create', customer: null });
     const closeModal = () => setModal({ open: false, mode: 'view', customer: null, showHistory: false });
 
     const handleViewHistory = (customer) => setModal({ open: true, mode: 'view', customer, showHistory: true });
@@ -301,52 +302,49 @@ export default function CustomerListPage() {
         <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="sticky top-[70px] z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
+                className=" z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md my-3 md:flex-row md:justify-between md:items-center"
                 style={{ backdropFilter: 'blur' }}
             >
-                <div className="flex justify-between w-full">
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold text-gray-900">
-                            {loading ? "Đang tải khách hàng..." : `Quản lý Khách hàng (${filteredCustomers.length})`}
-                        </h1>
-                        {loadError && <span className="text-sm text-red-600"> • {loadError}</span>}
+                <div className="flex items-center gap-2 mb-2 md:mb-0">
+                    <h1 className="text-lg font-bold text-gray-900 md:text-xl">
+                        {loading ? "Đang tải khách hàng..." : `Quản lý Khách hàng (${filteredCustomers.length})`}
+                    </h1>
+                    {loadError && <span className="text-sm text-red-600"> • {loadError}</span>}
+                </div>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                    {/* Search */}
+                    <div className="relative w-full md:w-auto">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                            type="text"
+                            placeholder="Tìm kiếm khách hàng..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-3 py-2 w-full md:w-56"
+                        />
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm khách hàng..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Filter by Customer Type */}
+                    {/* Filter by Customer Type */}
+                    <div className="flex items-center w-full md:w-auto">
                         <DropdownOptions
                             options={CUSTOMER_TYPE_OPTIONS}
                             value={filterType}
                             onChange={setFilterType}
-                            width="w-44"
+                            width="w-full md:w-44"
                             placeholder="Phân loại KH"
                         />
-
-
-                        {/* Add Customer */}
-                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Thêm KH
-                        </Button>
-
                     </div>
+                    {/* Add Customer */}
+                    <PermissionGuard module="customer" action="create">
+                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2 w-full md:w-auto">
+                            <Plus className="w-4 h-4" />
+                            <span className="">Thêm Khách hàng</span>
+                        </Button>
+                    </PermissionGuard>
                 </div>
             </div>
 
             {/* Scrollable content: table, pagination, dialog */}
-            <div className="flex-1 pt-4 ">
+            <div className="flex-1">
                 {/* Table */}
                 <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
                     <div className="overflow-x-auto">
@@ -396,46 +394,52 @@ export default function CustomerListPage() {
                                                     : "opacity-0 translate-y-1 pointer-events-none"
                                                     }`}
                                             >
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleViewHistory(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <History className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionRead"
-                                                    size="icon"
-                                                    onClick={() => handleView(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="actionUpdate"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(customer)}
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={
-                                                        <>
-                                                            Bạn có chắc chắn muốn xóa khách hàng{" "}
-                                                            <span className="font-semibold text-black">{customer.name}</span>?
-                                                        </>
-                                                    }
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(customer.id)}
-                                                >
-                                                    <Button variant="actionDelete" size="icon" className="h-8 w-8">
-                                                        <Trash2 className="w-4 h-4" />
+                                                <PermissionGuard module="customer" action="read">
+                                                    <Button
+                                                        variant="actionRead"
+                                                        size="icon"
+                                                        onClick={() => handleViewHistory(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <History className="w-4 h-4" />
                                                     </Button>
-                                                </ConfirmDialog>
+                                                    <Button
+                                                        variant="actionRead"
+                                                        size="icon"
+                                                        onClick={() => handleView(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="customer" action="update">
+                                                    <Button
+                                                        variant="actionUpdate"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(customer)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                <PermissionGuard module="customer" action="delete">
+                                                    <ConfirmDialog
+                                                        title="Xác nhận xóa"
+                                                        description={
+                                                            <>
+                                                                Bạn có chắc chắn muốn xóa khách hàng{" "}
+                                                                <span className="font-semibold text-black">{customer.name}</span>?
+                                                            </>
+                                                        }
+                                                        confirmText="Xóa"
+                                                        cancelText="Hủy"
+                                                        onConfirm={() => handleDelete(customer.id)}
+                                                    >
+                                                        <Button variant="actionDelete" size="icon" className="h-8 w-8">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </ConfirmDialog>
+                                                </PermissionGuard>
                                             </div>
                                         </td>
                                     </tr>
@@ -467,13 +471,15 @@ export default function CustomerListPage() {
                     onClose={closeModal}
                     title={{
                         view: 'Chi tiết khách hàng',
-                        edit: modal.customer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'
+                        edit: 'Chỉnh sửa khách hàng',
+                        create: 'Thêm khách hàng mới'
                     }}
                     mode={modal.mode}
                     FormComponent={CustomerForm}
                     data={modal.customer}
                     onSave={handleSave}
                     onDelete={handleDelete}
+                    onCancel={closeModal}
                     showHistory={modal.showHistory}
                     onBackFromHistory={handleBackFromHistory}
                     onShowHistoryChange={handleShowHistoryChange}

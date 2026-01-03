@@ -81,7 +81,7 @@ export default function OpportunitiesPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Sticky top: header + action buttons + stats */}
-      <div className=" sticky top-[70px] flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+      <div className="  flex-col items-center justify-between z-20  gap-3 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
         <div className="flex items-center justify-between mb-4">
           {/* Header */}
           <div className="flex items-center gap-3">

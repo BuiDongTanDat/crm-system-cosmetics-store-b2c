@@ -290,6 +290,12 @@ class OrderService {
 			// Fetch updated order and details after commit
 			const updatedOrder = await OrderRepo.findById(orderId);
 			const details = await OrderDetailService.getByOrderId(orderId);
+
+			// Lấy customer name
+			const res = await customerRepository.findById(updatedOrder.customer_id);
+			if (res) {
+				updatedOrder.customer_name = res.full_name;
+			}
 			return OrderResponseDTO.fromEntity(updatedOrder, details);
 		}
 		catch (err) {

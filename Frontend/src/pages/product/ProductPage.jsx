@@ -1,41 +1,83 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, Filter, List, Square, Upload, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import ProductCard from '@/pages/product/components/ProductCard';
-import AppDialog from '@/components/dialogs/AppDialog';
-import ProductForm from '@/pages/product/components/ProductForm';
-import AppPagination from '@/components/pagination/AppPagination';
-import DropdownOptions from '@/components/common/DropdownOptions';
-import ImportExportDropdown from '@/components/common/ImportExportDropdown';
-import { getCategories } from '@/services/categories';
-import { deleteProduct, getProduct, getProducts, createProduct, updateProduct, importProductsCSV, exportProductsCSV } from '@/services/products';
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
-import { toast } from 'sonner';
-import SuccessDialog from '@/components/dialogs/SuccessDialog';
-import { Input } from '@/components/ui/input';
-import { formatCurrency } from '@/utils/helper';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Filter,
+  List,
+  Square,
+  Upload,
+  Download,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import ProductCard from "@/pages/product/components/ProductCard";
+import AppDialog from "@/components/dialogs/AppDialog";
+import ProductForm from "@/pages/product/components/ProductForm";
+import AppPagination from "@/components/pagination/AppPagination";
+import DropdownOptions from "@/components/common/DropdownOptions";
+import ImportExportDropdown from "@/components/common/ImportExportDropdown";
+import { getCategories } from "@/services/categories";
+import {
+  deleteProduct,
+  getProduct,
+  getProducts,
+  createProduct,
+  updateProduct,
+  importProductsCSV,
+  exportProductsCSV,
+} from "@/services/products";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
+import SuccessDialog from "@/components/dialogs/SuccessDialog";
+import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/utils/helper";
+import PermissionGuard from "@/components/auth/PermissionGuard";
+import { PermissionService } from "@/utils/PermissionService";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [categoryOptions, setCategoryOptions] = useState([]);
-  const [modal, setModal] = useState({ open: false, mode: 'view', product: null });
+  const [modal, setModal] = useState({
+    open: false,
+    mode: "view",
+    product: null,
+  });
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState('card');
+  const [viewMode, setViewMode] = useState("card");
   const [hoveredRow, setHoveredRow] = useState(null);
-  const [successDialog, setSuccessDialog] = useState({ open: false, title: '', message: null });
+  const [successDialog, setSuccessDialog] = useState({
+    open: false,
+    title: "",
+    message: null,
+  });
   const productsPerPage = 8;
   const fileInputRef = useRef(null);
 
-
   const STATUS_FILTER_OPTIONS = [
-    { value: 'all', label: 'Trạng thái' },
-    { value: 'AVAILABLE', label: 'Còn hàng' },
-    { value: 'OUT_OF_STOCK', label: 'Hết hàng' },
-    { value: 'DISCONTINUED', label: 'Đã ngừng' },
+    { value: "all", label: "Trạng thái" },
+    { value: "AVAILABLE", label: "Còn hàng" },
+    { value: "OUT_OF_STOCK", label: "Hết hàng" },
+    { value: "DISCONTINUED", label: "Đã ngừng" },
   ];
+
+  // Check render option
+  const permissions = useAuthStore((s) => s.permissions);
+  const canImport = PermissionService.hasPermission(
+    permissions,
+    "product",
+    "import"
+  );
+  const canExport = PermissionService.hasPermission(
+    permissions,
+    "product",
+    "export"
+  );
 
   //Lấy danh sách sản phẩm (simplified: use API response directly, no mapping)
   const fetchProducts = async () => {
@@ -52,8 +94,8 @@ export default function ProductPage() {
       setProducts(data);
       return data;
     } catch (err) {
-      console.error('Fetch error:', err);
-      toast.error('Lỗi kết nối server.');
+      console.error("Fetch error:", err);
+      toast.error("Lỗi kết nối server.");
       return [];
     }
   };
@@ -64,9 +106,9 @@ export default function ProductPage() {
       let res = await getCategories();
       if (!res.ok) return;
 
-      const active = res.data.filter((c) => c && String(c.status) === 'ACTIVE');
+      const active = res.data.filter((c) => c && String(c.status) === "ACTIVE");
       const opts = [
-        { value: 'all', label: 'Danh mục' },
+        { value: "all", label: "Danh mục" },
         ...active.map((c) => ({
           value: c.name ?? String(c.category_id),
           label: c.name ?? String(c.category_id),
@@ -74,39 +116,39 @@ export default function ProductPage() {
       ];
       setCategoryOptions(opts);
     } catch (err) {
-      console.error('Failed to load category filter options:', err);
+      console.error("Failed to load category filter options:", err);
     }
   };
-
 
   useEffect(() => {
     fetchProducts();
     fetchCategoriesForFilter();
   }, []);
 
-
   // CRUD handlers
-  const openAdd = () => setModal({ open: true, mode: 'add', product: null });
-  const openEdit = (p) => setModal({ open: true, mode: 'edit', product: p });
-  const openView = (p) => setModal({ open: true, mode: 'view', product: p });
-  const closeModal = () => setModal({ open: false, mode: 'view', product: null });
+  const openAdd = () => setModal({ open: true, mode: "add", product: null });
+  const openEdit = (p) => setModal({ open: true, mode: "edit", product: p });
+  const openView = (p) => setModal({ open: true, mode: "view", product: p });
+  const closeModal = () =>
+    setModal({ open: false, mode: "view", product: null });
 
   const handleSave = async (prod) => {
     try {
       let savedItem;
-      if (modal.mode === 'add') {
+      if (modal.mode === "add") {
         // Tạo mới
         const res = await createProduct(prod);
         if (res && (res.ok || res.product_id || res.data)) {
           // Lấy lại sản phẩm vừa tạo (nếu API trả về)
           savedItem = res.data || res;
           // Nếu không có product_id thì lấy lại từ API (nếu cần)
-          if (!savedItem.product_id && savedItem.id) savedItem.product_id = savedItem.id;
+          if (!savedItem.product_id && savedItem.id)
+            savedItem.product_id = savedItem.id;
           setProducts((prev) => [savedItem, ...prev]);
           closeModal();
-          toast.success('Thêm sản phẩm thành công!');
+          toast.success("Thêm sản phẩm thành công!");
         }
-      } else if (modal.mode === 'edit' && modal.product) {
+      } else if (modal.mode === "edit" && modal.product) {
         // Cập nhật
         const id = modal.product.product_id || prod.product_id;
         await updateProduct(id, prod);
@@ -121,13 +163,13 @@ export default function ProductPage() {
           }
           return prev;
         });
-        setModal({ open: true, mode: 'view', product: savedItem });
-        toast.success('Cập nhật sản phẩm thành công!');
+        setModal({ open: true, mode: "view", product: savedItem });
+        toast.success("Cập nhật sản phẩm thành công!");
       }
     } catch (err) {
-      console.error('Save error:', err);
+      console.error("Save error:", err);
       // show detailed backend error if available
-      const msg = err?.message || 'Lỗi khi lưu sản phẩm!';
+      const msg = err?.message || "Lỗi khi lưu sản phẩm!";
       toast.error(String(msg));
     }
   };
@@ -136,35 +178,46 @@ export default function ProductPage() {
     try {
       await deleteProduct(id);
       setProducts((prev) => {
-        const updatedProducts = prev.filter((p) => (p.product_id || p.id) !== id);
+        const updatedProducts = prev.filter(
+          (p) => (p.product_id || p.id) !== id
+        );
         // Sau khi xóa, kiểm tra nếu trang hiện tại không còn sản phẩm nào thì chuyển về trang trước đó
         const startIdx = (currentPage - 1) * productsPerPage;
         const endIdx = startIdx + productsPerPage;
-        if (updatedProducts.slice(startIdx, endIdx).length === 0 && currentPage > 1) {
+        if (
+          updatedProducts.slice(startIdx, endIdx).length === 0 &&
+          currentPage > 1
+        ) {
           setCurrentPage((p) => p - 1); // trở về trang trước
         }
         return updatedProducts;
       });
       closeModal();
-      toast.success('Xóa sản phẩm thành công!');
+      toast.success("Xóa sản phẩm thành công!");
     } catch (err) {
-      console.error('Delete error:', err);
-      toast.error('Lỗi khi xóa sản phẩm!');
+      console.error("Delete error:", err);
+      toast.error("Lỗi khi xóa sản phẩm!");
     }
   };
 
-  // Lọc 
+  // Lọc
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return products.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(term) || p.short_description.toLowerCase().includes(term);
-      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesSearch =
+        p.name.toLowerCase().includes(term) ||
+        p.short_description.toLowerCase().includes(term);
+      const matchesCategory =
+        selectedCategory === "all" || p.category === selectedCategory;
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
       return matchesSearch && matchesCategory && matchesStatus;
     });
   }, [products, searchTerm, selectedCategory, statusFilter]);
 
-  useEffect(() => setCurrentPage(1), [searchTerm, selectedCategory, statusFilter]);
+  useEffect(
+    () => setCurrentPage(1),
+    [searchTerm, selectedCategory, statusFilter]
+  );
   const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage));
   const currentProducts = filtered.slice(
     (currentPage - 1) * productsPerPage,
@@ -176,172 +229,197 @@ export default function ProductPage() {
 
   //Lấy màu badge trạng thái
   const getStatusBadge = (status) =>
-    status === 'AVAILABLE'
-      ? 'px-2 py-1 text-xs font-medium bg-cyan-100 text-brand   rounded-full w-[100px] text-center inline-block'
-      : 'px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100';
+    status === "AVAILABLE"
+      ? "px-2 py-1 text-xs font-medium bg-cyan-100 text-brand   rounded-full w-[100px] text-center inline-block"
+      : "px-2 py-1 text-xs font-medium text-destructive rounded-full w-[100px] text-center inline-block bg-red-100";
 
   // file input change -> call importProductsCSV directly (service expects field name "file")
   const handleImportFile = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) {
-      toast.error('Vui lòng chọn file CSV.');
+      toast.error("Vui lòng chọn file CSV.");
       return;
     }
     try {
       const res = await importProductsCSV(file);
-      const message = res?.message || 'Import hoàn tất';
+      const message = res?.message || "Import hoàn tất";
       const result = res?.result || res?.data || null;
 
       if (result && (result.imported > 0 || result.updated > 0)) {
         await fetchProducts();
       }
 
-      setSuccessDialog({ open: true, title: message, message: { message, result } });
+      setSuccessDialog({
+        open: true,
+        title: message,
+        message: { message, result },
+      });
       //toast.success(message);
     } catch (err) {
-      console.error('Import error:', err);
+      console.error("Import error:", err);
       const em = err?.message || String(err);
       toast.error(`Lỗi khi nhập CSV: ${em}`);
-      setSuccessDialog({ open: true, title: 'Lỗi khi nhập CSV', message: { message: em, result: null } });
+      setSuccessDialog({
+        open: true,
+        title: "Lỗi khi nhập CSV",
+        message: { message: em, result: null },
+      });
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   return (
-    <div className=" flex flex-col">
+    <div className="flex flex-col">
       {/* Sticky header */}
       <div
-        className="sticky top-[70px] z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
-        style={{ backdropFilter: 'blur' }}
+        className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
+        style={{ backdropFilter: "blur" }}
       >
-        {/* Cụm tiêu đề  */}
-        <div className="flex items-center justify-between">
-          {/* Tiêu đề bên trái */}
-          <div className="flex items-center gap-1">
+        {/* Header: */}
+        <div className="flex flex-col gap-2  lg:flex-row lg:items-center lg:justify-between">
+          {/* Cụm trái: Tiêu đề và nút đổi chế độ */}
+          <div className="flex items-center gap-2 justify-between w-full lg:justify-start">
             <h1 className="text-xl font-bold text-gray-900">
               Quản lý Sản phẩm ({filtered.length})
             </h1>
-
-          </div>
-
-          {/* Các nút bên phải */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Tìm kiếm sản phẩm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex gap-0 ml-2">
+              <Button
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                onClick={() => setViewMode("card")}
+                size="icon"
+                className="rounded-none rounded-tl-md rounded-bl-md"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "actionCreate" : "actionNormal"}
+                onClick={() => setViewMode("list")}
+                size="icon"
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
             </div>
-
-            <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-              <Plus className="w-4 h-4" /> Thêm SP
-            </Button>
-
-            {/* DropdownOptions for Import/Export */}
-            <ImportExportDropdown
-              menuItems={[
-                {
-                  label: 'Nhập CSV',
-                  icon: Upload,
-                  action: () => fileInputRef.current?.click(),
-                },
-                {
-                  label: 'Xuất CSV',
-                  icon: Download,
-                  action: async () => {
-                    try {
-                      const csvBlob = await exportProductsCSV();
-                      if (!csvBlob) {
-                        toast.error('Không có dữ liệu để xuất CSV.');
-                        return;
-                      }
-                      const url = window.URL.createObjectURL(csvBlob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'products.csv';
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                      window.URL.revokeObjectURL(url);
-                      //toast.success('Xuất CSV thành công! File đang được tải xuống.');
-                    } catch (err) {
-                      console.error('Export error:', err);
-                      toast.error('Lỗi khi xuất CSV.');
-                    }
-                  },
-                },
-              ]}
-              trigger="icon"
-              className="px-2 py-1"
-            />
-            {/* hidden file input for import; name is not required here because importProductsCSV constructs FormData with 'file' */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={handleImportFile}
-              name="file"
-            />
+          </div>
+          {/* Cụm phải: */}
+          <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+            {/* Search + Filter row: LUÔN cùng 1 hàng từ md trở xuống */}
+            <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+              {/* Search */}
+              <div className="relative w-full lg:w-56">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Tìm kiếm sản phẩm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-3 py-2 w-full"
+                />
+              </div>
+              {/* Filter row: Category + Status filter */}
+              <div className="flex flex-row gap-2 w-full lg:w-auto">
+                <DropdownOptions
+                  options={categoryOptions}
+                  value={selectedCategory}
+                  onChange={(val) => setSelectedCategory(val)}
+                  width="w-full lg:w-44"
+                  placeholder="Danh mục"
+                />
+                <DropdownOptions
+                  options={STATUS_FILTER_OPTIONS}
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val)}
+                  width="w-full lg:w-36"
+                  placeholder="Trạng thái"
+                />
+              </div>
+            </div>
+            {/* Nút thêm và import/export */}
+            <div className="flex  gap-2 w-full md:w-auto">
+              <PermissionGuard module="product" action="create">
+                <Button
+                  onClick={openAdd}
+                  variant="actionCreate"
+                  className="gap-2 flex-1 lg:w-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="">Thêm Sản phẩm</span>
+                </Button>
+              </PermissionGuard>
+              {(canImport || canExport) && (
+                <>
+                  <ImportExportDropdown
+                    menuItems={[
+                      ...(canImport
+                        ? [
+                            {
+                              label: "Nhập CSV",
+                              icon: Upload,
+                              action: () => fileInputRef.current?.click(),
+                            },
+                          ]
+                        : []),
+                      ...(canExport
+                        ? [
+                            {
+                              label: "Xuất CSV",
+                              icon: Download,
+                              action: async () => {
+                                try {
+                                  const csvBlob = await exportProductsCSV();
+                                  if (!csvBlob) {
+                                    toast.error(
+                                      "Không có dữ liệu để xuất CSV."
+                                    );
+                                    return;
+                                  }
+                                  const url =
+                                    window.URL.createObjectURL(csvBlob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = "products.csv";
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  window.URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  console.error("Export error:", err);
+                                  toast.error("Lỗi khi xuất CSV.");
+                                }
+                              },
+                            },
+                          ]
+                        : []),
+                    ]}
+                    trigger="icon"
+                    className="px-2 py-2 min-w-0  lg:w-auto lg:h-auto shrink-0"
+                  />
+                  {/* hidden file input for import */}
+                  {canImport && (
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleImportFile}
+                      name="file"
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Cụm nằm dưới */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-0">
-            <Button
-              variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
-              onClick={() => setViewMode('card')}
-              size="icon"
-              className="rounded-none rounded-tl-md rounded-bl-md"
-            >
-              <Square className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'actionCreate' : 'actionNormal'}
-              onClick={() => setViewMode('list')}
-              size="icon"
-              className="rounded-none rounded-tr-md rounded-br-md"
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Category filter */}
-            <DropdownOptions
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={(val) => setSelectedCategory(val)}
-              width="w-49"
-              placeholder="Danh mục"
-            />
-
-            {/* Status filter */}
-            <DropdownOptions
-              options={STATUS_FILTER_OPTIONS}
-              value={statusFilter}
-              onChange={(val) => setStatusFilter(val)}
-              width="w-40"
-              placeholder="Trạng thái"
-            />
-          </div>
-        </div>
-
       </div>
 
-
       {/* Scrollable content: product cards / list, pagination, dialog */}
-      <div className="flex-1 overflow-auto pt-4">
+      <div className="flex-1 overflow-auto">
         <div className="mx-2">
           {/* Main content card (Flow-like) */}
           <div className="flex-1 overflow-auto pt-4">
             {/* View Mode */}
-            {viewMode === 'card' ? (
+            {viewMode === "card" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3 px-2">
                 {currentProducts.map((p) => (
                   <ProductCard
@@ -352,6 +430,11 @@ export default function ProductPage() {
                     onDelete={handleDelete}
                   />
                 ))}
+                {currentProducts.length === 0 && (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    Không có Sản phẩm
+                  </div>
+                )}
               </div>
             ) : (
               <div className=" rounded-md shadow overflow-hidden mb-2 mx-1">
@@ -360,15 +443,15 @@ export default function ProductPage() {
                     <thead className="bg-gray-50">
                       <tr>
                         {[
-                          'Sản phẩm',
-                          'Thương hiệu',
-                          'Giá hiện tại',
-                          'Giá gốc',
-                          'Giảm (%)',
-                          'Tồn kho',
-                          'Đánh giá',
-                          'Trạng thái',
-                          ''
+                          "Sản phẩm",
+                          "Thương hiệu",
+                          "Giá hiện tại",
+                          "Giá gốc",
+                          "Giảm (%)",
+                          "Tồn kho",
+                          "Đánh giá",
+                          "Trạng thái",
+                          "",
                         ].map((h) => (
                           <th
                             key={h}
@@ -390,7 +473,9 @@ export default function ProductPage() {
                           <td className="px-6 py-2 whitespace-nowrap text-left">
                             <div className="flex items-center">
                               <img
-                                src={p.image || '/images/products/product_temp.png'}
+                                src={
+                                  p.image || "/images/products/product_temp.png"
+                                }
                                 alt={p.name}
                                 className="w-10 h-10 rounded mr-3"
                               />
@@ -404,52 +489,80 @@ export default function ProductPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="text-center text-sm text-gray-800">{p.brand}</td>
+                          <td className="text-center text-sm text-gray-800">
+                            {p.brand}
+                          </td>
                           <td className="text-center font-semibold">
                             {formatCurrency(p.price_current)}
                           </td>
                           <td className="text-center text-gray-500 line-through">
                             {formatCurrency(p.price_original)}
                           </td>
-                          <td className="text-center text-sm text-gray-800">{p.discount_percent}%</td>
-                          <td className="text-center text-sm">{p.inventory_qty}</td>
-                          <td className="text-center text-yellow-500">{p.rating}</td>
+                          <td className="text-center text-sm text-gray-800">
+                            {p.discount_percent}%
+                          </td>
+                          <td className="text-center text-sm">
+                            {p.inventory_qty}
+                          </td>
+                          <td className="text-center text-yellow-500">
+                            {p.rating}
+                          </td>
                           <td className="text-center">
                             <span className={getStatusBadge(p.status)}>
-                              {p.status === 'AVAILABLE'
-                                ? 'Còn hàng'
-                                : p.status === 'OUT_OF_STOCK'
-                                  ? 'Hết hàng'
-                                  : 'Đã ngừng'}
-
+                              {p.status === "AVAILABLE"
+                                ? "Còn hàng"
+                                : p.status === "OUT_OF_STOCK"
+                                ? "Hết hàng"
+                                : "Đã ngừng"}
                             </span>
                           </td>
                           <td className="text-center w-36">
                             <div
-                              className={`flex justify-center gap-1  ${hoveredRow === p.product_id
-                                ? 'opacity-100 animate-fade-in duration-200'
-                                : 'opacity-0 pointer-events-none '
-                                }`}
+                              className={`flex justify-center gap-1  ${
+                                hoveredRow === p.product_id
+                                  ? "opacity-100 animate-fade-in duration-200"
+                                  : "opacity-0 pointer-events-none "
+                              }`}
                             >
-                              <Button variant="actionRead" size="icon" onClick={() => openView(p)}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="actionUpdate" size="icon" onClick={() => openEdit(p)}>
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <ConfirmDialog
-                                title="Xác nhận xóa"
-                                description={<>
-                                  Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{p?.name}</span>?
-                                </>}
-                                confirmText="Xóa"
-                                cancelText="Hủy"
-                                onConfirm={() => handleDelete(p.product_id)}
-                              >
-                                <Button variant="actionDelete" size="icon">
-                                  <Trash2 className="w-4 h-4" />
+                              <PermissionGuard module="product" action="read">
+                                <Button
+                                  variant="actionRead"
+                                  size="icon"
+                                  onClick={() => openView(p)}
+                                >
+                                  <Eye className="w-4 h-4" />
                                 </Button>
-                              </ConfirmDialog>
+                              </PermissionGuard>
+                              <PermissionGuard module="product" action="update">
+                                <Button
+                                  variant="actionUpdate"
+                                  size="icon"
+                                  onClick={() => openEdit(p)}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </PermissionGuard>
+                              <PermissionGuard module="product" action="delete">
+                                <ConfirmDialog
+                                  title="Xác nhận xóa"
+                                  description={
+                                    <>
+                                      Bạn có chắc chắn muốn xóa sản phẩm{" "}
+                                      <span className="font-semibold text-black">
+                                        {p?.name}
+                                      </span>
+                                      ?
+                                    </>
+                                  }
+                                  confirmText="Xóa"
+                                  cancelText="Hủy"
+                                  onConfirm={() => handleDelete(p.product_id)}
+                                >
+                                  <Button variant="actionDelete" size="icon">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </ConfirmDialog>
+                              </PermissionGuard>
                             </div>
                           </td>
                         </tr>
@@ -458,7 +571,12 @@ export default function ProductPage() {
                       {/* Trạng thái rỗng */}
                       {currentProducts.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="text-center py-8 text-gray-500">Không có Sản phẩm</td>
+                          <td
+                            colSpan={9}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            Không có Sản phẩm
+                          </td>
                         </tr>
                       )}
                     </tbody>
@@ -478,43 +596,56 @@ export default function ProductPage() {
             </div>
           </div>
           {/* Dialogs */}
-          <AppDialog
-            open={modal.open}
-            onClose={closeModal}
-            title={{
-              view: `Chi tiết sản phẩm - ${modal.product?.name || ''}`,
-              edit: modal.product
-                ? `Chỉnh sửa sản phẩm - ${modal.product.name}`
-                : 'Thêm sản phẩm mới',
-              add: 'Thêm sản phẩm mới'
-            }}
-            mode={modal.mode}
-            /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
-            FormComponent={(props) => (
-              <ProductForm
-                {...props}
-                setMode={(m) => {
-                  if (m === 'close') {
-                    setModal({ open: false, mode: 'view', product: null });
-                  } else {
-                    setModal((prev) => ({ ...prev, mode: m }));
-                  }
-                }}
-                onDelete={(id) => handleDelete(id)}
-              />
-            )}
-            data={modal.product}
-            onSave={handleSave}
-            onDelete={handleDelete}
-            maxWidth="sm:max-w-2xl"
-          />
+          <PermissionGuard
+            module="product"
+            action={
+              modal.mode === "add"
+                ? "create"
+                : modal.mode === "edit"
+                ? "update"
+                : "read"
+            }
+          >
+            <AppDialog
+              open={modal.open}
+              onClose={closeModal}
+              title={{
+                view: `Chi tiết sản phẩm`,
+                edit: modal.product
+                  ? `Chỉnh sửa sản phẩm`
+                  : "Thêm sản phẩm mới",
+                add: "Thêm sản phẩm mới",
+              }}
+              mode={modal.mode}
+              /* Inject setMode into ProductForm so the form can toggle modes (edit/view/close) reliably */
+              FormComponent={(props) => (
+                <ProductForm
+                  {...props}
+                  setMode={(m) => {
+                    if (m === "close") {
+                      setModal({ open: false, mode: "view", product: null });
+                    } else {
+                      setModal((prev) => ({ ...prev, mode: m }));
+                    }
+                  }}
+                  onDelete={(id) => handleDelete(id)}
+                />
+              )}
+              data={modal.product}
+              onSave={handleSave}
+              onDelete={handleDelete}
+              maxWidth="sm:max-w-2xl"
+            />
+          </PermissionGuard>
 
           {/* Success dialog to show import result / errors */}
           <SuccessDialog
             open={successDialog.open}
-            title={successDialog.title || 'Kết quả import'}
+            title={successDialog.title || "Kết quả import"}
             message={successDialog.message}
-            onClose={() => setSuccessDialog({ open: false, title: '', message: null })}
+            onClose={() =>
+              setSuccessDialog({ open: false, title: "", message: null })
+            }
           />
         </div>
       </div>

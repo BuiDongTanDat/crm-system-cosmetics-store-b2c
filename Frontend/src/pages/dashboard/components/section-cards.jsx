@@ -79,8 +79,8 @@ export default function SectionCards() {
   }, []);
 
   return (
-    <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
-      <Card className="@container/card">
+    <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-1 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
+      <Card className="@container/card w-full">
         <CardHeader className="relative">
           <CardDescription>
             <div className="flex text-blue-500 items-center gap-1 font-bold text-lg">
@@ -119,7 +119,7 @@ export default function SectionCards() {
           </div>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
+      <Card className="@container/card w-full">
         <CardHeader className="relative ">
           <CardDescription>
             <div className="flex text-blue-500 items-center gap-1 font-bold text-lg">
@@ -138,7 +138,7 @@ export default function SectionCards() {
           <div className="text-muted-foreground">{periodCustomer}</div>
         </CardFooter>
       </Card>
-      {/* <Card className="@container/card">
+      {/* <Card className="@container/card w-full">
         <CardHeader className="relative">
           <CardDescription>Active Accounts</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
@@ -159,7 +159,7 @@ export default function SectionCards() {
         </CardFooter>
       </Card> */}
       {/* Thay thế card thứ 4 bằng LeadStatusChart */}
-      <div className="col-span-2 @5xl/main:col-span-2">
+      <div className="col-span-1 @5xl/main:col-span-2">
         <LeadStatusChart />
       </div>
     </div>

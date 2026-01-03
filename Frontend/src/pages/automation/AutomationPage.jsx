@@ -15,6 +15,7 @@ import { formatDate } from '@/utils/helper';
 import { request } from '@/utils/api';
 import { getFlow } from '@/services/automation'; // ⬅️ dùng service đã unwrap
 import { Input } from '@/components/ui/input';
+import Loading from '@/components/common/Loading';
 
 // ✅ Adapter: API -> UI
 const adaptFlow = (f) => ({
@@ -155,20 +156,20 @@ export default function AutomationPage() {
     );
   };
 
-  if (loading) return <div className="p-6">Đang tải…</div>;
+  if (loading) return <div className="p-6"><Loading/></div>;
   if (error) return <div className="p-6 text-red-600">Lỗi: {error}</div>;
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Sticky header */}
-      <div className="sticky top-[70px] z-20 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between mb-6">
-          {/* Header */}
-          <div className="flex items-center gap-4">
+      <div className="my-3 z-20 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between mb-6">
+          {/* Cụm trái: Tiêu đề và nút đổi chế độ */}
+          <div className="flex items-center gap-2 justify-between w-full lg:justify-start">
             <h1 className="text-2xl font-bold text-gray-900">
               Automation Flow ({filtered.length})
             </h1>
-            <div className="flex">
+            <div className="flex gap-0 ml-2">
               <Button
                 variant={viewMode === 'card' ? 'actionCreate' : 'actionNormal'}
                 onClick={() => setViewMode('card')}
@@ -187,29 +188,34 @@ export default function AutomationPage() {
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Tìm kiếm automation..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+          {/* Cụm phải: Search, Filter, Thêm */}
+          <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+            <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+              {/* Search */}
+              <div className="relative w-full lg:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Tìm kiếm automation..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-3 py-2 w-full"
+                />
+              </div>
+              {/* Status Filter */}
+              <DropdownOptions
+                options={statusOptions}
+                value={selectedStatus}
+                onChange={setSelectedStatus}
+                width="w-full flex-1 lg:w-48"
               />
             </div>
-            {/* Status Filter */}
-            <DropdownOptions
-              options={statusOptions}
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-              width="w-48"
-            />
-            {/* Add Automation */}
-            <Button onClick={openAdd} variant="actionCreate" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Tạo Automation mới
-            </Button>
+            <div className="flex gap-2 w-full lg:w-auto">
+              <Button onClick={openAdd} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                <Plus className="w-4 h-4" />
+                Tạo Automation mới
+              </Button>
+            </div>
           </div>
         </div>
         {/* Stats Cards */}

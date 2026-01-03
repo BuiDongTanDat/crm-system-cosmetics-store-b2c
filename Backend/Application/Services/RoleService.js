@@ -26,16 +26,34 @@ class RoleService {
             }
         }
 
-        // permissions rules (optional)
+        // permissions rules
         if (data.permissions !== undefined) {
             if (!Array.isArray(data.permissions)) {
-                throw new Error('permissions phải là mảng chuỗi');
+                throw new Error('permissions phải là mảng');
             }
-            // normalize to trimmed unique strings, drop falsy items
-            const normalized = data.permissions
-                .map(p => (p === null || p === undefined) ? '' : String(p).trim())
-                .filter(p => p.length > 0);
-            data.permissions = Array.from(new Set(normalized));
+            //Template permission
+            /*     [
+              { "name": "user", "create": true, "read": true, "update": true, "delete": true },
+              { "name": "customer", "create": true, "read": true, "update": true, "delete": true },
+              { "name": "role", "create": true, "read": true, "update": true, "delete": true },
+                    ]
+              */
+            data.permissions.forEach((perm, index) => {
+                if (typeof perm !== 'object' || perm === null) {
+                    throw new Error(`permissions[${index}] phải là một object`);
+                }
+                if (!perm.name || typeof perm.name !== 'string' || !perm.name.trim()) {
+                    throw new Error(`permissions[${index}].name là bắt buộc và phải là chuỗi không rỗng`);
+                }
+
+                ['create', 'read', 'update', 'delete'].forEach((action) => {
+                    if (perm[action] !== undefined && typeof perm[action] !== 'boolean') {
+                        throw new Error(`permissions[${index}].${action} phải là boolean nếu được cung cấp`);
+                    }
+                });
+            });
+
+
         }
 
         return data;
@@ -53,6 +71,15 @@ class RoleService {
         const role = await this.roleRepository.getRoleByName(roleName);
         if (!role) return null;
         return RoleDTO.fromEntity(role);
+    }
+
+    async getPermissionsByRoleName(roleName) {
+        if (!roleName || typeof roleName !== 'string' || !roleName.trim()) {
+            throw new Error('roleName phải là chuỗi không rỗng');
+        }
+        const role = await this.roleRepository.getRoleByName(roleName);
+        if (!role) throw new Error('Vai trò không tồn tại');
+        return role.permissions || [];
     }
 
     async createRole(roleData) {
@@ -92,6 +119,52 @@ class RoleService {
         }
         return await this.roleRepository.deleteRole(roleName);
     }
+
+    async getModules() {
+        // Danh sách phân quyền cho role
+        const PERMISSIONS_LIST = [
+            {
+                name: "user",
+                create: true,
+                read: true,
+                update: true,
+                delete: true,
+            },
+            { name: "customer", create: true, read: true, update: true, delete: true },
+            { name: "role", create: true, read: true, update: true, delete: true },
+            { name: "lead", create: true, read: true, update: true, delete: true },
+            { name: "campaign", create: true, read: true, update: true, delete: true },
+            { name: "automation", create: true, read: true, update: true, delete: true },
+            { name: "order", create: true, read: true, update: true, delete: true },
+            {
+                name: "product",
+                create: true,
+                read: true,
+                update: true,
+                delete: true,
+                import: true,
+                export: true,
+            },
+            { name: "category", create: true, read: true, update: true, delete: true },
+            { name: "youtube", create: true }
+
+        ];
+
+        // Tạo danh sách tất cả các hành động từ PERMISSIONS_LIST
+        // Lấy ra các key trừ name, rồi loại trùng bằng Set
+        const ALL_ACTION = Array.from(
+            new Set(
+                PERMISSIONS_LIST.flatMap((perm) =>
+                    Object.keys(perm).filter((key) => key !== "name")
+                )
+            )
+        );
+
+        return {
+            permissions: PERMISSIONS_LIST,
+            actions: ALL_ACTION,
+        }
+    }
 }
 
-module.exports = RoleService;
+module.exports = new RoleService();

@@ -387,7 +387,7 @@ export default function YoutubeStreamPage() {
         <div className="max-h-screen flex flex-col">
             {/* Sticky header matching EmployeePage */}
             <div
-                className="flex-col sticky top-[70px] z-20 flex gap-1 px-3 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
+                className="flex-col my-3 z-20 flex gap-1 px-3 py-3 bg-brand/10 backdrop-blur-lg rounded-md"
                 style={{ backdropFilter: "blur" }}
             >
                 <div className="flex justify-between items-center">

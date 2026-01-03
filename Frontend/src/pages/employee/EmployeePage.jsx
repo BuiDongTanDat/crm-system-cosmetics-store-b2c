@@ -18,10 +18,11 @@ import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { getInitials } from "@/utils/helper";
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from "@/store/useAuthStore";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function EmployeePage() {
-    const authStore = useAuthStore();
+    const { user } = useAuthStore(); 
     const [employees, setEmployees] = useState([]);
     const [roles, setRoles] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -61,7 +62,6 @@ export default function EmployeePage() {
             })));
         } catch (err) {
             console.error("Lỗi tải danh sách nhân viên:", err);
-            toast.error("Không thể tải danh sách nhân viên.");
         }
     };
 
@@ -80,7 +80,6 @@ export default function EmployeePage() {
             );
         } catch (err) {
             console.error("Lỗi tải danh sách vai trò:", err);
-            toast.error("Không thể tải danh sách vai trò.");
         }
     };
 
@@ -117,7 +116,6 @@ export default function EmployeePage() {
             setModal({
                 open: true, mode: 'view', employee: {
                     id: res.user_id,
-                    name: res.full_name,
                     email: res.email,
                     phone: res.phone,
                     role: res.role_name,
@@ -139,7 +137,7 @@ export default function EmployeePage() {
     };
 
     const handleCreate = () => {
-        setModal({ open: true, mode: 'edit', employee: null });
+        setModal({ open: true, mode: 'create', employee: null });
     };
 
     const closeModal = () => {
@@ -279,63 +277,63 @@ export default function EmployeePage() {
         <div className="flex flex-col">
             {/* Sticky header */}
             <div
-                className="flex-col sticky top-[70px] z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
+                className="z-20 flex flex-col gap-3 p-3 my-3 bg-brand/10 backdrop-blur-lg rounded-md"
                 style={{ backdropFilter: 'blur' }}
             >
-                <div className="flex justify-between">
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold text-gray-900">
+                {/* Header: */}
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Cụm trái: Tiêu đề */}
+                    <div className="flex items-center gap-2 mb-2 lg:mb-0">
+                        <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
                             Quản lý Nhân viên({filteredEmployees.length})
                         </h1>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm nhân viên..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10" // ensure search text doesn't overlap icon
-                            />
+                    {/* Cụm phải: Search, Filter, Thêm */}
+                    <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
+                        <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+                            {/* Search */}
+                            <div className="relative w-full lg:w-56">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                    type="text"
+                                    placeholder="Tìm kiếm nhân viên..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 pr-3 py-2 w-full"
+                                />
+                            </div>
+                            {/* Filter row: Vai trò + Trạng thái */}
+                            <div className="flex flex-row gap-2 w-full lg:w-auto">
+                                <DropdownOptions
+                                    options={[
+                                        { value: "", label: "Tất cả vai trò" },
+                                        ...roles
+                                    ]}
+                                    value={filterRole}
+                                    onChange={setFilterRole}
+                                    width="w-full flex-1 md:w-auto"
+                                />
+                                <DropdownOptions
+                                    options={[
+                                        { value: "", label: "Tất cả trạng thái" },
+                                        { value: "active", label: "ACTIVE" },
+                                        { value: "inactive", label: "INACTIVE" }
+                                    ]}
+                                    value={filterStatus}
+                                    onChange={setFilterStatus}
+                                    width="w-full flex-1 md:w-50"
+                                />
+                            </div>
                         </div>
-
-
-
-                        {/* Add Employee */}
-                        <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Thêm Nhân viên
-                        </Button>
-                        
+                        <div className="flex gap-2 w-full lg:w-auto">
+                            <PermissionGuard module="user" action="create">
+                                <Button onClick={handleCreate} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                                    <Plus className="w-4 h-4" />
+                                    Thêm Nhân viên
+                                </Button>
+                            </PermissionGuard>
+                        </div>
                     </div>
-                </div>
-                <div className="flex gap-3 items-center justify-end w-full">
-                    {/* Filter by Role */}
-                    <DropdownOptions
-                        options={[
-                            { value: "", label: "Tất cả vai trò" },
-                            ...roles
-                        ]}
-                        value={filterRole}
-                        onChange={setFilterRole}
-                        width="w-40"
-                    />
-
-                    {/* Filter by Status */}
-                    <DropdownOptions
-                        options={[
-                            { value: "", label: "Tất cả trạng thái" },
-                            { value: "active", label: "ACTIVE" },
-                            { value: "inactive", label: "INACTIVE" }
-                        ]}
-                        value={filterStatus}
-                        onChange={setFilterStatus}
-                        width="w-40"
-                    />
                 </div>
             </div>
 
@@ -366,14 +364,14 @@ export default function EmployeePage() {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {currentEmployees.map((employee) => {
-                                    const isCurrentUser = authStore.user?.id === employee.id; // check row hiện tại có phải chính user đăng nhập không
-                                    console.log('Current User ID:', authStore.user?.id, 'Employee ID:', employee.id);
+                                    const isCurrentUser = user.user_id === employee.id; // check row hiện tại có phải chính user đăng nhập không
+                                    console.log('Current User ID:', user.user_id, 'Employee ID:', employee.id);
                                     return (
                                         <tr
                                             key={employee.id}
                                             className={`group relative transition-colors cursor-pointer
                                                     ${hoveredRow === employee.id ? "bg-gray-50" : ""}
-                                                    ${authStore.user?.id === employee.id ? "bg-blue-50 hover:bg-blue-100" : ""}`
+                                                    ${user.user_id === employee.id ? "bg-blue-50 hover:bg-blue-100" : ""}`
                                             }
                                             onMouseEnter={() => setHoveredRow(employee.id)}
                                             onMouseLeave={() => setHoveredRow(null)}
@@ -422,43 +420,48 @@ export default function EmployeePage() {
                                                             : "opacity-0 translate-y-1 pointer-events-none"
                                                             }`}
                                                     >
-                                                        <Button
-                                                            variant="actionRead"
-                                                            size="icon"
-                                                            onClick={() => handleView(employee)}
-                                                            className="h-8 w-8"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="actionUpdate"
-                                                            size="icon"
-                                                            onClick={() => handleEdit(employee)}
-                                                            className="h-8 w-8"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </Button>
-
-                                                        <ConfirmDialog
-                                                            title="Xác nhận xóa"
-                                                            description={
-                                                                <>
-                                                                    Bạn có chắc chắn muốn xóa nhân viên{" "}
-                                                                    <span className="font-semibold text-black">{employee.name}</span>?
-                                                                </>
-                                                            }
-                                                            confirmText="Xóa"
-                                                            cancelText="Hủy"
-                                                            onConfirm={() => handleDelete(employee.id)}
-                                                        >
+                                                        <PermissionGuard module="user" action="read">
                                                             <Button
-                                                                variant="actionDelete"
+                                                                variant="actionRead"
                                                                 size="icon"
+                                                                onClick={() => handleView(employee)}
                                                                 className="h-8 w-8"
                                                             >
-                                                                <Trash2 className="w-4 h-4" />
+                                                                <Eye className="w-4 h-4" />
                                                             </Button>
-                                                        </ConfirmDialog>
+                                                        </PermissionGuard>
+                                                        <PermissionGuard module="user" action="update">
+                                                            <Button
+                                                                variant="actionUpdate"
+                                                                size="icon"
+                                                                onClick={() => handleEdit(employee)}
+                                                                className="h-8 w-8"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </Button>
+                                                        </PermissionGuard>
+                                                        <PermissionGuard module="user" action="delete">
+                                                            <ConfirmDialog
+                                                                title="Xác nhận xóa"
+                                                                description={
+                                                                    <>
+                                                                        Bạn có chắc chắn muốn xóa nhân viên{" "}
+                                                                        <span className="font-semibold text-black">{employee.name}</span>?
+                                                                    </>
+                                                                }
+                                                                confirmText="Xóa"
+                                                                cancelText="Hủy"
+                                                                onConfirm={() => handleDelete(employee.id)}
+                                                            >
+                                                                <Button
+                                                                    variant="actionDelete"
+                                                                    size="icon"
+                                                                    className="h-8 w-8"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </ConfirmDialog>
+                                                        </PermissionGuard>
                                                     </div>
                                                 )}
                                             </td>
@@ -492,8 +495,12 @@ export default function EmployeePage() {
                 <AppDialog
                     open={modal.open}
                     onClose={closeModal}
-                    // ... các props khác
                     mode={modal.mode}
+                    title={{
+                    view: `Thông tin nhân viên`,
+                    edit: `Chỉnh sửa thông tin nhân viên`,
+                    create: "Thêm nhân viên mới",
+                }}
                     // THÊM: Truyền hàm setMode để EmployeeForm có thể tự chuyển mode (view <-> edit)
                     setMode={(newMode) => setModal(prev => ({
                         ...prev,

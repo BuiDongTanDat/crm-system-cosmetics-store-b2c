@@ -264,7 +264,7 @@ export function AppSidebar() {
     <aside
       role="navigation"
       aria-label="Main Sidebar"
-      className={`fixed z-50 flex flex-col bg-background border border-border transition-all duration-200 ease-in-out shadow-md ${isExpanded || isMobileOpen || isHovered ? "w-[260px]" : "w-[64px]"
+      className={`h-screen fixed z-50 flex flex-col bg-background border border-border transition-all duration-200 ease-in-out shadow-md ${isExpanded || isMobileOpen || isHovered ? "w-[260px]" : "w-[64px]"
         } ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 top-0 left-0 min-h-screen border-r"
         }`}

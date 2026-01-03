@@ -33,6 +33,9 @@ class UserRepository {
         if (!userData.password_hash) {
             userData.password_hash = bcrypt.hashSync('default123', 10); // password mặc định
         }
+        else {
+            userData.password_hash = bcrypt.hashSync(userData.password_hash, 10);
+        }
         try {
             return await User.create(userData);
         } catch (err) {

@@ -542,8 +542,8 @@ export default function KanbanPage() {
     <div className="p-0 h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-col  z-20 gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
+        <div className="gap-3 flex flex-col md:flex-row items-center md:justify-between">
+          <div className="flex gap-2 justify-between md:w-auto w-full">
             <h1 className="text-xl font-bold text-gray-900">Pipeline B2C</h1>
             <div className="rounded-md bg-white">
               <Button
@@ -562,21 +562,21 @@ export default function KanbanPage() {
           </div>
 
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 md:w-auto w-full ">
             {/* Filter dropdown (only in list mode) */}
             {viewMode === 'list' && (
-              <div className=" flex items-center gap-3">
+              <div className=" flex-1 items-center gap-3">
                 <DropdownOptions
                   options={FILTER_OPTIONS}
                   value={filterStatus}
                   onChange={setFilterStatus}
-                  width="w-44"
+                  width="md:w-44 w-full"
                   placeholder="Lọc trạng thái"
                 />
               </div>
             )}
 
-            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2">
+            <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2 flex-1">
               <Plus className="w-4 h-4" /> Thêm Deal
             </Button>
           </div>

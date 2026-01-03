@@ -9,6 +9,8 @@ import SectionCards from "./components/section-cards";
 import data from "@/app/dashboard/data.json";
 import { RevenueChart } from "./components/revenue-chart";
 import { useEffect, useState } from "react";
+import { formatDate } from "@/utils/helper";
+import { Calendar } from "lucide-react";
 
 export default function DashBoard() {
   const ANIM_COUNT = 4;
@@ -35,8 +37,21 @@ export default function DashBoard() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className=" @container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className=" @container/main flex flex-1 flex-col gap-0">
+        {/* Header */}
+        <div className="px-6 pt-4 flex justify-between h-auto items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Tổng quan về hiệu suất kinh doanh
+          </p>
+          </div>
+          <div className="h-auto bg-white text-slate-800 p-2 rounded-md shadow items-center flex text-sm font-medium">
+           
+            <Calendar className="w-4 h-4 mr-2"/>{formatDate(new Date())}
+          </div>
+        </div>
+        <div className="flex flex-col gap-4 md:gap-4 md:py-6">
           <SectionCards
             className={
               (visible[0]
@@ -46,7 +61,7 @@ export default function DashBoard() {
             }
             style={{ transitionDelay: `${1 * 60}ms` }}
           />
-          <div className="px-4 lg:px-6 flex flex-col md:flex-row gap-4 md:gap-6">
+          <div className="px-4 lg:px-6 flex flex-col md:flex-row gap-4 md:gap-4">
             <div
               className={
                 (visible[1]

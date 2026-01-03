@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const ProductController = require('../Controller/ProductController');
-
+const permissionRoute = require('../Middleware/permissionMiddleware');
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' }); // Thư mục tạm để lưu file upload
                                              // Nếu nữa ko cần luu thì khỏi cần cấu hình dest
@@ -13,12 +13,12 @@ const upload = multer({ dest: 'uploads/' }); // Thư mục tạm để lưu file
 
 router.get('/', ProductController.getAll);
 router.get('/:id', ProductController.getById);
-router.post('/', ProductController.create);
-router.put('/:id', ProductController.update);
-router.delete('/:id', ProductController.delete);
+router.post('/', permissionRoute('product', 'update'), ProductController.create);
+router.put('/:id', permissionRoute('product', 'update'), ProductController.update);
+router.delete('/:id', permissionRoute('product', 'delete'), ProductController.delete);
 
 // Import CSV
-router.post('/import', function (req, res, next) {
+router.post('/import', permissionRoute('product', 'import'), function (req, res, next) {
 	upload.single('file')(req, res, function (err) {
 		if (err) {
 			// MulterError or other upload error -> return JSON error instead of crashing
@@ -30,7 +30,7 @@ router.post('/import', function (req, res, next) {
 }, ProductController.importCSV);
 
 // Export CSV
-router.get('/export/csv', ProductController.exportCSV);
+router.get('/export/csv', permissionRoute('product', 'export'), ProductController.exportCSV);
 
 
 module.exports = router;

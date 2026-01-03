@@ -327,3 +327,8 @@
   animation: bounce-ripe 3s ease-in-out infinite;
 }
 
+.fly-to-cart {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  pointer-events: none;
+}

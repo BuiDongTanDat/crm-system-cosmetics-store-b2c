@@ -2,16 +2,12 @@ import { Toaster, toast } from "sonner";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "./context/SidebarContext";
 
-// State
-import { useAuthStore } from "./store/useAuthStore";
-import { useEffect } from "react";
+
 // Layouts and Routes
 import Layout from "./components/layout/Layout";
-import PrivateRoute from "./components/routes/ProtectedRoute";
 import PublicRoute from "./components/routes/PublicRoute";
 
 // Pages
-import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 import ProductPage from "./pages/product/ProductPage";
 import CustomerListPage from "./pages/customer/CustomerListPage";
@@ -45,6 +41,7 @@ import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashBoard from "./pages/dashboard/DashBoard";
 import CheckoutPage from "./pages/checkout/CheckoutPage";
 
+import NavigateGuard from "./components/auth/NavigateGuard";
 function App() {
 
   return (
@@ -106,68 +103,198 @@ function App() {
                   <Route path="/profile" element={<ProfilePage />} />
 
                   {/* Sản phẩm */}
-                  <Route path="/categories" element={<CategoryPage />} />
-                  <Route path="/products" element={<ProductPage />} />
+                  <Route
+                    path="/categories"
+                    element={
+                      <NavigateGuard module="category">
+                        <CategoryPage />
+                      </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/products"
+                    element={
+                      <NavigateGuard module="product">
+                        <ProductPage />
+                      </NavigateGuard>
+                    }
+                  />
 
                   {/* Customer routes */}
-                  <Route path="/customer-list" element={<CustomerListPage />} />
-                  <Route path="/ana-cfm" element={<CFMAnalysisPage />} />
-                  <Route path="/ana-clv" element={<CLVAnalysisPage />} />
-                  <Route path="/ana-churn" element={<ChurnAnalysisPage />} />
+                  <Route
+                    path="/customer-list"
+                    element={
+                      <NavigateGuard module="customer">
+                        <CustomerListPage />
+                      </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/ana-cfm"
+                    element={
+                      <NavigateGuard module="customer">
+                        <CFMAnalysisPage />
+                      </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/ana-clv"
+                    element={
+                      <NavigateGuard module="customer">
+                        <CLVAnalysisPage />
+                      </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/ana-churn"
+                    element={
+                      <NavigateGuard module="customer">
+                        <ChurnAnalysisPage />
+                      </NavigateGuard>
+                    }
+                  />
 
                   {/* Sales routes */}
-                  {/* <Route
-                path="/leads"
-                element={ <LeadsPage />)}
-              /> */}
-                  {/* <Route
-                  path="/opporturnities"
-                  element={ <OpportunitiesPage />)}
-                /> */}
-
-                  <Route path="/kanban" element={<KanbanPage />} />
+                  <Route
+                    path="/kanban"
+                    element={
+                      // <NavigateGuard module="deal">
+                        <KanbanPage />
+                      // </NavigateGuard>
+                    }
+                  />
 
                   {/* Bills routes */}
-                  <Route path="/orders" element={<OrderPage />} />
+                  <Route
+                    path="/orders"
+                    element={
+                      <NavigateGuard module="order">
+                        <OrderPage />
+                      </NavigateGuard>
+                    }
+                  />
                   <Route
                     path="/shopping_activity"
-                    element={<ShoppingActivityPage />}
+                    element={
+                      <NavigateGuard module="order">
+                        <ShoppingActivityPage />
+                      </NavigateGuard>
+                    }
                   />
 
                   {/* Marketing route */}
-                  <Route path="/marketing" element={<MarketingPage />} />
-                  <Route path="/channels" element={<ChannelPage />} />
-                  <Route path="/automations" element={<AutomationPage />} />
+                  <Route
+                    path="/marketing"
+                    element={
+                      // <NavigateGuard module="marketing">
+                        <MarketingPage />
+                      // </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/channels"
+                    element={
+                      // <NavigateGuard module="channel">
+                        <ChannelPage />
+                      // </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/automations"
+                    element={
+                      // <NavigateGuard module="automation">
+                        <AutomationPage />
+                      // </NavigateGuard>
+                    }
+                  />
                   <Route
                     path="/automations/flow/new"
-                    element={<FlowEditorPage />}
+                    element={
+                      // <NavigateGuard module="automation">
+                        <FlowEditorPage />
+                      // </NavigateGuard>
+                    }
                   />
                   <Route
                     path="/automations/flow/:id"
-                    element={<FlowEditorPage />}
+                    element={
+                      // <NavigateGuard module="automation">
+                        <FlowEditorPage />
+                      // </NavigateGuard>
+                    }
                   />
 
                   {/* Streaming routes */}
-                  <Route path="/streams" element={<StreamListPage />} />
+                  <Route
+                    path="/streams"
+                    element={
+                      <NavigateGuard module="youtube">
+                        <StreamListPage />
+                      </NavigateGuard>
+                    }
+                  />
                   <Route
                     path="/streams/youtube/cam/:id"
-                    element={<YoutubeStreamCam />}
+                    element={
+                      <NavigateGuard module="youtube">
+                        <YoutubeStreamCam />
+                      </NavigateGuard>
+                    }
                   />
                   <Route
                     path="/streams/youtube/vid/:id"
-                    element={<YoutubeStreamVideo />}
+                    element={
+                      <NavigateGuard module="youtube">
+                        <YoutubeStreamVideo />
+                      </NavigateGuard>
+                    }
                   />
 
                   {/* Reports routes */}
-                  <Route path="/reports" element={<ReportPage />} />
+                  <Route
+                    path="/reports"
+                    element={
+                      // <NavigateGuard module="report">
+                        <ReportPage />
+                      // </NavigateGuard>
+                    }
+                  />
 
                   {/* Account management routes */}
-                  <Route path="/employees" element={<EmployeePage />} />
-                  <Route path="/roles" element={<RolePage />} />
+                  <Route
+                    path="/employees"
+                    element={
+                      <NavigateGuard module="user">
+                        <EmployeePage />
+                       </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/roles"
+                    element={
+                      <NavigateGuard module="role">
+                        <RolePage />
+                      </NavigateGuard>
+                    }
+                  />
 
                   {/* Others routes */}
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/flows" element={<FlowEditorPage />} />
+                  <Route
+                    path="/settings"
+                    element={
+                      // <NavigateGuard module="setting">
+                        <SettingsPage />
+                      // </NavigateGuard>
+                    }
+                  />
+                  <Route
+                    path="/flows"
+                    element={
+                      // <NavigateGuard module="automation">
+                        <FlowEditorPage />
+                      // </NavigateGuard>
+                    }
+                  />
                 </Route>
               </Route>
 
