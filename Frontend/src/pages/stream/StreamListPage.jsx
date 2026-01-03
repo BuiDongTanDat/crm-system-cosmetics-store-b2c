@@ -62,7 +62,6 @@ export default function StreamListPage() {
       return;
     }
 
-    // CHECK AUTH: nếu chưa đăng nhập YouTube thì redirect sang OAuth và lưu campaign
     try {
       const status = await isAuthenticated();
       if (!status?.authenticated) {
@@ -78,11 +77,14 @@ export default function StreamListPage() {
           );
         }
         await getYoutubeAuthUrl("/streams");
-        // getYoutubeAuthUrl sẽ redirect; thoát khỏi handler
         return;
       }
     } catch (err) {
-      console.error("Failed to check YouTube auth status:", err);
+      // Xử lý trường hợp backend trả về loginUrl
+      if (err?.response?.data?.loginUrl) {
+        window.location.href = err.response.data.loginUrl;
+        return;
+      }
       // Nếu check lỗi, vẫn cố gắng chuyển hướng để user login
       try {
         sessionStorage.setItem(
@@ -104,7 +106,6 @@ export default function StreamListPage() {
     }
     closeSelectStreamDialog();
   };
-
   // Helpers for badges (kept similar to MarketingPage)
   const getStatusBadge = (status) => {
     const baseClass =

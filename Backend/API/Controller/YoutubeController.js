@@ -1,5 +1,6 @@
 const youtubeService = require("../../Infrastructure/Stream/YoutubeService.js");
-
+require('dotenv').config();
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 // local pinned message store
 let pinnedMessage = null;
 
@@ -23,7 +24,6 @@ class YoutubeController {
     }
   }
 
-
   static async callback(req, res) {
     try {
       const code = req.query.code;
@@ -31,19 +31,22 @@ class YoutubeController {
 
       await youtubeService.getTokensWithCode(code);
 
-      // Google will return state back to us if provided; prefer state, fallback to returnTo query
       const returnTo = req.query.state || req.query.returnTo;
       if (returnTo) {
+        // Nếu returnTo là đường dẫn (bắt đầu bằng /), ghép với FRONTEND_URL
+        if (returnTo.startsWith("/")) {
+          return res.redirect(FRONTEND_URL + returnTo);
+        }
+        // Nếu returnTo là URL đầy đủ, redirect luôn
         return res.redirect(returnTo);
       }
-
-      res.send("Login YouTube thành công, quay lại app nha.");
+      // Fallback về FRONTEND_URL/streams
+      return res.redirect(FRONTEND_URL + "/streams");
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "OAuth callback failed" });
+      return res.redirect(FRONTEND_URL + "/streams?error=oauth");
     }
   }
-
   static async checkStatus(req, res) {
     try {
       const creds = youtubeService?.auth?.credentials || {};

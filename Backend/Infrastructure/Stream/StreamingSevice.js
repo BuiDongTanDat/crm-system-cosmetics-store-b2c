@@ -60,37 +60,40 @@ class StreamingService {
 
     async prepareYoutube(streamId, { title, privacy = 'public', description = '' } = {}) {
         console.log(`[StreamingService] prepareYoutube`, { streamId, title, privacy });
-        const liveInfo = await youtubeService.createLive({ title, privacy, description });
+        try {
+            const liveInfo = await youtubeService.createLive({ title, privacy, description });
 
-        // Try to set thumbnail but don't fail prepareYoutube on rate-limit or transient errors.
-        const maxAttempts = 3;
-        let attempt = 0;
-        let thumbOk = false;
-        while (attempt < maxAttempts && !thumbOk) {
-            attempt++;
-            try {
-                await youtubeService.setThumbnail(liveInfo.broadcastId);
-                thumbOk = true;
-            } catch (err) {
-                const status = err?.response?.status || err?.status || err?.code;
-                console.warn(`[StreamingService] setThumbnail attempt ${attempt} failed for ${liveInfo.broadcastId}`, status || err.message);
-                // If rate-limited (429) don't hammer API — retry with backoff but ultimately continue
-                if (attempt >= maxAttempts) {
-                    console.warn(`[StreamingService] give up setting thumbnail for ${liveInfo.broadcastId} after ${attempt} attempts`);
-                    break;
+            // Try to set thumbnail but don't fail prepareYoutube on rate-limit or transient errors.
+            const maxAttempts = 3;
+            let attempt = 0;
+            let thumbOk = false;
+            while (attempt < maxAttempts && !thumbOk) {
+                attempt++;
+                try {
+                    await youtubeService.setThumbnail(liveInfo.broadcastId);
+                    thumbOk = true;
+                } catch (err) {
+                    const status = err?.response?.status || err?.status || err?.code;
+                    console.warn(`[StreamingService] setThumbnail attempt ${attempt} failed for ${liveInfo.broadcastId}`, status || err.message);
+                    if (attempt >= maxAttempts) {
+                        console.warn(`[StreamingService] give up setting thumbnail for ${liveInfo.broadcastId} after ${attempt} attempts`);
+                        break;
+                    }
+                    const delay = 1000 * Math.pow(2, attempt);
+                    await new Promise(r => setTimeout(r, delay));
                 }
-                // exponential backoff before retry
-                const delay = 1000 * Math.pow(2, attempt); // 2s, 4s, ...
-                await new Promise(r => setTimeout(r, delay));
             }
-        }
 
-        this.pendingStreams.set(streamId, liveInfo);
-        console.log(`[StreamingService] prepared YouTube live for ${streamId}`, { thumbnailSet: thumbOk });
-        return {
-            rtmpPublishUrl: liveInfo.fullRtmp,
-            youtube: liveInfo
-        };
+            this.pendingStreams.set(streamId, liveInfo);
+            console.log(`[StreamingService] prepared YouTube live for ${streamId}`, { thumbnailSet: thumbOk });
+            return {
+                rtmpPublishUrl: liveInfo.fullRtmp,
+                youtube: liveInfo
+            };
+        } catch (err) {
+            // Ném lại lỗi để Controller xử lý
+            throw err;
+        }
     }
 
     async startFileStream(streamId, { title = '', description = '' } = {}) {
@@ -104,7 +107,7 @@ class StreamingService {
         console.log(`[StreamingService] FFmpeg streaming`, { file: fileEntry.filePath, rtmp: ytInfo.fullRtmp });
 
         const ff = spawn(this.ffmpegPath, [
-            '-re', 
+            '-re',
             '-stream_loop', '-1',
             '-i', fileEntry.filePath,
             '-c:v', 'libx264', '-preset', 'veryfast', '-maxrate', '3000k', '-bufsize', '6000k', '-g', '50',
