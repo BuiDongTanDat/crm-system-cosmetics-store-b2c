@@ -2,17 +2,15 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime } from "@/utils/helper";
-import { getOrder, getOrderCheckout } from "@/services/orders";
+import { getOrderCheckout, updateOrderStatus } from "@/services/orders";
 import Loading from "@/components/common/Loading";
 import {
-  CarFrontIcon,
   CreditCard,
   DollarSign,
   Package,
   PackageCheck,
   ShoppingCart,
 } from "lucide-react";
-import { set } from "date-fns";
 import { toast } from "sonner";
 
 const STATUS_LABELS = {
@@ -39,8 +37,12 @@ const COUPON_DISCOUNT = 65000;
 export default function CheckoutPage() {
   const params = new URLSearchParams(location.search);
   const orderId = params.get("order_id");
+
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const [placing, setPlacing] = useState(false);
+
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const [localItems, setLocalItems] = useState([]);
@@ -54,6 +56,7 @@ export default function CheckoutPage() {
   });
 
   const fetchOrder = async (id) => {
+    if (!id) return;
     setLoading(true);
     try {
       const res = await getOrderCheckout(id);
@@ -61,23 +64,24 @@ export default function CheckoutPage() {
       setOrder(res);
       setLocalItems(res?.items || []);
       setPaymentMethod(res?.payment_method || "credit_card");
-      setLoading(false);
     } catch (error) {
       console.error("Lỗi khi lấy đơn hàng:", error);
       toast.error("Lỗi khi lấy đơn hàng");
+      setOrder(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
+
   useEffect(() => {
     fetchOrder(orderId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
-  // Khi order thay đổi (ví dụ reload), cập nhật lại localItems
   useEffect(() => {
     if (order?.items) setLocalItems(order.items);
   }, [order]);
 
-  // Xử lý tăng/giảm số lượng (này tùy có cho phép chỉnh sửa hay không sau khi đã đặt đơn)
   const handleQuantity = (idx, delta) => {
     setLocalItems((prev) =>
       prev.map((item, i) =>
@@ -88,9 +92,8 @@ export default function CheckoutPage() {
     );
   };
 
-  // Coupon handler (demo)
-  const handleApplyCoupon = (coupon) => {
-    if (coupon === "FREESHIP") {
+  const handleApplyCoupon = (code) => {
+    if (code === "FREESHIP") {
       setDiscount(COUPON_DISCOUNT);
       toast.success("Áp dụng mã giảm giá thành công");
     } else {
@@ -99,15 +102,62 @@ export default function CheckoutPage() {
     }
   };
 
-  // Tổng tiền
   const subtotal =
-    localItems?.reduce(
-      (sum, item) => sum + item.price_unit * item.quantity,
-      0
-    ) || 0;
+    localItems?.reduce((sum, item) => sum + item.price_unit * item.quantity, 0) ||
+    0;
+
   const totalPayable = subtotal + SHIPPING_COST - discount;
 
-  // Render
+  const handlePlaceOrder = async () => {
+    if (!orderId) {
+      toast.error("Thiếu mã đơn hàng (order_id).");
+      return;
+    }
+    if (!order) {
+      toast.error("Không tìm thấy đơn hàng.");
+      return;
+    }
+
+    if (order.status === "paid") {
+      toast.info("Đơn hàng đã thanh toán trước đó. Vui lòng kiểm tra email.");
+      return;
+    }
+
+    if (paymentMethod === "credit_card") {
+      if (
+        !cardInfo.name ||
+        !cardInfo.number ||
+        !cardInfo.expMonth ||
+        !cardInfo.expYear ||
+        !cardInfo.cvv
+      ) {
+        toast.error("Vui lòng nhập đầy đủ thông tin thẻ.");
+        return;
+      }
+    }
+
+    setPlacing(true);
+    try {
+      await updateOrderStatus(orderId, {
+        status: "paid",
+        payment_method: paymentMethod,
+        // total_amount: totalPayable, // bật nếu backend cần
+        // currency: order.currency || "VND",
+      });
+
+      await fetchOrder(orderId);
+
+      toast.success(
+        "Đặt hàng thành công. Vui lòng kiểm tra email để xem biên nhận/chi tiết đơn hàng."
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
+      toast.error(error?.message || "Thanh toán thất bại. Vui lòng thử lại.");
+    } finally {
+      setPlacing(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen ">
       <div className="flex flex-col lg:flex-row max-w-6xl mx-auto w-full gap-2 py-8 px-2">
@@ -117,6 +167,7 @@ export default function CheckoutPage() {
             <Package />
             Xác nhận đơn hàng
           </h2>
+
           {loading ? (
             <div className="text-center py-12 text-gray-500">
               <Loading />
@@ -165,6 +216,7 @@ export default function CheckoutPage() {
                   <div>{order.notes || "-"}</div>
                 </div>
               </div>
+
               {/* Product Table */}
               <div className="overflow-x-auto">
                 <table className="w-full mb-4">
@@ -173,7 +225,7 @@ export default function CheckoutPage() {
                       <th className="py-2">Sản phẩm</th>
                       <th className="py-2 text-right">Giá gốc</th>
                       <th className="py-2 text-right">Chiết khấu</th>
-                      <th className="py-2 text-right">Giá </th>
+                      <th className="py-2 text-right">Giá</th>
                       <th className="py-2 text-center">Số lượng</th>
                       <th className="py-2 text-right">Thành tiền</th>
                     </tr>
@@ -185,7 +237,6 @@ export default function CheckoutPage() {
                         className="border-b align-top"
                       >
                         <td className="py-3 flex items-center gap-3">
-                          {/* Không có ảnh từ API, dùng ảnh mặc định */}
                           <img
                             src={item.image || "/default-product-image.png"}
                             alt=""
@@ -201,7 +252,7 @@ export default function CheckoutPage() {
                           {formatCurrency(item.price_original)}
                         </td>
                         <td className="py-3 font-semibold text-sm text-right">
-                          {item.discount * 100 || 0}%
+                          {(item.discount || 0) * 100}%
                         </td>
                         <td className="py-3 font-semibold text-sm text-right">
                           {formatCurrency(item.price_unit)}
@@ -231,8 +282,8 @@ export default function CheckoutPage() {
                         <td className="py-3 font-semibold text-sm text-right">
                           {formatCurrency(
                             item.price_unit *
-                              item.quantity *
-                              (1 - (item.discount || 0))
+                            item.quantity *
+                            (1 - (item.discount || 0))
                           )}
                         </td>
                       </tr>
@@ -240,6 +291,7 @@ export default function CheckoutPage() {
                   </tbody>
                 </table>
               </div>
+
               <div className="flex items-end gap-6">
                 {/* Coupon - LEFT */}
                 <div className="flex-1">
@@ -279,10 +331,11 @@ export default function CheckoutPage() {
             </>
           )}
         </div>
+
         {/* Payment Info */}
         <div className=" bg-white rounded-xl shadow p-6 flex-1 flex-col">
           <h2 className="text-2xl font-semibold mb-4">Thông tin thanh toán</h2>
-          {/* Payment method */}
+
           <div className="mb-4">
             <div className="font-medium mb-2">Phương thức thanh toán</div>
             <div className="flex flex-col gap-2">
@@ -290,12 +343,10 @@ export default function CheckoutPage() {
                 {/* Credit Card */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                        ${
-                          paymentMethod === "credit_card"
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-300 hover:border-blue-500"
-                        }
-                        `}
+                    ${paymentMethod === "credit_card"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -312,12 +363,10 @@ export default function CheckoutPage() {
                 {/* Paypal */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${
-                      paymentMethod === "paypal"
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-blue-500"
-                    }
-                    `}
+                    ${paymentMethod === "paypal"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -334,12 +383,10 @@ export default function CheckoutPage() {
                 {/* COD */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                        ${
-                          paymentMethod === "cash_on_delivery"
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-300 hover:border-blue-500"
-                        }
-                        `}
+                    ${paymentMethod === "cash_on_delivery"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -355,6 +402,7 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+
           {/* Card info */}
           {paymentMethod === "credit_card" && (
             <div className="mb-4">
@@ -370,6 +418,7 @@ export default function CheckoutPage() {
                 }
                 className="mb-2"
               />
+
               <label className="block text-sm font-medium mb-1">Số thẻ</label>
               <Input
                 variant="normal"
@@ -380,6 +429,7 @@ export default function CheckoutPage() {
                 }
                 className="mb-2"
               />
+
               <div className="flex gap-2 justify-between">
                 <div>
                   <label className="block text-sm font-medium mb-1">
@@ -413,6 +463,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">CVV</label>
                   <Input
@@ -428,13 +479,15 @@ export default function CheckoutPage() {
               </div>
             </div>
           )}
-          {/* Place Order */}
+
           <Button
             variant="actionCreate"
             className="mt-4 w-full h-12 text-lg font-semibold flex gap-1 active:scale-95 hover:shadow-lg hover:scale-105"
+            onClick={handlePlaceOrder}
+            disabled={placing || loading || !order}
           >
             <ShoppingCart className="!w-7 !h-7" />
-            Đặt hàng
+            {placing ? "Đang xử lý..." : "Đặt hàng"}
           </Button>
         </div>
       </div>

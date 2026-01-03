@@ -4,8 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { startCronDaily } = require('./Infrastructure/scheduler/cronDaily');
-
+const { startCronManager } = require('./Infrastructure/scheduler/cronManager');
 const authRoutes = require('./API/routes/authRoutes');
 const flowRoutes = require('./API/routes/AutomationRoutes');
 const LeadRoutes = require('./API/routes/LeadRoutes');
@@ -23,8 +22,10 @@ const paymentRoutes = require('./API/routes/paymentRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 const StreamingRoutes = require('./API/routes/streamingRoutes');
 const YoutubeRoutes = require('./API/routes/youtubeRoutes');
+
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
+const automationCronJobRoutes = require('./API/routes/automationCronJobRoutes');
 const protectedRoute = require('./API/Middleware/authMiddleware');
 
 // cron utils & domain events
@@ -39,6 +40,7 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -48,8 +50,9 @@ app.use(cookieParser());
 /* =========================
    Routes
 ========================= */
-
-app.use('/auth',authRoutes);
+app.use('/v1/track', require('./API/routes/track'));
+app.use('/cron', automationCronJobRoutes);
+app.use('/auth', authRoutes);
 /* đăng ký middleware bảo vệ các route phía dưới
    Lưu ý là nếu route nào nằm dưới protected route thì khi call api cần truyền access token trong header
    Để tránh bất tiện trong lúc debug nên tạm comment lại */
@@ -139,7 +142,6 @@ async function startAutomationIfEnabled() {
   }
 
   if (mode === 'cron') {
-    startCronDaily();
     console.log('[BOOT] Automation mode=cron: cron.daily enabled.');
     return;
   }
@@ -152,7 +154,8 @@ async function main() {
     // 1) DB connect & sync
     await DataManager.connectAndSync({ alter: true });
     console.log('[BOOT] Database connected & synced.');
-
+    startCronManager({ reloadSeconds: 20 });
+    console.log('[BOOT] CronManager started (DB-driven).');
     // 2) Rabbit consumer with retry (đảm bảo rabbit sẵn sàng)
     await startRabbitWithRetry();
     // 3) Start automation scheduler (tick/cron)

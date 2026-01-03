@@ -18,8 +18,9 @@ const {seedUser} = require('./seedUser');
 const Category = require('../../Domain/Entities/Category');
 const Campaign = require('../../Domain/Entities/Campaign');
 const Lead = require('../../Domain/Entities/Lead');
-// Nếu có Product model thì import thêm để lấy products cho product_interest
-const Product = require('../../Domain/Entities/Product'); // <- nếu chưa có file này, hãy bỏ phần dùng Product ở seedLeads
+const Product = require('../../Domain/Entities/Product'); // nếu không có model này thì bỏ phần load products
+
+const AutomationCronJobRepository = require('../../Infrastructure/Repositories/AutomationCronJobRepository');
 
 const csvFilePath = path.join(__dirname, 'product_e.csv');
 
@@ -45,6 +46,24 @@ async function seedRolesAndUsers() {
   } catch (err) {
     console.warn('Skip admin seed:', err.message);
   }
+}
+
+// =========================
+// CRON JOBS
+// =========================
+async function seedCronJobs() {
+  await AutomationCronJobRepository.upsertByJobKey({
+    job_key: 'daily',
+    name: 'Daily Cron',
+    description: 'Bắn event cron.daily mỗi ngày',
+    event_type: 'cron.daily',
+    cron_expr: '48 13 * * *', // 13:48 mỗi ngày (Asia/Ho_Chi_Minh)
+    timezone: 'Asia/Ho_Chi_Minh',
+    enabled: true,
+    meta: {},
+  });
+
+  console.log('[Seed] Cron job "daily" upserted');
 }
 
 // =========================
@@ -254,14 +273,10 @@ async function saveAndPublishFlow(flowId, editorPayload) {
 }
 
 // =========================
-// FLOW SEEDS
+// FLOW SEEDS (dùng template_key + content.email/theme, KHÔNG nhét HTML style)
 // =========================
 
-/**
- * Seed Automation Flow: Welcome + Tag New Lead + Follow-up 24h
- * - idempotent theo name
- * - createFlow nếu chưa có, saveEditor, publishFlow
- */
+// 0) Welcome Flow
 async function seedWelcomeFlow() {
   const flowId = await ensureFlowId({
     name: 'Welcome Flow',
@@ -296,42 +311,22 @@ async function seedWelcomeFlow() {
           action_type: 'send_email',
           channel: 'email',
           content: {
+            to: '{{ lead.email }}',
             subject: 'Khuyến mãi 20/10 – Set quà tặng đang giảm giá!',
-            body: `
-<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);font-family:Arial,Helvetica,sans-serif;">
-  <div style="background:linear-gradient(135deg,#ff6f91,#ff9671);padding:24px;text-align:center;color:#ffffff;">
-    <h1 style="margin:0;font-size:22px;">Dịp 20/10 – Set Quà Tặng Đặc Biệt</h1>
-    <p style="margin:8px 0 0;font-size:14px;">Rạng Rỡ Nét Đẹp Việt</p>
-  </div>
+            template_key: 'welcome',
+            email: {
+              title: 'Dịp 20/10 – Set Quà Tặng Đặc Biệt',
+              subtitle: 'Rạng Rỡ Nét Đẹp Việt',
+              greeting_name: '{{ lead.name || "Khách hàng mới của tôi" }}',
+              body: 'Chúng tôi dành riêng cho bạn set quà tặng ưu đãi đặc biệt. Ưu đãi có hạn, xem ngay nhé.',
+              cta_url: '{{ trigger.campaign_link || "#" }}',
+              cta_text: 'Khám phá ngay',
 
-  <div style="padding:24px;color:#333333;font-size:15px;line-height:1.6;">
-    <p style="margin-top:0;">Chào <strong>{{lead.name || 'Khách hàng mới của tôi'}}</strong>,</p>
-
-    <p>
-      Ngày Phụ nữ Việt Nam <strong>20/10</strong> đang đến rất gần.
-      Chúng tôi dành riêng cho bạn <strong>set quà tặng ưu đãi đặc biệt</strong>.
-    </p>
-
-    <ul style="padding-left:18px;">
-      <li>Thiết kế sang trọng</li>
-      <li>Sản phẩm chăm sóc sắc đẹp chọn lọc</li>
-      <li>Ưu đãi giới hạn trong thời gian ngắn</li>
-    </ul>
-
-    <div style="text-align:center;margin:28px 0;">
-      <a href="{{trigger.campaign_link || '#'}}"
-         style="display:inline-block;padding:14px 28px;background:#ff6f91;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:bold;">
-        Khám phá ngay
-      </a>
-    </div>
-
-    <p>
-      Trân trọng,<br>
-      <strong>{{brand.name}}</strong>
-    </p>
-  </div>
-</div>
-`,
+            },
+            theme: {
+              primary: '#ff6f91',
+              secondary: '#6b7280',
+            },
           },
           delay_minutes: 5,
           order_index: 0,
@@ -400,69 +395,6 @@ async function seedBirthdayCronFlow() {
 
   if (!flowId) return;
 
-  const htmlBody = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-</head>
-<body style="margin:0;padding:0;background:#f6f7fb;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7fb;padding:24px 0;">
-    <tr>
-      <td align="center">
-        <table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e9ecf3;">
-          <tr>
-            <td style="padding:0;">
-              <img src="{{ ctx.trigger.banner_url || 'https://via.placeholder.com/1280x420?text=Happy+Birthday' }}"
-                   alt="Birthday"
-                   style="width:100%;display:block;"/>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 22px 8px 22px;">
-              <div style="font-size:18px;font-weight:700;color:#111827;">Chúc mừng sinh nhật {{ ctx.customer.full_name }}!</div>
-              <div style="margin-top:8px;font-size:14px;line-height:20px;color:#4b5563;">
-                {{ ctx.brand.name || 'MyShop' }} chúc bạn một ngày thật nhiều niềm vui.
-                Tặng bạn một mã ưu đãi sinh nhật để mua sắm các sản phẩm bạn yêu thích.
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 22px 18px 22px;">
-              <div style="background:#f3f4f6;border-radius:12px;padding:12px 14px;">
-                <div style="font-size:13px;color:#374151;">Mã ưu đãi:</div>
-                <div style="font-size:18px;font-weight:800;color:#111827;letter-spacing:1px;">
-                  {{ ctx.trigger.coupon_code || 'HBD-10' }}
-                </div>
-                <div style="font-size:12px;color:#6b7280;margin-top:6px;">
-                  HSD: {{ ctx.trigger.expire_text || '7 ngày kể từ hôm nay' }}
-                </div>
-              </div>
-
-              <div style="margin-top:14px;">
-                <a href="{{ ctx.trigger.cta_url || '#' }}"
-                   style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;">
-                  Xem ưu đãi sinh nhật
-                </a>
-              </div>
-
-              <div style="margin-top:14px;font-size:12px;color:#6b7280;">
-                Nếu bạn không muốn nhận email này, bạn có thể bỏ qua.
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:14px 22px;border-top:1px solid #e9ecf3;font-size:12px;color:#6b7280;">
-              © {{ ctx.now.getFullYear ? ctx.now.getFullYear() : '2025' }} {{ ctx.brand.name || 'MyShop' }}.
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-
   const ok = await saveAndPublishFlow(flowId, {
     isNewRecord: true,
     flow_meta: {
@@ -471,9 +403,7 @@ async function seedBirthdayCronFlow() {
       tags: ['cron', 'birthday', 'email'],
     },
     upserts: {
-      triggers: [
-        { trigger_id: null, event_type: 'cron.daily', is_active: true, conditions: {} },
-      ],
+      triggers: [{ trigger_id: null, event_type: 'cron.daily', is_active: true, conditions: {} }],
       actions: [
         {
           action_id: null,
@@ -500,9 +430,19 @@ async function seedBirthdayCronFlow() {
               action_type: 'send_email',
               channel: 'email',
               content: {
-                to: '{{ ctx.customer.email }}',
-                subject: 'Chúc mừng sinh nhật {{ ctx.customer.full_name }}',
-                body: htmlBody,
+                to: '{{ customer.email }}',
+                subject: 'Chúc mừng sinh nhật {{ customer.full_name }}',
+                template_key: 'birthday',
+                email: {
+                  greeting_name: '{{ customer.full_name }}',
+                  body: '{{ brand.name || "MyShop" }} chúc bạn một ngày thật nhiều niềm vui. Tặng bạn một mã ưu đãi sinh nhật để mua sắm.',
+                  coupon_code: '{{ trigger.coupon_code || "HBD-10" }}',
+                  expire_text: '{{ trigger.expire_text || "7 ngày kể từ hôm nay" }}',
+                  cta_url: '{{ trigger.cta_url || "#" }}',
+                  cta_text: 'Xem ưu đãi sinh nhật',
+                  banner_url: '{{ trigger.banner_url || "" }}',
+                },
+                theme: { primary: '#2563eb', secondary: '#6b7280' },
               },
             },
           },
@@ -530,24 +470,6 @@ async function seedVipDailyDealsFlow() {
 
   if (!flowId) return;
 
-  const body = `
-<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;font-family:Arial,sans-serif;">
-  <div style="padding:18px 20px;background:#111827;color:#ffffff;">
-    <div style="font-size:16px;font-weight:800;">Ưu đãi hôm nay dành riêng cho VIP</div>
-    <div style="font-size:12px;opacity:0.9;margin-top:6px;">{{ ctx.brand.name || 'MyShop' }}</div>
-  </div>
-  <div style="padding:18px 20px;color:#111827;">
-    <p style="margin-top:0;">Chào {{ ctx.customer.full_name }},</p>
-    <p>Hôm nay bạn có ưu đãi VIP: <strong>{{ ctx.trigger.vip_discount || 'Giảm 15%' }}</strong></p>
-    <a href="{{ ctx.trigger.cta_url || '#' }}"
-       style="display:inline-block;margin-top:10px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;">
-      Xem ưu đãi
-    </a>
-    <p style="margin-top:14px;font-size:12px;color:#6b7280;">Bạn nhận email này vì thuộc nhóm khách hàng VIP.</p>
-  </div>
-</div>
-`;
-
   const ok = await saveAndPublishFlow(flowId, {
     isNewRecord: true,
     flow_meta: {
@@ -556,9 +478,7 @@ async function seedVipDailyDealsFlow() {
       tags: ['cron', 'vip', 'email'],
     },
     upserts: {
-      triggers: [
-        { trigger_id: null, event_type: 'cron.daily', is_active: true, conditions: {} },
-      ],
+      triggers: [{ trigger_id: null, event_type: 'cron.daily', is_active: true, conditions: {} }],
       actions: [
         {
           action_id: null,
@@ -569,11 +489,10 @@ async function seedVipDailyDealsFlow() {
             conditions: {
               has_email: true,
               customer_type: 'VIP',
-              // tags_in: ['vip']
             },
             limit: 5000,
           },
-          delay_minutes: 0,
+          delay_minutes: 1,
           order_index: 0,
           status: 'pending',
         },
@@ -589,13 +508,20 @@ async function seedVipDailyDealsFlow() {
               action_type: 'send_email',
               channel: 'email',
               content: {
-                to: '{{ ctx.customer.email }}',
-                subject: 'Ưu đãi VIP hôm nay dành cho {{ ctx.customer.full_name }}',
-                body,
+                to: '{{ customer.email }}',
+                subject: 'Ưu đãi VIP hôm nay dành cho {{ customer.full_name }}',
+                template_key: 'vip_deals',
+                email: {
+                  greeting_name: '{{ customer.full_name }}',
+                  vip_discount: '{{ trigger.vip_discount || "Giảm 15%" }}',
+                  cta_url: '{{ trigger.cta_url || "#" }}',
+                  cta_text: 'Xem ưu đãi',
+                },
+                theme: { primary: '#2563eb', secondary: '#6b7280' },
               },
             },
           },
-          delay_minutes: 0,
+          delay_minutes: 1,
           order_index: 1,
           status: 'pending',
         },
@@ -619,32 +545,6 @@ async function seedOrderCreatedConfirmFlow() {
 
   if (!flowId) return;
 
-  const body = `
-<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;font-family:Arial,sans-serif;">
-  <div style="padding:18px 20px;background:#fff7ed;border-bottom:1px solid #fed7aa;">
-    <div style="font-size:16px;font-weight:800;color:#9a3412;">Xác nhận đặt hàng</div>
-    <div style="font-size:12px;color:#9a3412;margin-top:6px;">Mã đơn: <strong>{{ order.order_id or 'N/A' }}</strong></div>
-  </div>
-
-  <div style="padding:18px 20px;color:#111827;line-height:1.6;">
-    <p style="margin-top:0;">Chào {{ customer.full_name or lead.name or 'bạn' }},</p>
-    <p>Chúng tôi đã nhận được đơn hàng của bạn. Vui lòng nhấn nút bên dưới để thanh toán và xác nhận đơn.</p>
-
-    <div style="text-align:center;margin:18px 0;">
-      <a href="{{ payment.url or (env.FRONTEND_URL ~ '/checkout?order_id=' ~ (order.order_id or '')) }}"
-         style="display:inline-block;padding:12px 20px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">
-        Thanh toán đơn hàng
-      </a>
-    </div>
-
-    <p style="font-size:12px;color:#6b7280;margin-bottom:0;">
-      Link thanh toán sẽ hết hạn sau một thời gian vì lý do bảo mật.
-    </p>
-  </div>
-</div>
-`;
-
-
   const ok = await saveAndPublishFlow(flowId, {
     isNewRecord: true,
     flow_meta: {
@@ -653,9 +553,7 @@ async function seedOrderCreatedConfirmFlow() {
       tags: ['order', 'email'],
     },
     upserts: {
-      triggers: [
-        { trigger_id: null, event_type: 'order.created', is_active: true, conditions: {} },
-      ],
+      triggers: [{ trigger_id: null, event_type: 'order.created', is_active: true, conditions: {} }],
       actions: [
         {
           action_id: null,
@@ -665,7 +563,15 @@ async function seedOrderCreatedConfirmFlow() {
           content: {
             to: '{{ customer.email or order.email or lead.email }}',
             subject: 'Xác nhận đơn hàng {{ order.order_id or "" }}',
-            body,
+            template_key: 'order_confirm',
+            email: {
+              order_id: '{{ order.order_id or "" }}',
+              greeting_name: '{{ customer.full_name or lead.name or "bạn" }}',
+              body: 'Chúng tôi đã nhận được đơn hàng của bạn. Vui lòng nhấn nút bên dưới để thanh toán và xác nhận đơn.',
+              cta_url: '{{ payment.url or (env.FRONTEND_URL ~ "/checkout?order_id=" ~ (order.order_id or "")) }}',
+              cta_text: 'Thanh toán đơn hàng',
+            },
+            theme: { primary: '#f97316', secondary: '#6b7280' },
           },
           delay_minutes: 0,
           order_index: 0,
@@ -705,21 +611,6 @@ async function seedOrderPaidReceiptFlow() {
 
   if (!flowId) return;
 
-  const body = `
-<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;font-family:Arial,sans-serif;">
-  <div style="padding:18px 20px;background:#ecfdf5;border-bottom:1px solid #d1fae5;">
-    <div style="font-size:16px;font-weight:800;color:#065f46;">Thanh toán thành công</div>
-    <div style="font-size:12px;color:#047857;margin-top:6px;">Mã đơn: <strong>{{ ctx.order.order_id || 'N/A' }}</strong></div>
-  </div>
-  <div style="padding:18px 20px;color:#111827;">
-    <p style="margin-top:0;">Chào {{ customer.full_name or 'bạn' }},</p>
-    <p>Cảm ơn bạn. Đơn hàng đã được thanh toán thành công.</p>
-    <p><strong>Tổng tiền:</strong>{{ order.total_amount or '0' }} {{ order.currency or 'VND' }}</p>
-    <p style="font-size:12px;color:#6b7280;">Chúng tôi sẽ sớm bàn giao/ship đơn hàng.</p>
-  </div>
-</div>
-`;
-
   const ok = await saveAndPublishFlow(flowId, {
     isNewRecord: true,
     flow_meta: {
@@ -728,9 +619,7 @@ async function seedOrderPaidReceiptFlow() {
       tags: ['order', 'paid', 'email'],
     },
     upserts: {
-      triggers: [
-        { trigger_id: null, event_type: 'order.paid', is_active: true, conditions: {} },
-      ],
+      triggers: [{ trigger_id: null, event_type: 'order.paid', is_active: true, conditions: {} }],
       actions: [
         {
           action_id: null,
@@ -740,7 +629,16 @@ async function seedOrderPaidReceiptFlow() {
           content: {
             to: '{{ customer.email or order.email }}',
             subject: 'Biên nhận thanh toán - Đơn {{ order.order_id or "" }}',
-            body,
+            template_key: 'order_receipt',
+            email: {
+              title: 'Thanh toán thành công',
+              order_id: '{{ order.order_id or "" }}',
+              greeting_name: '{{ customer.full_name or "bạn" }}',
+              total_amount: '{{ order.total_amount or 0 }}',
+              currency: '{{ order.currency or "VND" }}',
+              body: 'Cảm ơn bạn. Đơn hàng đã được thanh toán thành công.',
+            },
+            theme: { primary: '#065f46', secondary: '#6b7280' },
           },
           delay_minutes: 0,
           order_index: 0,
@@ -779,7 +677,6 @@ async function seedTagAddedZaloFlow() {
           trigger_id: null,
           event_type: 'tag.added',
           is_active: true,
-          // handleTagEvent() của bạn đọc flow.trigger.conditions.tags_in/tags_not_in
           conditions: { tags_in: ['high_intent'] },
         },
       ],
@@ -790,9 +687,9 @@ async function seedTagAddedZaloFlow() {
           action_type: 'send_zalo',
           channel: 'zalo',
           content: {
-            to: '{{ ctx.lead.zalo_id }}',
+            to: '{{ lead.zalo_id }}',
             message:
-              'Chào {{ ctx.lead.name || "bạn" }}, bên mình thấy bạn đang quan tâm sản phẩm. Mình hỗ trợ tư vấn nhanh nhé.',
+              'Chào {{ lead.name || "bạn" }}, bên mình thấy bạn đang quan tâm sản phẩm. Mình hỗ trợ tư vấn nhanh nhé.',
           },
           delay_minutes: 0,
           order_index: 0,
@@ -833,6 +730,7 @@ async function seedDatabase() {
 
   await seedCategories();
   await seedProductsFromCSV();
+  await seedCronJobs();
 
   const campaign = await seedCampaign();
   if (campaign) await seedLeads(campaign.campaign_id);
