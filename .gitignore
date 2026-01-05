@@ -1,4 +1,5 @@
 .env
 node_modules/
 .history/
-token
+tokens.json
+__pycache__/

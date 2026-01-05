@@ -76,6 +76,7 @@ class OrderRepository {
 	async findOne(options) {
 		return this.Order.findOne(options);
 	}
+	//Lấy order theo khoảng thời gian
 	async getOrdersByDateRange(from, to) {
 		return await this.Order.findAll({
 			where: {

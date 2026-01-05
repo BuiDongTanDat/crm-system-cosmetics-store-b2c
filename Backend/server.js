@@ -71,9 +71,9 @@ app.use('/roles', roleRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', OrderRoutes);
-
+app.use('/automation-event', automationCatalogRoutes);
 app.use('/customers', CustomerRoutes);
-
+app.use('/campaign', CampaignRoute)
 app.use('/payment', paymentRoutes);// Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
 app.get('/', (_req, res) => res.send('CRM API is running successfully!'));

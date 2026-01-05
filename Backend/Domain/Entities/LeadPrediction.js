@@ -1,4 +1,3 @@
-
 const { DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();

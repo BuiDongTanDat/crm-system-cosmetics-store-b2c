@@ -1282,6 +1282,54 @@ const ACTION_HANDLERS = Object.freeze({
       }
     }
   },
+
+  // -------------------
+  // log
+  // -------------------
+  log: async (svc, action, ctx) => {
+    const level = action.level || action.content?.level || 'info';
+    const message = svc.render(action.message || action.content?.message || '', ctx);
+    const meta = action.content?.meta || {};
+    console[level] ? console[level](`[Automation][log] ${message}`, meta) : console.log(`[Automation][log] ${message}`, meta);
+  },
+
+  // -------------------
+  // schedule
+  // -------------------
+  schedule: async (svc, action, ctx) => {
+    const delay = action.delay_iso || `PT${action.delay_minutes || 5}M`;
+    const nextAction = action.next_action || { type: 'send_email' };
+    await scheduler.enqueueIn(delay, 'automation.runAction', { action: nextAction, ctx });
+  },
+
+  // -------------------
+  // branch
+  // -------------------
+  branch: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const ok = svc.evalCondition(cfg.condition || 'false', ctx, false);
+    const next = ok ? cfg.then_action : cfg.else_action;
+    if (next) await svc.execAction(next, ctx);
+  },
+
+  // -------------------
+  // http.request
+  // -------------------
+  'http.request': async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const method = String(cfg.method || 'POST').toUpperCase();
+    const url = svc.render(cfg.url || '', ctx);
+    if (!url) return console.warn('[Automation] http.request: missing url');
+
+    const headers = cfg.headers ? svc.renderDeep(cfg.headers, ctx) : {};
+    const params = cfg.params ? svc.renderDeep(cfg.params, ctx) : undefined;
+    const data = cfg.body ? svc.renderDeep(cfg.body, ctx) : undefined;
+    const timeout = Number(cfg.timeout_ms || 10000);
+
+    const res = await axios({ method, url, headers, params, data, timeout });
+
+    if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, res.data);
+  },
 });
 
 // ============================

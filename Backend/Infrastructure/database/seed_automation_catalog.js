@@ -1,6 +1,7 @@
 
 const eventTypeSvc = require('../../Application/Services/AutomationEventTypeService.js');
 const actionTypeSvc = require('../../Application/Services/AutomationActionTypeService.js');
+
 async function seedAutomationCatalog() {
   // ---- Event types (triggers)
   const eventTypes = [
