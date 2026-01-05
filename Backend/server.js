@@ -18,16 +18,13 @@ const CampaignRoute = require('./API/routes/CampaignRoutes')
 const OrderRoutes = require('./API/routes/OrderRoutes');
 const automationCatalogRoutes = require('./API/routes/automationCatalogRoutes');
 const paymentRoutes = require('./API/routes/paymentRoutes');
-// const OrderDetailRoutes = require('./API/routes/OrderDetailRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 const StreamingRoutes = require('./API/routes/streamingRoutes');
 const YoutubeRoutes = require('./API/routes/youtubeRoutes');
-
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
 const automationCronJobRoutes = require('./API/routes/automationCronJobRoutes');
 const protectedRoute = require('./API/Middleware/authMiddleware');
-
 // cron utils & domain events
 require('./Domain/Events/LeadEvents');
 require('./Domain/Events/OrderEvents');
@@ -60,16 +57,14 @@ app.use('/auth', authRoutes);
 // YouTube OAuth routes (không cần bảo vệ)
 app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
 app.use('/stream', StreamingRoutes);
-
-// Vì cần api checkout public nên router này để ở ngoài
-//Các route private sẽ được xử lý bên trong OrderRoute luôn
 app.use('/orders', OrderRoutes);
-
-
-app.use(protectedRoute); // Áp dụng middleware bảo vệ từ đây trở xuống
+app.use('/campaign', CampaignRoute)
+app.use('/automation-event', automationCatalogRoutes);
+app.use('/automation', flowRoutes);
+app.use(protectedRoute);
 
 app.use('/users', userRoutes);
-app.use('/automation', flowRoutes);
+
 app.use('/leads', LeadRoutes);
 app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
@@ -77,13 +72,9 @@ app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', OrderRoutes);
 app.use('/automation-event', automationCatalogRoutes);
-// app.use('/order_details', OrderDetailRoutes); // không cần route riêng cho order details
 app.use('/customers', CustomerRoutes);
 app.use('/campaign', CampaignRoute)
-app.use('/payment', paymentRoutes);
-
-
-// Diagnostics
+app.use('/payment', paymentRoutes);// Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
 app.get('/', (_req, res) => res.send('CRM API is running successfully!'));
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));

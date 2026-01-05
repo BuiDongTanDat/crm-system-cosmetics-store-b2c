@@ -65,7 +65,17 @@ class OrderRepository {
 
 		return this.Order.findAll(query);
 	}
+	async count(options) {
+		return this.Order.count(options);
+	}
 
+	async sum(field, options) {
+		return this.Order.sum(field, options);
+	}
+
+	async findOne(options) {
+		return this.Order.findOne(options);
+	}
 	//Lấy order theo khoảng thời gian
 	async getOrdersByDateRange(from, to) {
 		return await this.Order.findAll({
@@ -74,6 +84,44 @@ class OrderRepository {
 					[Op.between]: [from, to],
 				},
 			},
+		});
+	}
+
+	async findByConditions(params = {}) {
+		const {
+			limit = 5000,
+			offset = 0,
+			status,
+			customer_id,
+			lead_id,
+			order_date_after,
+			order_date_before,
+			total_price_gte,
+			total_price_lte,
+		} = params;
+
+		const where = {};
+		if (status) where.status = status;
+		if (customer_id) where.customer_id = customer_id;
+		if (lead_id) where.lead_id = lead_id;
+
+		if (order_date_after || order_date_before) {
+			where.order_date = {};
+			if (order_date_after) where.order_date[Op.gte] = new Date(order_date_after);
+			if (order_date_before) where.order_date[Op.lte] = new Date(order_date_before);
+		}
+
+		if (total_price_gte != null || total_price_lte != null) {
+			where.total_price = {};
+			if (total_price_gte != null) where.total_price[Op.gte] = Number(total_price_gte);
+			if (total_price_lte != null) where.total_price[Op.lte] = Number(total_price_lte);
+		}
+
+		return this.Order.findAll({
+			where,
+			order: [['order_date', 'DESC']],
+			limit: Number(limit) || 5000,
+			offset: Number(offset) || 0,
 		});
 	}
 }

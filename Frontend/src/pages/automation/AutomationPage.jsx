@@ -11,15 +11,17 @@ import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/utils/helper';
-
+import {
+  activateFlow,
+  deactivateFlow,
+} from '@/services/automation';
 import { request } from '@/utils/api';
-import { getFlow } from '@/services/automation'; // ⬅️ dùng service đã unwrap
+import { getFlow } from '@/services/automation';
 import { Input } from '@/components/ui/input';
 import Loading from '@/components/common/Loading';
 
-// ✅ Adapter: API -> UI
 const adaptFlow = (f) => ({
-  id: f.flow_id,                               // UI & Card đang dùng "id"
+  id: f.flow_id,
   name: f.name,
   description: f.description || '',
   status: (f.status || 'UNDEFINED').toUpperCase(), // API trả "active" → UI cần "ACTIVE"
@@ -34,8 +36,8 @@ const adaptFlow = (f) => ({
 
 // (giữ 2 hàm này tại đây cho gọn, nếu thích có thể dời sang services)
 const deleteFlow = (id) => request(`/automation/flows/${id}`, { method: 'DELETE' });
-const updateFlowStatus = (id, status) =>
-  request(`/automation/flows/${id}/status`, { method: 'PATCH', body: { status } });
+// const updateFlowStatus = (id, status) =>
+//   request(`/automation/flows/${id}/status`, { method: 'PATCH', body: { status } });
 
 export default function AutomationPage() {
   const [automations, setAutomations] = useState([]);
@@ -105,7 +107,7 @@ export default function AutomationPage() {
 
   const handleDelete = async (id) => {
     const prev = automations;
-    setAutomations((list) => list.filter((a) => a.id !== id)); // optimistic
+    setAutomations((list) => list.filter((a) => a.id !== id));
     try {
       await deleteFlow(id);
       toast.success('Xóa automation thành công!');
@@ -116,12 +118,27 @@ export default function AutomationPage() {
   };
 
   const handleStatusChange = async (id, nextUiStatus) => {
-    const nextApiStatus = (nextUiStatus || '').toLowerCase();
     const prev = automations;
-    setAutomations((arr) => arr.map((i) => (i.id === id ? { ...i, status: nextUiStatus } : i)));
+
+    // optimistic UI
+    setAutomations((arr) =>
+      arr.map((i) =>
+        (i.id === id || i.flow_id === id) ? { ...i, status: nextUiStatus } : i
+      )
+    );
+
     try {
-      await updateFlowStatus(id, nextApiStatus);
-      toast.success(nextUiStatus === 'ACTIVE' ? 'Đã kích hoạt flow' : 'Đã tạm dừng flow');
+      if (nextUiStatus === 'ACTIVE') {
+        await activateFlow(id);
+      } else {
+        await deactivateFlow(id);
+      }
+
+      toast.success(
+        nextUiStatus === 'ACTIVE'
+          ? 'Đã kích hoạt flow'
+          : 'Đã tạm dừng flow'
+      );
     } catch (e) {
       setAutomations(prev); // rollback
       toast.error('Đổi trạng thái thất bại!');
@@ -131,9 +148,9 @@ export default function AutomationPage() {
   // Stats
   const stats = {
     total: automations.length,
-    active: automations.filter((a) => a.status === 'ACTIVE').length,
-    paused: automations.filter((a) => a.status === 'INACTIVE').length,
-    draft: automations.filter((a) => a.status === 'DRAFT').length,
+    active: automations.filter((a) => String(a.status).toUpperCase() === 'ACTIVE').length,
+    paused: automations.filter((a) => String(a.status).toUpperCase() === 'INACTIVE').length,
+    draft: automations.filter((a) => String(a.status).toUpperCase() === 'DRAFT').length,
   };
 
   const statusOptions = [
@@ -145,10 +162,12 @@ export default function AutomationPage() {
 
   const getStatusBadge = (status) => {
     let color = 'bg-gray-100 text-gray-700';
-    let text = status ? status : 'UNDEFINED';
-    if (status === 'ACTIVE') color = 'bg-green-100 text-green-700';
-    else if (status === 'DRAFT') color = 'bg-gray-100 text-gray-700';
-    else if (status === 'INACTIVE') color = 'bg-red-100 text-red-700';
+    let text = status ? String(status).toUpperCase() : 'UNDEFINED';
+
+    if (text === 'ACTIVE') color = 'bg-green-100 text-green-700';
+    else if (text === 'DRAFT') color = 'bg-orange-100 text-orange-700';
+    else if (text === 'INACTIVE' || text === 'DISABLED') color = 'bg-red-100 text-red-700';
+
     return (
       <span className={`inline-block px-1 py-1 rounded-full w-[80px] text-center text-xs font-medium ${color}`}>
         {text}
@@ -156,7 +175,7 @@ export default function AutomationPage() {
     );
   };
 
-  if (loading) return <div className="p-6"><Loading/></div>;
+  if (loading) return <div className="p-6"><Loading /></div>;
   if (error) return <div className="p-6 text-red-600">Lỗi: {error}</div>;
 
   return (

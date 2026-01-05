@@ -13,19 +13,8 @@ function permissionRoute(module, action) {
             if (!roleInfo) {
                 return res.status(403).json({ error: 'Không tìm thấy vai trò người dùng' });
             }
-
-            /*
-            Permission thuộc dạng mảng các object, ví dụ
-            [
-            {name: product, create: true, read: true, update: false, delete: false},
-            {name: category, create: true, read: true, update: false, delete: false}
-                ]
-            nên trước hết ta lấy permission ra, 
-            tìm object có name trùng với module ở trên
-            sau đó dò action để xem có quyền hay không
-            */
             const permissions = roleInfo.permissions;
-            
+
             const moduleName = permissions.find(p => p.name === module);
             if (!moduleName || moduleName[action] !== true) {
                 console.log(`User với vai trò ${roleName} KHÔNG có quyền ${action} trên module ${module}`);

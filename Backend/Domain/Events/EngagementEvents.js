@@ -9,3 +9,4 @@ module.exports = {
     EMAIL_OPENED: 'engagement.email_opened',
     VIDEO_PLAYED: 'engagement.video_played'
 };
+    

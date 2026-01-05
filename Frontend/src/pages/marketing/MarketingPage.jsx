@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate } from '@/utils/helper';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -36,13 +37,15 @@ export default function MarketingPage() {
       startDate: c.start_date ? c.start_date.slice(0, 10) : '',
       endDate: c.end_date ? c.end_date.slice(0, 10) : '',
       targetAudience: c.target_filter?.note || '',
+      target_filter: c.target_filter || {},
       dataSource: c.data_source || 'Customers',
       status: capitalize(c.status || 'Draft'),
       assignee: '',
       assigneeId: c.owner_employee_id || null,
       expectedKPI: c.expected_kpi ? JSON.stringify(c.expected_kpi) : '',
+      expected_kpi: c.expected_kpi || {},
       products: Array.isArray(c.products) ? c.products : [],
-      performance: null,
+      performance: c.performance || null,
       __raw: c,
     };
 
@@ -146,29 +149,26 @@ export default function MarketingPage() {
   const openAdd = () => setModal({ open: true, mode: 'edit', campaign: null });
   const closeModal = () => setModal({ open: false, mode: 'view', campaign: null });
 
-  const handleSave = (campaignData) => {
-    if (modal.mode === 'edit' && !campaignData.id) {
+  const handleSave = (apiData) => {
+    console.log("Campaign saved (API):", apiData);
+    const uiData = mapApiCampaignToUI(apiData);
+    if (!uiData) return;
+
+    if (modal.mode === 'edit' && !modal.campaign) {
       // Create new
-      const newCampaign = {
-        ...campaignData,
-        id: Math.max(...campaigns.map(c => c.id)) + 1,
-        performance: null
-      };
-      setCampaigns(prev => [newCampaign, ...prev]);
+      setCampaigns(prev => [uiData, ...prev]);
       closeModal();
     } else if (modal.mode === 'edit') {
       // Update existing
-      setCampaigns(prev => prev.map(c => c.id === campaignData.id ? { ...c, ...campaignData } : c));
-
+      setCampaigns(prev => prev.map(c => c.id === uiData.id ? uiData : c));
 
       // Cập nhật dữ liệu trong modal và chuyển về view mode
       setModal(prev => ({
         ...prev,
-        mode: 'view', // Chuyển về view mode
-        campaign: { ...campaignData }
+        mode: 'view',
+        campaign: { ...uiData } // Update view with formatted data
       }));
     }
-    console.log("Campaign saved:", campaignData);
   };
 
   const handleDelete = (id) => {
@@ -270,19 +270,12 @@ export default function MarketingPage() {
               />
             </div>
             <div className="flex gap-2 w-full lg:w-auto">
-              <Button onClick={openAdd} variant="actionCreate" className="gap-2 w-full lg:w-auto">
-                <Plus className="w-4 h-4" />
-                Thêm chiến dịch
-              </Button>
-              {/* <ImportExportDropdown
-                data={campaigns}
-                filename="campaigns"
-                fieldMapping={campaignFieldMapping}
-                onImportSuccess={handleImportSuccess}
-                onImportError={handleImportError}
-                trigger="icon"
-                variant="actionNormal"
-              /> */}
+              <PermissionGuard module="campaign" action="create">
+                <Button onClick={openAdd} variant="actionCreate" className="gap-2 w-full lg:w-auto">
+                  <Plus className="w-4 h-4" />
+                  Thêm chiến dịch
+                </Button>
+              </PermissionGuard>
             </div>
           </div>
         </div>
@@ -352,25 +345,31 @@ export default function MarketingPage() {
                             ? "opacity-100 translate-y-0 pointer-events-auto"
                             : "opacity-0 translate-y-1 pointer-events-none"}`}
                         >
-                          <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="actionUpdate" size="icon" onClick={() => openEdit(c)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <ConfirmDialog
-                            title="Xác nhận xóa"
-                            description={<>
-                              Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{c?.name}</span>?
-                            </>}
-                            confirmText="Xóa"
-                            cancelText="Hủy"
-                            onConfirm={() => handleDelete(c.id)}
-                          >
-                            <Button variant="actionDelete" size="icon">
-                              <Trash2 className="w-4 h-4" />
+                          <PermissionGuard module="campaign" action="read">
+                            <Button variant="actionRead" size="icon" onClick={() => openView(c)}>
+                              <Eye className="w-4 h-4" />
                             </Button>
-                          </ConfirmDialog>
+                          </PermissionGuard>
+                          <PermissionGuard module="campaign" action="update">
+                            <Button variant="actionUpdate" size="icon" onClick={() => openEdit(c)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="campaign" action="delete">
+                            <ConfirmDialog
+                              title="Xác nhận xóa"
+                              description={<>
+                                Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{c?.name}</span>?
+                              </>}
+                              confirmText="Xóa"
+                              cancelText="Hủy"
+                              onConfirm={() => handleDelete(c.id)}
+                            >
+                              <Button variant="actionDelete" size="icon">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </ConfirmDialog>
+                          </PermissionGuard>
                         </div>
                       </td>
                     </tr>

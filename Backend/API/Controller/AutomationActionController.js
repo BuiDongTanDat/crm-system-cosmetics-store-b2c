@@ -1,20 +1,8 @@
-// ENDPOINT GỢI Ý:
-// POST   /automation/triggers/:trigger_id/actions
-// GET    /automation/flows/:flow_id/actions
-// GET    /automation/triggers/:trigger_id/actions
-// GET    /automation/actions?status=pending
-// GET    /automation/actions/:action_id
-// PATCH  /automation/actions/:action_id
-// DELETE /automation/actions/:action_id
-// GET    /automation/actions/due
-// POST   /automation/actions/:action_id/sent
-// POST   /automation/actions/:action_id/failed
 
 // const IAutomationActionService = require('../../Application/Interfaces/IAutomationActionService.js');
 const AutomationActionService = require('../../Application/Services/AutomationActionService.js');
 
 const actionService = AutomationActionService; // hoặc new AutomationActionService(deps)
-
 class AutomationActionController {
   static async createForTrigger(req, res) {
     try {

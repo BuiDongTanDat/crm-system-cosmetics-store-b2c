@@ -13,8 +13,15 @@ class AutomationFlowRepository {
     return await AutomationFlow.create(data);
   }
 
-  async findById(flow_id) {
-    return await AutomationFlow.findByPk(flow_id);
+  async findById(flowId) {
+    const flow = await AutomationFlow.findOne({ where: { flow_id: flowId } });
+    if (!flow) return null;
+
+    const actions = await AutomationActionRepository.findByFlow(flowId);
+
+    const f = flow.toJSON?.() ?? flow;
+    f.actions = (actions || []).map(a => a.toJSON?.() ?? a);
+    return f;
   }
 
   async findAll({ enabled, q, limit = 100, offset = 0 } = {}) {
@@ -91,6 +98,8 @@ class AutomationFlowRepository {
         flow_id: (flow?.flow_id ?? tr.flow_id),
         name: flow?.name,
         description: flow?.description,
+        status: flow?.status,
+        enabled: flow?.enabled,
         is_active: (flow?.is_active ?? flow?.enabled),
       };
 

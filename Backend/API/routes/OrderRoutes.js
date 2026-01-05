@@ -4,9 +4,8 @@ const upload = multer({ dest: 'uploads/' });
 const OrderController = require('../Controller/OrderController');
 const protectedRoute = require('../Middleware/authMiddleware');
 const permissionRoute = require('../Middleware/permissionMiddleware');
+// const protectedRoute = require('../Middleware/authMiddleware');
 const router = express.Router();
-
-// Public route for order checkout
 router.get('/checkout/:id', OrderController.getOrderById);
 
 router.use(protectedRoute);

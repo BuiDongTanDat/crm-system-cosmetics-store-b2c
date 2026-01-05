@@ -1,16 +1,11 @@
-// backend/src/Infrastructure/scheduler/cronManager.js
-/* eslint-disable no-console */
 const cron = require('node-cron');
 const AutomationService = require('../../Application/Services/AutomationService');
 const CronJobRepo = require('../Repositories/AutomationCronJobRepository');
-
-const jobs = new Map();   // job_key -> { task, fingerprint }
+const jobs = new Map();   
 let reloader = null;
-
 function fingerprint(row) {
   return `${row.enabled}|${row.event_type}|${row.cron_expr}|${row.timezone}`;
 }
-
 function stopJob(job_key) {
   const cur = jobs.get(job_key);
   if (!cur) return;
@@ -20,11 +15,9 @@ function stopJob(job_key) {
   jobs.delete(job_key);
   console.log(`[CRON-MGR] stopped: ${job_key}`);
 }
-
 function startJob(row) {
   const tz = row.timezone || 'Asia/Ho_Chi_Minh';
   const expr = row.cron_expr;
-
   const task = cron.schedule(
     expr,
     async () => {

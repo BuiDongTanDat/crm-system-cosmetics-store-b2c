@@ -1,6 +1,6 @@
 // backend/src/Infrastructure/repositories/AutomationActionRepository.js
 const { Op } = require('sequelize');
-const  AutomationAction  = require('../../Domain/Entities/AutomationAction');
+const AutomationAction = require('../../Domain/Entities/AutomationAction');
 class AutomationActionRepository {
 
   async create(data) {
@@ -12,17 +12,17 @@ class AutomationActionRepository {
   }
 
   async findByTrigger(trigger_id) {
-    return await AutomationAction.findAll({ where: { trigger_id }, order: [['created_at','DESC']] });
+    return await AutomationAction.findAll({ where: { trigger_id }, order: [['order_index', 'ASC'], ['created_at', 'ASC']] });
   }
 
   async findByFlow(flow_id) {
-    return await AutomationAction.findAll({ where: { flow_id }, order: [['created_at','DESC']] });
+    return await AutomationAction.findAll({ where: { flow_id }, order: [['order_index', 'ASC'], ['created_at', 'ASC']] });
   }
 
   async list({ status, limit = 100, offset = 0 } = {}) {
     const where = {};
     if (status) where.status = status;
-    return await AutomationAction.findAll({ where, limit, offset, order: [['created_at','DESC']] });
+    return await AutomationAction.findAll({ where, limit, offset, order: [['order_index', 'ASC'], ['created_at', 'ASC']] });
   }
 
   async update(action_id, patch) {
@@ -43,7 +43,7 @@ class AutomationActionRepository {
         status: 'pending',
         executed_at: { [Op.lte]: now }
       },
-      order: [['executed_at','ASC']]
+      order: [['executed_at', 'ASC']]
     });
   }
 
@@ -63,7 +63,7 @@ class AutomationActionRepository {
   }
   async bulkDeleteByIds(ids = [], options = {}) {
     if (!Array.isArray(ids) || ids.length === 0) return 0;
-    const pk =AutomationAction.primaryKeyAttribute || 'action_id';
+    const pk = AutomationAction.primaryKeyAttribute || 'action_id';
     return AutomationAction.destroy({
       where: { [pk]: { [Op.in]: ids } },
       ...options,

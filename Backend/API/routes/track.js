@@ -1,6 +1,7 @@
 // backend/src/Presentation/routes/track.js
 const express = require('express');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
+const CampaignChannelRepo = require('../../Infrastructure/Repositories/CampaignChannelRepository');
 
 const router = express.Router();
 
@@ -8,56 +9,42 @@ const GIF_1x1 = Buffer.from(
   'R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
   'base64'
 );
-
-// -------------------
-// EMAIL OPEN TRACKING
-// -------------------
-router.get('/open.gif', async (req, res) => {
-  try {
-    const {
-      mid,
-      to,
-      flow_id,
-      template_key,
-      order_id,
-      customer_id,
-      lead_id,
-    } = req.query;
-
-    const ip =
-      req.headers['x-forwarded-for']?.split(',')[0] ||
-      req.socket?.remoteAddress ||
-      req.ip;
-
-    if (mid) {
-      await Rabbit.publish('engagement.email_opened', {
-        mid,
-        to,
-        flow_id,
-        template_key,
-        order_id,
-        customer_id,
-        lead_id,
-        user_agent: req.get('user-agent') || '',
-        ip,
-        at: new Date().toISOString(),
-      });
+const openedDedupe = new Map();
+function seenRecently(key, ttlMs) {
+  const now = Date.now();
+  const last = openedDedupe.get(key);
+  if (last && now - last < ttlMs) return true;
+  openedDedupe.set(key, now);
+  if (openedDedupe.size > 50000) {
+    const cutoff = now - ttlMs;
+    for (const [k, t] of openedDedupe.entries()) {
+      if (t < cutoff) openedDedupe.delete(k);
     }
-  } catch (e) {
-    // nuốt lỗi để không ảnh hưởng load ảnh
   }
-
-  res.set('Content-Type', 'image/gif');
-  res.set('Content-Length', GIF_1x1.length);
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-
-  return res.status(200).send(GIF_1x1);
-});
-
-// -------------------
-// LINK CLICK TRACKING
-// -------------------
+  return false;
+}
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    ''
+  );
+}
+async function publishOpened({ mid, req, extra = {} }) {
+  if (!mid) return;
+  const ip = getClientIp(req);
+  const ua = req.get('user-agent') || '';
+  const key = `${mid}|${ip}|${ua}`;
+  if (seenRecently(key, 10 * 60 * 1000)) return;
+  await Rabbit.publish('engagement.email_opened', {
+    mid,
+    user_agent: ua,
+    ip,
+    at: new Date().toISOString(),
+    ...extra,
+  });
+}
 router.get('/click', async (req, res) => {
   const {
     mid,
@@ -68,15 +55,31 @@ router.get('/click', async (req, res) => {
     order_id,
     customer_id,
     lead_id,
+    campaign_id,
+    channel_id,
   } = req.query;
-
-  const ip =
-    req.headers['x-forwarded-for']?.split(',')[0] ||
-    req.socket?.remoteAddress ||
-    req.ip;
-
+  const ip = getClientIp(req);
+  const ua = req.get('user-agent') || '';
+  if (!url || !/^https?:\/\//i.test(url)) {
+    return res.status(400).send('Invalid url');
+  }
   try {
-    if (mid && url) {
+    await publishOpened({
+      mid,
+      req,
+      extra: {
+        source: 'click',
+        to,
+        flow_id,
+        template_key,
+        order_id,
+        customer_id,
+        lead_id,
+        campaign_id,
+        channel_id,
+      },
+    });
+    if (mid) {
       await Rabbit.publish('engagement.link_clicked', {
         mid,
         to,
@@ -85,21 +88,28 @@ router.get('/click', async (req, res) => {
         order_id,
         customer_id,
         lead_id,
+        campaign_id,
+        channel_id,
         url,
-        user_agent: req.get('user-agent') || '',
+        user_agent: ua,
         ip,
         at: new Date().toISOString(),
       });
     }
   } catch (e) {
-    // nuốt lỗi
   }
-
-  // chặn open redirect
-  if (!url || !/^https?:\/\//i.test(url)) {
-    return res.status(400).send('Invalid url');
+  if (channel_id) {
+    try {
+      // total click +1
+      await CampaignChannelRepo.incById(channel_id, { clicks_total: 1 });
+      const uniqKey = `click|${channel_id}|${String(to || '')}|${String(mid || '')}`;
+      if (!seenRecently(uniqKey, 24 * 60 * 60 * 1000)) {
+        await CampaignChannelRepo.incById(channel_id, { clicks_unique: 1 });
+      }
+    } catch (e) {
+      // không block redirect
+    }
   }
-
   return res.redirect(302, url);
 });
 

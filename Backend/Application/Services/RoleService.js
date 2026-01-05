@@ -133,7 +133,7 @@ class RoleService {
             { name: "customer", create: true, read: true, update: true, delete: true },
             { name: "role", create: true, read: true, update: true, delete: true },
             { name: "lead", create: true, read: true, update: true, delete: true },
-            { name: "campaign", create: true, read: true, update: true, delete: true },
+            { name: "campaign", create: true, read: true, update: true, delete: true, approve: true, run: true },
             { name: "automation", create: true, read: true, update: true, delete: true },
             { name: "order", create: true, read: true, update: true, delete: true },
             {

@@ -1,6 +1,7 @@
 const OrderRepo = require('../../Infrastructure/Repositories/OrderRepository');
 const OrderDetailService = require('./OrderDetailService');
 const LeadService = require('./LeadService');
+const leadRepository = require('../../Infrastructure/Repositories/LeadRepository');
 const { OrderRequestDTO, OrderResponseDTO } = require('../DTOs/OrderDTO');
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
 const productRepository = require('../../Infrastructure/Repositories/ProductRepository');
@@ -27,10 +28,8 @@ class OrderService {
 		if (!items.length) {
 			throw new Error('NO_ITEMS: Thiếu danh sách sản phẩm');
 		}
-		// --- 2) Enrich giá + kiểm tồn nếu có service (khuyến nghị) ---
 		let enriched = items;
 		if (PricingInventoryService?.enrichAndValidate) {
-			// expect trả về [{ product_id, quantity, unit_price, discount?, total_price, price_original? }]
 			enriched = await PricingInventoryService.enrichAndValidate(items);
 		} else {
 			// Fallback: đảm bảo có unit_price/total_price từ client
@@ -91,49 +90,62 @@ class OrderService {
 			email,
 			created_by,
 		} = (payload || {});
-
 		if (!payload?.customer_id) {
 			let resolvedCustomer = null;
 
 			if (lead_id) {
-				const { ok, data, error } = await LeadService.autoConvertLead(lead_id, {
-					orderId: null,
-					by: created_by || null,
-					customerPatch: { source: 'order_checkout' },
-				});
-				if (!ok) {
-					throw new Error(`Convert lead thất bại: ${error?.message || error?.code || 'AUTO_CONVERT_FAILED'}`);
+				const lead = await leadRepository.findById(lead_id);
+				if (!lead) throw new Error('LEAD_NOT_FOUND: lead_id không tồn tại');
+				const leadEmail = lead.email || email || null;
+				const leadPhone = lead.phone || phone || null;
+				const leadName = lead.name || full_name || name || 'Guest';
+				let exist = null;
+				if (leadEmail) exist = await customerRepository.findByEmail(leadEmail);
+				if (!exist && leadPhone) exist = await customerRepository.findByPhone(leadPhone);
+
+				if (exist) {
+					payload.customer_id = exist.customer_id;
+					resolvedCustomer = exist;
+				} else {
+					// 3) Tạo customer record để gắn order
+					// ===== FIX QUAN TRỌNG: Customer cần full_name, KHÔNG phải name =====
+					resolvedCustomer = await customerRepository.findOrCreateSmart({
+						full_name: leadName || 'Guest',
+						phone: leadPhone || null,
+						email: leadEmail || null,
+						source: 'order_checkout',
+						assigned_to: lead.assigned_to || null,
+					});
+					payload.customer_id = resolvedCustomer?.customer_id;
+					if (!payload.customer_id) throw new Error('CUSTOMER_CREATE_FAILED: Không tạo được customer_id');
 				}
-				resolvedCustomer = data?.customer;
-				payload.customer_id = resolvedCustomer?.customer_id;
+				payload.lead_id = lead_id;
+
 			} else {
-				// Bổ sung validate email/phone – nếu trùng thì gán customer_id đó
 				let exist = null;
 
 				if (email) exist = await customerRepository.findByEmail(email);
 				if (!exist && phone) exist = await customerRepository.findByPhone(phone);
 
 				if (exist) {
-					// Nếu đã có khách hàng trùng email hoặc phone
 					payload.customer_id = exist.customer_id;
 					resolvedCustomer = exist;
 				} else {
 					const candidate = {
-						name: full_name || name || 'Guest',
+						full_name: full_name || name || 'Guest',
 						phone: phone || null,
 						email: email || null,
 						source: 'guest_checkout',
 					};
 					resolvedCustomer = await customerRepository.findOrCreateSmart(candidate);
 					payload.customer_id = resolvedCustomer?.customer_id;
+
+					if (!payload.customer_id) throw new Error('CUSTOMER_CREATE_FAILED: Không tạo được customer_id');
 				}
 			}
 		}
-
-
 		const dto = new OrderRequestDTO(payload);
 		if (!dto.customer_id) throw new Error('Thiếu mã khách hàng');
-
 		const items = Array.isArray(dto.items)
 			? dto.items.map(i => OrderDetailService._normalizeDetail(i))
 			: [];
@@ -170,7 +182,8 @@ class OrderService {
 			}
 
 			await transaction.commit();
-			// ---- Publish event after commit (optional) ----
+
+			// Publish event after commit
 			try {
 				await Rabbit.publish('order.created', {
 					order_id: createdOrder.order_id,
@@ -182,10 +195,19 @@ class OrderService {
 					channel: createdOrder.channel,
 					order_date: createdOrder.order_date,
 					item_count: Array.isArray(createDetails) ? createDetails.length : 0,
+					items: (createDetails || []).map(d => ({
+						product_id: d.product_id,
+						quantity: d.quantity,
+						unit_price: d.unit_price,
+						line_total: d.line_total,
+						product_name: d.product_name,
+						image_url: d.image_url,
+					})),
 				});
 			} catch (e) {
 				console.error('[RabbitMQ] Failed to publish order.created:', e?.message || e);
 			}
+
 			return OrderResponseDTO.fromEntity(createdOrder, createDetails);
 
 		} catch (err) {
@@ -193,6 +215,7 @@ class OrderService {
 			throw new Error(`Tạo đơn hàng thất bại: ${err.message}`);
 		}
 	}
+
 
 	// Lấy order theo id
 	async getOrderById(orderId) {
@@ -313,15 +336,34 @@ class OrderService {
 	async updateStatus(orderId, newStatus) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
 		const transaction = await OrderRepo.sequelize.transaction();
+
 		try {
 			await OrderRepo.updateStatus(orderId, newStatus, transaction);
 			await transaction.commit();
-			// Fetch updated order after commit
+
 			const updated = await OrderRepo.findById(orderId);
-			// ---- Publish event after commit ----
+
 			try {
 				const statusNorm = String(newStatus || '').toLowerCase();
-				if (statusNorm === 'paid' || statusNorm === 'payment_success' || statusNorm === 'completed') {
+				const isPaid =
+					statusNorm === 'paid' ||
+					statusNorm === 'payment_success' ||
+					statusNorm === 'completed';
+
+				if (isPaid) {
+					// 2.1 Convert lead (nếu order gắn lead)
+					if (updated?.lead_id) {
+						const conv = await LeadService.autoConvertLead(updated.lead_id, {
+							orderId: updated.order_id,
+							by: updated.created_by || null,              // nếu order có created_by
+							customerPatch: { source: 'order_paid' },
+						});
+
+						if (!conv?.ok) {
+							console.warn('[Lead] Auto-convert failed on paid:', conv?.error?.message || conv?.error);
+						}
+					}
+					// 2.2 Publish order.paid như bạn đang làm
 					const payload = {
 						order_id: updated.order_id,
 						customer_id: updated.customer_id,
@@ -333,19 +375,20 @@ class OrderService {
 						order_date: updated.order_date || null,
 						status: updated.status,
 					};
+
 					await Rabbit.publish('order.paid', payload);
 					console.log('[RabbitMQ] Published order.paid event for order:', payload);
 				}
 			} catch (e) {
-				console.error('[RabbitMQ] Failed to publish order status event:', e?.message || e);
+				console.error('[Paid Flow] Failed:', e?.message || e);
 			}
+
 			return OrderResponseDTO.fromEntity(updated);
 		} catch (err) {
 			await transaction.rollback();
 			throw new Error(`Cập nhật trạng thái đơn hàng thất bại: ${err.message}`);
 		}
 	}
-
 	// Xóa order (kemf xoas details)
 	async deleteOrder(orderId) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');

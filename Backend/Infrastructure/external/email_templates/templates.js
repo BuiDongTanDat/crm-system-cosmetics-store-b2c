@@ -1,20 +1,20 @@
 // backend/src/Infrastructure/external/email_templates/templates.js
 
 function esc(s) {
-    return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function money(v, currency = 'VND') {
-    const n = Number(v || 0);
-    try {
-        return new Intl.NumberFormat('vi-VN').format(n) + ' ' + currency;
-    } catch {
-        return `${n} ${currency}`;
-    }
+  const n = Number(v || 0);
+  try {
+    return new Intl.NumberFormat('vi-VN').format(n) + ' ' + currency;
+  } catch {
+    return `${n} ${currency}`;
+  }
 }
 
 module.exports = {
@@ -25,56 +25,69 @@ module.exports = {
         const name = e.greeting_name || ctx.customer?.full_name || 'bạn';
         const total = money(e.total_amount ?? ctx.order?.total_amount, e.currency || ctx.order?.currency || 'VND');
 
-        return `
+    const subject = pickFirst(ctx.subject, `Biên nhận thanh toán - Đơn ${orderId}`, theme.brand_name);
+
+    const body = `
 <tr>
   <td style="padding:18px 20px;background:#ecfdf5;border-bottom:1px solid #d1fae5;">
-    <div style="font-size:16px;font-weight:800;color:#065f46;">${esc(e.title || 'Thanh toán thành công')}</div>
+    <div style="font-size:16px;font-weight:900;color:#065f46;">${esc(e.title || 'Thanh toán thành công')}</div>
     <div style="font-size:12px;color:#047857;margin-top:6px;">Mã đơn: <strong>${esc(orderId)}</strong></div>
   </td>
 </tr>
 <tr>
-  <td style="padding:18px 20px;color:#111827;line-height:1.6;">
+  <td style="padding:18px 20px;line-height:1.7;">
     <p style="margin-top:0;">Chào ${esc(name)},</p>
     <p>${esc(e.body || 'Cảm ơn bạn. Đơn hàng đã được thanh toán thành công.')}</p>
-    <p><strong>Tổng tiền:</strong> ${esc(total)}</p>
-    <p style="font-size:12px;color:#6b7280;">Chúng tôi sẽ sớm bàn giao/ship đơn hàng.</p>
+    ${infoCard({ label: 'Tổng tiền', value: total, border: theme.border })}
+    <p style="font-size:12px;color:${esc(theme.muted)};">Chúng tôi sẽ sớm bàn giao/ship đơn hàng.</p>
   </td>
 </tr>`;
-    },
 
-    // 2) Order confirm payment link (order.created)
-    order_confirm: (ctx) => {
-        const e = ctx.email || {};
-        const orderId = e.order_id || ctx.order?.order_id || 'N/A';
-        const name = e.greeting_name || ctx.customer?.full_name || ctx.lead?.name || 'bạn';
-        const ctaUrl = e.cta_url || ctx.payment?.url || '#';
-        const ctaText = e.cta_text || 'Thanh toán đơn hàng';
+    return wrapEmail({ ctx, subject, bodyTrHtml: body });
+  },
 
-        return `
+  order_confirm: (ctx) => {
+    const e = ctx.email || {};
+    const theme = resolveTheme(ctx);
+
+    const orderId = pickFirst(e.order_id, ctx.order?.order_id, 'N/A');
+    const name = ctxName(ctx);
+
+    const ctaUrl = pickFirst(e.cta_url, ctx.payment?.url, '#');
+    const ctaText = pickFirst(e.cta_text, 'Thanh toán đơn hàng');
+
+    const productsHtml = renderProducts(
+      ctx.order_items || ctx.recommended_products || [],
+      theme
+    );
+
+    const subject = pickFirst(ctx.subject, `Xác nhận đơn hàng ${orderId}`, theme.brand_name);
+
+    const body = `
 <tr>
   <td style="padding:18px 20px;background:#fff7ed;border-bottom:1px solid #fed7aa;">
-    <div style="font-size:16px;font-weight:800;color:#9a3412;">${esc(e.title || 'Xác nhận đặt hàng')}</div>
-    <div style="font-size:12px;color:#9a3412;margin-top:6px;">Mã đơn: <strong>${esc(orderId)}</strong></div>
+    <div style="font-size:16px;font-weight:900;color:#9a3412;">
+      ${esc(e.title || 'Xác nhận đặt hàng')}
+    </div>
+    <div style="font-size:12px;color:#9a3412;margin-top:6px;">
+      Mã đơn: <strong>${esc(orderId)}</strong>
+    </div>
   </td>
 </tr>
 <tr>
-  <td style="padding:18px 20px;color:#111827;line-height:1.6;">
+  <td style="padding:18px 20px;line-height:1.7;">
     <p style="margin-top:0;">Chào ${esc(name)},</p>
-    <p>${esc(e.body || 'Chúng tôi đã nhận được đơn hàng của bạn. Vui lòng nhấn nút bên dưới để thanh toán và xác nhận đơn.')}</p>
-
-    <div style="text-align:center;margin:18px 0;">
-      <a href="${esc(ctaUrl)}"
-         style="display:inline-block;padding:12px 20px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">
-        ${esc(ctaText)}
-      </a>
+    <p>${esc(e.body || 'Vui lòng kiểm tra và thanh toán đơn hàng của bạn.')}</p>
+    ${ctaButton({ url: ctaUrl, text: ctaText, bg: '#f97316' })}
+    <div style="font-size:12px;color:${esc(theme.muted)};">
+      Nếu bạn đã thanh toán, vui lòng bỏ qua email này.
     </div>
-
-    <p style="font-size:12px;color:#6b7280;margin-bottom:0;">
-      Link thanh toán sẽ hết hạn sau một thời gian vì lý do bảo mật.
-    </p>
   </td>
-</tr>`;
-    },
+</tr>
+${productsHtml}`;
+
+    return wrapEmail({ ctx, subject, bodyTrHtml: body });
+  },
 
     // 3) Birthday
     birthday: (ctx) => {
@@ -89,7 +102,7 @@ module.exports = {
         return `
 ${imageUrl ? `
 <tr><td style="padding:0;">
-  <img src="${esc(imageUrl)}" alt="Birthday" style="width:100%;display:block;"/>
+  <img src="${esc(bannerUrl)}" alt="Birthday" style="width:100%;display:block;" />
 </td></tr>` : ''}
 
 <tr>
@@ -100,52 +113,49 @@ ${imageUrl ? `
     </div>
   </td>
 </tr>
+
 <tr>
   <td style="padding:0 22px 18px 22px;">
-    <div style="background:#f3f4f6;border-radius:12px;padding:12px 14px;">
+    ${coupon ? `
+    <div style="background:#f3f4f6;border-radius:12px;padding:12px 14px;border:1px solid ${esc(theme.border)};">
       <div style="font-size:13px;color:#374151;">Mã ưu đãi:</div>
-      <div style="font-size:18px;font-weight:800;color:#111827;letter-spacing:1px;">
+      <div style="font-size:18px;font-weight:950;color:#111827;letter-spacing:1px;">
         ${esc(coupon)}
       </div>
-      <div style="font-size:12px;color:#6b7280;margin-top:6px;">
-        HSD: ${esc(expire)}
-      </div>
-    </div>
+      ${expire ? `<div style="font-size:12px;color:#6b7280;margin-top:6px;">HSD: ${esc(expire)}</div>` : ''}
+    </div>` : ''}
 
-    <div style="margin-top:14px;">
-      <a href="${esc(ctaUrl)}"
-         style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;">
-        ${esc(ctaText)}
-      </a>
-    </div>
+    ${ctaButton({ url: ctaUrl, text: ctaText, bg: theme.primary })}
   </td>
 </tr>`;
-    },
 
-    // 4) VIP deals
-    vip_deals: (ctx) => {
-        const e = ctx.email || {};
-        const name = e.greeting_name || ctx.customer?.full_name || 'bạn';
-        const deal = e.vip_discount || 'Giảm 15%';
-        const ctaUrl = e.cta_url || '#';
-        const ctaText = e.cta_text || 'Xem ưu đãi';
+    return wrapEmail({ ctx, subject, bodyTrHtml: body });
+  },
 
-        return `
+  vip_deals: (ctx) => {
+    const e = ctx.email || {};
+    const theme = resolveTheme(ctx);
+
+    const name = pickFirst(ctx.customer?.full_name, e.greeting_name, 'bạn');
+    const deal = pickFirst(e.vip_discount, e.offer_text, 'Giảm 15%');
+    const ctaUrl = pickFirst(e.cta_url, '#');
+    const ctaText = pickFirst(e.cta_text, 'Xem ưu đãi');
+
+    const subject = pickFirst(ctx.subject, `Ưu đãi VIP hôm nay dành cho ${name}`, theme.brand_name);
+
+    const body = `
 <tr>
   <td style="padding:18px 20px;background:#111827;color:#ffffff;">
-    <div style="font-size:16px;font-weight:800;">${esc(e.title || 'Ưu đãi hôm nay dành riêng cho VIP')}</div>
-    <div style="font-size:12px;opacity:0.9;margin-top:6px;">${esc(ctx.brand?.name || 'MyShop')}</div>
+    <div style="font-size:16px;font-weight:950;">${esc(e.title || 'Ưu đãi hôm nay dành riêng cho VIP')}</div>
+    <div style="font-size:12px;opacity:0.9;margin-top:6px;">${esc(theme.brand_name)}</div>
   </td>
 </tr>
 <tr>
-  <td style="padding:18px 20px;color:#111827;line-height:1.6;">
+  <td style="padding:18px 20px;line-height:1.7;">
     <p style="margin-top:0;">Chào ${esc(name)},</p>
     <p>Hôm nay bạn có ưu đãi VIP: <strong>${esc(deal)}</strong></p>
-    <a href="${esc(ctaUrl)}"
-       style="display:inline-block;margin-top:10px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;">
-      ${esc(ctaText)}
-    </a>
-    <p style="margin-top:14px;font-size:12px;color:#6b7280;">Bạn nhận email này vì thuộc nhóm khách hàng VIP.</p>
+    ${ctaButton({ url: ctaUrl, text: ctaText, bg: theme.primary })}
+    <p style="margin-top:14px;font-size:12px;color:${esc(theme.muted)};">Bạn nhận email này vì thuộc nhóm khách hàng VIP.</p>
   </td>
 </tr>`;
     },
@@ -169,15 +179,12 @@ ${imageUrl ? `<tr><td style="padding:0;">
   </td>
 </tr>
 <tr>
-  <td style="padding:18px 20px;color:#111827;line-height:1.6;">
-    <p style="margin-top:0;">Chào <strong>${esc(name)}</strong>,</p>
-    <p>${esc(e.body || 'Chúng tôi dành riêng cho bạn set quà tặng ưu đãi đặc biệt.')}</p>
-
-    <div style="text-align:center;margin:18px 0;">
-      <a href="${esc(ctaUrl)}"
-         style="display:inline-block;padding:12px 20px;background:#ff6f91;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">
-        ${esc(ctaText)}
-      </a>
+  <td style="padding:18px 20px;line-height:1.7;">
+    <p style="margin-top:0;">Chào ${esc(name)},</p>
+    <p>${esc(e.body || 'Chúng tôi đã ghi nhận yêu cầu hoàn tiền cho đơn hàng của bạn.')}</p>
+    ${infoCard({ label: 'Số tiền hoàn', value: refunded, border: theme.border })}
+    <div style="font-size:12px;color:${esc(theme.muted)};">
+      Thời gian hoàn tiền phụ thuộc ngân hàng/đơn vị thanh toán.
     </div>
   </td>
 </tr>`;

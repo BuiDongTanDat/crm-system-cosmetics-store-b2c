@@ -4,6 +4,11 @@ triggerRepo = require('../../Infrastructure/Repositories/AutomationTriggerReposi
 flowRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository.js');
 // const IAutomationActionService = require('../Interfaces/IAutomationActionService');
 class AutomationActionService {
+  constructor() {
+    this.actions = actionRepo;
+    this.triggers = triggerRepo;
+    this.flows = flowRepo;
+  }
   async createAction(dto) {
     if (dto.trigger_id) {
       const trig = await this.triggers.findById(dto.trigger_id);
@@ -11,7 +16,7 @@ class AutomationActionService {
       if (!dto.flow_id) dto.flow_id = trig.flow_id;
     }
     if (dto.flow_id) {
-      const flow = await this.flows.findById(dto.flow_id);
+      const flow = await this.flows.findById(dto.flow_id);  
       if (!flow) throw new Error('Flow not found');
     }
     return await this.actions.create(dto);

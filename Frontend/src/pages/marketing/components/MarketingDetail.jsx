@@ -1,9 +1,11 @@
 // src/pages/marketing/components/MarketingDetail.jsx
 import React, { useState } from "react";
-import { Calendar, DollarSign, Target, Tag, PackageSearch, CheckCircle, Loader2 } from "lucide-react";
+import { Calendar, DollarSign, Target, Tag, PackageSearch, CheckCircle, Loader2, TrendingUp } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
-import { approveCampaign } from "@/services/campaign";
-import SuccessDialog from "@/components/dialogs/SuccessDialog"; // <— dùng component bạn có
+import { approveCampaign, runCampaign, listCampaignChannels, submitForApproval, rejectCampaign, approveProposal, getCampaignById } from "@/services/campaign";
+import SuccessDialog from "@/components/dialogs/SuccessDialog";
+import StatusHistory from "./StatusHistory";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 const formatPercent = (v) => {
     const n = Number(v);
@@ -22,43 +24,117 @@ const KPI_FORMATTER = (key, val) => {
 const toArr = (v) => (Array.isArray(v) ? v : v ? [String(v)] : []);
 const mapStatus = (s) => {
     const v = String(s || "").toLowerCase();
-    if (v === "running") return "Running";
-    if (v === "completed") return "Completed";
-    if (v === "paused") return "Paused";
-    if (v === "draft") return "Draft";
-    return "Draft";
+    const map = {
+        draft: "Draft",
+        submitted: "Submitted",
+        approved: "Approved",
+        configuring: "Configuring",
+        running: "Running",
+        paused: "Paused",
+        completed: "Completed",
+        rejected: "Rejected"
+    };
+    return map[v] || "Draft";
 };
 
-export default function MarketingDetail({ data: c, onDelete, onEdit }) {
+export default function MarketingDetail({ data: initialData, onDelete, onEdit }) {
+    const [c, setC] = useState(initialData);
+
+    // Sync prop changes
+    React.useEffect(() => { if (initialData) setC(initialData); }, [initialData]);
+
+    // Fetch fresh data (history, settings)
+    React.useEffect(() => {
+        if (initialData?.campaign_id) {
+            getCampaignById(initialData.campaign_id)
+                .then((res) => setC(prev => ({ ...prev, ...res })))
+                .catch(err => console.error("Fetch campaign error:", err));
+        }
+    }, [initialData?.campaign_id]);
+
     if (!c) return null;
 
     const [localStatus, setLocalStatus] = useState(mapStatus(c.status));
-    const [isApproving, setIsApproving] = useState(false);
-    const [approveError, setApproveError] = useState("");
+
+    // Update localStatus when c.status changes
+    React.useEffect(() => { setLocalStatus(mapStatus(c.status)); }, [c.status]);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [actionError, setActionError] = useState("");
+    const [channels, setChannels] = useState([]);
+
+    // Reject Dialog
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
 
     // SuccessDialog state
     const [successOpen, setSuccessOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState("Thao tác thành công.");
 
-    const canApprove = localStatus === "Draft" || localStatus === "Paused";
+    // Channels
+    // const [addChannelOpen, setAddChannelOpen] = useState(false); // Moved to Edit Form
 
-    const handleApprove = async () => {
-        try {
-            setIsApproving(true);
-            setApproveError("");
-
-            const { ok, status, message } = await approveCampaign(c.campaign_id);
-            if (!ok) throw new Error(message || "Không thể duyệt chiến dịch");
-
-            setLocalStatus(mapStatus(status));
-            setSuccessMessage(message || `${c.name || "Chiến dịch"} đã chuyển sang ${mapStatus(status)}`);
-            setSuccessOpen(true);
-        } catch (e) {
-            setApproveError(e?.message || "Không thể duyệt chiến dịch");
-        } finally {
-            setIsApproving(false);
+    // Load channels
+    const loadChannels = () => {
+        if (c.campaign_id) {
+            listCampaignChannels(c.campaign_id)
+                .then(res => setChannels(res.items || []))
+                .catch(err => console.error(err));
         }
     };
+
+    React.useEffect(() => {
+        loadChannels();
+    }, [c.campaign_id]);
+
+    // Updated action permissions based on localStatus
+    // const canApprove = localStatus === "Draft"; // Deprecated
+    // const canRun = localStatus === "Approved" || localStatus === "Paused"; // Deprecated
+
+    const handleSubmit = async () => {
+        try {
+            setIsProcessing(true);
+            const res = await submitForApproval(c.campaign_id);
+            setLocalStatus("Submitted");
+            setSuccessMessage(res.message);
+            setSuccessOpen(true);
+        } catch (e) { setActionError(e.message); }
+        finally { setIsProcessing(false); }
+    };
+
+    const handleReject = async () => {
+        try {
+            setIsProcessing(true);
+            const res = await rejectCampaign(c.campaign_id, rejectReason);
+            setLocalStatus("Rejected");
+            setSuccessMessage(res.message);
+            setSuccessOpen(true);
+            setRejectOpen(false);
+        } catch (e) { setActionError(e.message); }
+        finally { setIsProcessing(false); }
+    };
+
+    const handleApproveProposal = async () => {
+        try {
+            setIsProcessing(true);
+            const res = await approveProposal(c.campaign_id);
+            setLocalStatus("Approved");
+            setSuccessMessage(res.message);
+            setSuccessOpen(true);
+        } catch (e) { setActionError(e.message); }
+        finally { setIsProcessing(false); }
+    };
+
+    const handleRun = async () => {
+        try {
+            setIsProcessing(true);
+            const { ok, status, message } = await approveCampaign(c.campaign_id, { status: 'running' });
+            if (!ok) throw new Error(message || "Lỗi khi chạy");
+            setLocalStatus("Running");
+        } catch (e) { setActionError(e.message); }
+        finally { setIsProcessing(false); }
+    };
+
+
 
     const tf = c.target_filter || c.targetFilter || {};
     const ageMin = tf.age?.min ?? "";
@@ -70,7 +146,7 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
     const kpi = c.expected_kpi || c.expectedKPI || {};
     const hasKPI = Object.keys(kpi).length > 0;
 
-    const banner = c.banner || "https://rubicmarketing.com/wp-content/uploads/2021/08/thiet-ke-banner-my-pham-1.jpg";
+    const banner = c.image || c.banner || "https://rubicmarketing.com/wp-content/uploads/2021/08/thiet-ke-banner-my-pham-1.jpg";
 
     return (
         <div className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto p-4">
@@ -98,6 +174,22 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
                     )}
                 </div>
             </div>
+
+            {/* Reject Alert */}
+            {localStatus === 'Rejected' && c.settings?.reject_reason && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-2">
+                    <p className="font-semibold text-sm">Chiến dịch bị từ chối</p>
+                    <p className="text-sm">Lý do: {c.settings.reject_reason}</p>
+                </div>
+            )}
+
+            {/* Note / Description */}
+            {c.note && (
+                <div className="border rounded-lg p-4 bg-yellow-50/50">
+                    <h3 className="font-semibold text-sm mb-1 text-gray-700">Ghi chú</h3>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{c.note}</p>
+                </div>
+            )}
 
             {/* Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -167,9 +259,32 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
                 {Array.isArray(c.products || []) && (c.products || []).length > 0 ? (
                     <ul className="divide-y divide-gray-200">
                         {(c.products || []).slice().sort((a, b) => (a?.name || "").localeCompare(b?.name || "")).map((p, i) => (
-                            <li key={i} className="p-3 grid grid-cols-[1fr,120px] gap-4 items-start hover:bg-gray-50 transition rounded-lg">
-                                {/* LEFT */}
-                                <div className="space-y-1 min-h-[88px]">
+                            <li key={i} className="p-3 flex gap-4 items-start hover:bg-gray-50 transition rounded-lg">
+                                {/* IMAGE */}
+                                <div className="flex-shrink-0">
+                                    {p.image ? (
+                                        <img
+                                            src={p.image}
+                                            alt={p.name || "Product"}
+                                            className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E";
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="w-16 h-16 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <path d="M21 15l-5-5L5 21" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* CENTER (BASIC INFO) */}
+                                <div className="flex-1 space-y-1 min-h-[64px]">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-medium text-gray-900">{p.name || "—"}</span>
                                         {p.category && (
@@ -179,17 +294,17 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
                                         )}
                                     </div>
                                     <div className="text-xs text-gray-500 flex flex-wrap gap-2">
-                                        {p.product_id && <span className="font-mono">#{p.product_id}</span>}
+                                        {p.product_id && <span className="font-mono">#{String(p.product_id).slice(-8)}</span>}
                                         {p.variant_id && <span className="font-mono">· v:{p.variant_id}</span>}
-                                        {typeof p.discount === "number" && <span className="text-green-600">· -{p.discount}%</span>}
+                                        {typeof p.discount === "number" && <span className="text-green-600 font-semibold">· -{p.discount}%</span>}
                                         {typeof p.quantity === "number" && <span>· SL: {p.quantity.toLocaleString("vi-VN")}</span>}
                                     </div>
-                                    {p.reason && <p className="text-xs text-gray-600 leading-relaxed">{p.reason}</p>}
+                                    {p.reason && <p className="text-xs text-gray-600 leading-relaxed italic">"{p.reason}"</p>}
                                 </div>
 
                                 {/* RIGHT (PRICE) */}
-                                <div className="text-right">
-                                    <div className="text-sm font-semibold">
+                                <div className="text-right w-28 flex-shrink-0">
+                                    <div className="text-sm font-bold text-gray-900">
                                         {p.price_current != null ? formatCurrency(p.price_current) : "—"}
                                     </div>
                                     {typeof p.discount === "number" && (
@@ -204,30 +319,121 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
                 )}
             </div>
 
-            {/* Footer actions */}
-            <div className="flex justify-end gap-3 pt-3 border-t">
-                <button
-                    className={`px-3 py-2 rounded-lg text-sm text-white ${canApprove ? "bg-emerald-600 hover:bg-emerald-700" : "bg-gray-300 cursor-not-allowed"} flex items-center gap-2`}
-                    onClick={handleApprove}
-                    disabled={!canApprove || isApproving}
-                    title={canApprove ? "Duyệt chiến dịch (chuyển sang Running)" : "Chỉ duyệt khi đang Draft/Paused"}
-                >
-                    {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                    Duyệt
-                </button>
-
-                <button className="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50" onClick={() => onEdit?.(c)}>
-                    Chỉnh sửa
-                </button>
-                <button className="px-3 py-2 rounded-lg border border-red-300 text-sm text-red-600 hover:bg-red-50" onClick={() => onDelete?.(c.id || c.campaign_id)}>
-                    Xóa
-                </button>
+            {/* Channels & Automation */}
+            <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                        <PackageSearch className="w-4 h-4 text-purple-600" />
+                        Kênh & Automation
+                    </h3>
+                </div>
+                {channels.length > 0 ? (
+                    <div className="divide-y">
+                        {channels.map((ch, idx) => (
+                            <div key={idx} className="py-2 flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm capitalize">{ch.channel || ch.type}</div>
+                                    <div className="text-xs text-gray-500">
+                                        {ch.account_name && `${ch.account_name} · `}
+                                        Trạng thái: <span className="font-medium">{ch.status || 'Draft'}</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[11px] text-gray-400">Flow ID</div>
+                                    <div className="text-xs font-mono">{ch.flow_id || (ch.flows && ch.flows[0]?.flow_id) || 'Chưa gán'}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500">Chưa có kênh nào được cấu hình.</p>
+                )}
             </div>
 
-            {approveError && <div className="text-xs text-red-600">{approveError}</div>}
+            {/* Footer actions */}
+            <div className="flex justify-end gap-3 pt-3 border-t">
+                {/* Draft / Rejected -> Submit */}
+                {(localStatus === 'Draft' || localStatus === 'Rejected') && (
+                    <PermissionGuard module="campaign" action="update">
+                        <button
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg flex gap-2 items-center hover:bg-blue-700 text-sm"
+                            onClick={handleSubmit}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />} Gửi duyệt
+                        </button>
+                    </PermissionGuard>
+                )}
+
+                {/* Submitted -> Approve / Reject */}
+                {localStatus === 'Submitted' && (
+                    <>
+                        <PermissionGuard module="campaign" action="approve">
+                            <button
+                                className="px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-sm border border-red-200"
+                                onClick={() => setRejectOpen(true)}
+                                disabled={isProcessing}
+                            >
+                                Từ chối
+                            </button>
+                            <button
+                                className="px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg flex gap-2 items-center text-sm"
+                                onClick={handleApproveProposal}
+                                disabled={isProcessing}
+                            >
+                                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />} Duyệt
+                            </button>
+                        </PermissionGuard>
+                    </>
+                )}
+
+                {/* Configuring / Running -> Run */}
+                {(localStatus === 'Configuring' || localStatus === 'Running' || localStatus === 'Paused' || localStatus === 'Approved') && (
+                    <PermissionGuard module="campaign" action="run">
+                        {/* Chỉ hiện nút Chạy khi đã có kênh và gắn flow */}
+                        {(channels.length > 0 && channels.some(ch => ch.flow_id || (ch.flows && ch.flows.length > 0))) ? (
+                            <button
+                                className={`px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white ${localStatus === 'Running' ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                onClick={handleRun}
+                                disabled={isProcessing || localStatus === 'Running'}
+                            >
+                                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {localStatus === 'Running' ? 'Đang chạy' : (localStatus === 'Paused' ? 'Tiếp tục' : 'Chạy Chiến Dịch')}
+                            </button>
+                        ) : (
+                            localStatus === 'Running' && (
+                                <button className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-green-600" disabled>
+                                    Đang chạy
+                                </button>
+                            )
+                        )}
+                    </PermissionGuard>
+                )}
+
+                {(localStatus === 'Draft' || localStatus === 'Rejected' || localStatus === 'Approved' || localStatus === 'Configuring') && (
+                    <PermissionGuard module="campaign" action="update">
+                        <button className="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50" onClick={() => onEdit?.(c)}>
+                            Chỉnh sửa
+                        </button>
+                    </PermissionGuard>
+                )}
+
+                {localStatus !== 'Running' && (
+                    <PermissionGuard module="campaign" action="delete">
+                        <button className="px-3 py-2 rounded-lg border border-red-300 text-sm text-red-600 hover:bg-red-50" onClick={() => onDelete?.(c.id || c.campaign_id)}>
+                            Xóa
+                        </button>
+                    </PermissionGuard>
+                )}
+            </div>
+
+            {actionError && <div className="text-xs text-red-600 mt-2">{actionError}</div>}
+
+            {/* Status History */}
+            {c.settings?.history && <StatusHistory history={c.settings.history} />}
 
             {/* Timestamps */}
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-400 mt-4">
                 {c.created_at && <>Tạo: {new Date(c.created_at).toLocaleString("vi-VN")} · </>}
                 {c.updated_at && <>Cập nhật: {new Date(c.updated_at).toLocaleString("vi-VN")}</>}
             </div>
@@ -239,6 +445,37 @@ export default function MarketingDetail({ data: c, onDelete, onEdit }) {
                 title="Thành công"
                 message={successMessage}
             />
-        </div>
+
+            {/* AddChannelDialog removed from here per request */}
+
+            {/* Simple Reject Dialog */}
+            {
+                rejectOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                        <div className="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold mb-4 text-gray-900">Từ chối chiến dịch</h3>
+                            <p className="text-sm text-gray-500 mb-2">Vui lòng nhập lý do từ chối để nhân viên chỉnh sửa.</p>
+                            <textarea
+                                className="w-full border rounded-md p-2 mb-4 text-sm"
+                                rows={3}
+                                placeholder="Nhập lý do..."
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                            />
+                            <div className="flex justify-end gap-2">
+                                <button className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded" onClick={() => setRejectOpen(false)}>Hủy</button>
+                                <button
+                                    className="px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                                    onClick={handleReject}
+                                    disabled={isProcessing || !rejectReason.trim()}
+                                >
+                                    {isProcessing ? "Đang xử lý..." : "Xác nhận"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

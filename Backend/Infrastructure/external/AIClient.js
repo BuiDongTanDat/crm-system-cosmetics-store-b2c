@@ -7,7 +7,6 @@ const DEFAULTS = {
   BASE_URLS: [
     process.env.AI_SERVICE_URL,
     'http://crm_ai_service:8000',
-    'http://crm_ai_servic:8000',
     'http://localhost:8000',
   ].filter(Boolean),
   // TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 10000),
@@ -74,18 +73,16 @@ class AIClient {
       data: { input, options }
     });
   }
-  async suggest_marketing_campaign(topic, customer_data, Product_data, options) {
+  async suggest_marketing_campaign(topic, customer_data, product_data, options) {
     return this._request('POST', '/v1/marketing/suggest_campaign', {
-      data: { topic, customer_data, Product_data, options }
+      data: { topic, customer_data, product_data, options }
     });
   }
   async scoreLead(leadData, opts = {}) {
     const data = await this._request('POST', '/v1/leads/score', {
       data: { lead: leadData, options: opts }
     });
-    // Chuẩn hoá và fallback
     const norm = (x, fb = 0) => (Number.isFinite(Number(x)) ? Number(x) : fb);
-
     return {
       score: norm(data?.score, 0),
       reason: data?.reason || null,
@@ -105,27 +102,16 @@ class AIClient {
     const data = await this._request('POST', '/v1/leads/conversion_prob', { data: { lead: leadData, options: opts } });
     return { probability: Number(data?.probability ?? 0), reason: data?.reason || null, raw: data };
   }
-  async predictConversion(features) {
-    const { data } = await axios.post(`${BASE_URL}/predict`, features);
-    return data;
-  }
-
-  async predictBatch(batchFeatures) {
-    const { data } = await axios.post(`${BASE_URL}/predict/batch`, { leads: batchFeatures });
-    return data; // { results: [ {lead_id, probability, reason}, ... ] }
+  async predictConversion(leadFeatures, options = null) {
+    const payload = { lead: leadFeatures };
+    if (options) payload.options = options;
+    return this._request('POST', '/v1/leads/score_ml', {
+      data: payload,
+    });
   }
   async summarize(text, opts = {}) {
     return this._request('POST', '/v1/text/summarize', { data: { text, options: opts } });
   }
-
-  async classifyIntent(text, labels = [], opts = {}) {
-    return this._request('POST', '/v1/text/classify', { data: { text, labels, options: opts } });
-  }
-
-  async extractEntities(text, schema = {}, opts = {}) {
-    return this._request('POST', '/v1/text/extract', { data: { text, schema, options: opts } });
-  }
-
   async generateEmail(input, opts = {}) {
     return this._request('POST', '/v1/generation/email', { data: { input, options: opts } });
   }
@@ -138,9 +124,9 @@ class AIClient {
   }
 
   // POST /v1/customers/churn
-  async predictCustomerChurn(churn_json, debug = false) {
+  async predictCustomerChurn(features, debug = false) {
     return this._request('POST', '/v1/customers/churn', {
-      data: { churn_json, debug: !!debug },
+      data: { ...features, debug: !!debug },
     });
   }
 

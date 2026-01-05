@@ -5,7 +5,7 @@ export const getFlow = async () => {
     if (Array.isArray(res)) return res;
     if (Array.isArray(res?.items)) return res.items;
     if (Array.isArray(res?.data?.items)) return res.data.items;
-    if (Array.isArray(res?.items?.data?.items)) return res.items.data.items; 
+    if (Array.isArray(res?.items?.data?.items)) return res.items.data.items;
 };
 export const createFlow = (body) =>
     request('/automation/flows', { method: 'POST', body });
@@ -26,10 +26,10 @@ export const disableFlow = (flow_id) =>
     request(`/automation/flows/${flow_id}/disable`, { method: 'POST' });
 
 export const activateFlow = (flow_id) =>
-    request(`/automation/flows/${flow_id}/activate`, { method: 'POST' });
+    request(`/automation/flows/${flow_id}/active`, { method: 'POST' });
 
 export const deactivateFlow = (flow_id) =>
-    request(`/automation/flows/${flow_id}/deactivate`, { method: 'POST' });
+    request(`/automation/flows/${flow_id}/disable`, { method: 'POST' });
 
 export const publishFlow = (flow_id, body = {}) =>
     request(`/automation/flows/${flow_id}/publish`, { method: 'POST', body });
