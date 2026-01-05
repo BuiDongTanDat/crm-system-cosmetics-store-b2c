@@ -6,14 +6,11 @@ class RabbitMQConsumer {
     constructor() {
         this.conn = null;
         this.ch = null;
-
         this.exchange = process.env.RABBIT_EXCHANGE || 'automation_exchange';
         this.exchangeType = process.env.RABBIT_EXCHANGE_TYPE || 'topic';
         this.queue = process.env.RABBIT_QUEUE || 'automation_queue';
-        this.routingKey = process.env.RABBIT_ROUTING_KEY || '#'; // lắng nghe tất cả
+        this.routingKey = process.env.RABBIT_ROUTING_KEY || '#';
         this.prefetch = Number(process.env.RABBIT_PREFETCH || 10);
-
-        // DLQ optional
         this.useDLQ = (process.env.RABBIT_USE_DLQ || 'true') === 'true';
         this.dlx = process.env.RABBIT_DLX || `${this.exchange}.dlx`;
         this.dlq = process.env.RABBIT_DLQ || `${this.queue}.dlq`;
@@ -54,7 +51,6 @@ class RabbitMQConsumer {
                 decoded = JSON.parse(msg.content.toString('utf8'));
             } catch (e) {
                 console.error('[RabbitMQConsumer] JSON parse error, acking to avoid poison loop:', e.message);
-                // Nếu muốn chuyển DLQ khi parse lỗi, có thể publish lại với routing-key .dead
                 return this.ch.ack(msg);
             }
 
@@ -70,9 +66,6 @@ class RabbitMQConsumer {
                 this.ch.ack(msg);
             } catch (err) {
                 console.error('[RabbitMQConsumer] Handler error:', err);
-
-                // Lỗi tạm thời → requeue = true (cẩn thận vòng lặp)
-                // Lỗi không thể xử lý (ví dụ validate fail) → bạn có thể chọn nack requeue=false để đẩy vào DLQ
                 const requeueOnError = (process.env.RABBIT_REQUEUE_ON_ERROR || 'false') === 'true';
                 this.ch.nack(msg, false, requeueOnError);
             }

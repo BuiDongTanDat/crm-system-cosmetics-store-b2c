@@ -1,9 +1,8 @@
-const { DataTypes, Model } = require('sequelize');
+const { Sequelize, DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
 class AutomationAction extends Model {
-  // ===== Domain logic =====
   markSent(timestamp = null) {
     this.status = 'sent';
     this.executed_at = timestamp || new Date();
@@ -46,18 +45,14 @@ AutomationAction.init(
     },
     trigger_id: { type: DataTypes.UUID, allowNull: true },
     flow_id: { type: DataTypes.UUID, allowNull: true },
-    // "email", "sms", "push", "tag_update", "create_task", ...
+
     action_type: { type: DataTypes.STRING, allowNull: false },
-    // e.g. "email", "sms", "zalo"
     channel: { type: DataTypes.STRING, allowNull: true },
-    // JSON content (subject/body/template id/params)
+
     content: { type: DataTypes.JSONB, allowNull: true, defaultValue: {} },
+
     order_index: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    delay_minutes: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
+    delay_minutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 
     status: {
       type: DataTypes.ENUM('pending', 'sent', 'failed'),
@@ -67,11 +62,13 @@ AutomationAction.init(
 
     executed_at: { type: DataTypes.DATE, allowNull: true },
 
+    // ✅ FIX: dùng Sequelize.NOW hoặc literal('NOW()')
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: DataTypes.NOW,
+      defaultValue: Sequelize.NOW,
     },
+
     retry_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     last_retry_at: { type: DataTypes.DATE, allowNull: true },
   },
@@ -79,8 +76,8 @@ AutomationAction.init(
     sequelize,
     modelName: 'AutomationAction',
     tableName: 'automation_actions',
-    timestamps: false,     // đã có created_at custom
-    underscored: true,     // đồng bộ snake_case như Product
+    timestamps: false,
+    underscored: true,
   }
 );
 

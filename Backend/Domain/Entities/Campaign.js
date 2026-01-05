@@ -15,9 +15,21 @@ Campaign.init({
     type: DataTypes.STRING,
     allowNull: false,
   },
-  channel: {
+  image: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
+  },
+  image_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  summary_report: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   budget: {
     type: DataTypes.FLOAT,
@@ -65,6 +77,11 @@ Campaign.init({
   updated_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
+  },
+  settings: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
+    comment: 'Cấu hình chung của campaign (brand/theme/default template/utm/...)',
   },
 }, {
   sequelize,

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import PermissionGuard from "@/components/auth/PermissionGuard";
 
 const formatPercent = (v) => {
     const n = Number(v);
@@ -173,26 +174,32 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
             {/* Khu vực Action Buttons, hover là ẩn KPI */}
             {hoveredCard && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2  p-2  animate-slide-up z-10">
-                    <Button variant="actionRead" size="icon" onClick={() => onView && onView(campaign)}>
-                        <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button variant="actionUpdate" size="icon" onClick={() => onEdit && onEdit(campaign)}>
-                        <Edit className="w-4 h-4" />
-                    </Button>
-
-                    <ConfirmDialog
-                        title="Xác nhận xóa"
-                        description={<>
-                            Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{campaign?.name}</span>?
-                        </>}
-                        confirmText="Xóa"
-                        cancelText="Hủy"
-                        onConfirm={() => onDelete && onDelete(campaign.id)}
-                    >
-                        <Button variant="actionDelete" size="icon">
-                            <Trash2 className="w-4 h-4" />
+                    <PermissionGuard module="campaign" action="read">
+                        <Button variant="actionRead" size="icon" onClick={() => onView && onView(campaign)}>
+                            <Eye className="w-4 h-4" />
                         </Button>
-                    </ConfirmDialog>
+                    </PermissionGuard>
+                    <PermissionGuard module="campaign" action="update">
+                        <Button variant="actionUpdate" size="icon" onClick={() => onEdit && onEdit(campaign)}>
+                            <Edit className="w-4 h-4" />
+                        </Button>
+                    </PermissionGuard>
+
+                    <PermissionGuard module="campaign" action="delete">
+                        <ConfirmDialog
+                            title="Xác nhận xóa"
+                            description={<>
+                                Bạn có chắc chắn muốn xóa chiến dịch <span className="font-semibold text-black">{campaign?.name}</span>?
+                            </>}
+                            confirmText="Xóa"
+                            cancelText="Hủy"
+                            onConfirm={() => onDelete && onDelete(campaign.id)}
+                        >
+                            <Button variant="actionDelete" size="icon">
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </ConfirmDialog>
+                    </PermissionGuard>
                     {extraActions && extraActions}
                 </div>
             )}

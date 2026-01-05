@@ -408,6 +408,52 @@ class LLMService:
                 }
                 for p in top_n
             ]
+        return self._normalize_campaign_response(data, topic)
+
+    def _normalize_campaign_response(self, data: Dict[str, Any], topic: Optional[str]) -> Dict[str, Any]:
+        """Chuẩn hoá dữ liệu output của AI để khớp schema Pydantic."""
+        # 1. KPI
+        kpi = data.get("expected_kpi")
+        if not isinstance(kpi, dict):
+            kpi = {"leads": 1000, "cpl": 10000}
+        
+        # Ensure correct types for KPI
+        def safe_int(x, default=0):
+            try: return int(x)
+            except: return default
+            
+        data["expected_kpi"] = {
+            "leads": safe_int(kpi.get("leads"), 1000),
+            "cpl": safe_int(kpi.get("cpl"), 10000)
+        }
+
+        # 2. Target Filter
+        tf = data.get("target_filter")
+        if not isinstance(tf, dict):
+            # Nếu AI quên target_filter, tạo mặc định
+            tf = {"note": topic or "Chưa xác định"}
+        
+        # Normalize Age: "18-25" -> {min: 18, max: 25}
+        age = tf.get("age")
+        if isinstance(age, str):
+            # Simple heuristics for "18-25" or "18 - 25"
+            try:
+                parts = age.replace(" ", "").split("-")
+                if len(parts) == 2:
+                    tf["age"] = {"min": int(parts[0]), "max": int(parts[1])}
+                else:
+                    tf["age"] = None # Invalid string format
+            except:
+                tf["age"] = None
+        elif not isinstance(age, dict):
+            tf["age"] = None
+            
+        # Normalize Gender
+        if "gender" in tf and tf["gender"] and not isinstance(tf["gender"], (str, list)):
+            tf["gender"] = str(tf["gender"]) # Fallback to string
+
+        data["target_filter"] = tf
+
         return data
 
     # ----------------- Expected Value -----------------

@@ -1,29 +1,51 @@
 // backend/src/Infrastructure/Repositories/CustomerAnalyticsSnapshotRepository.js
+const { Op } = require('sequelize');
 const CustomerAnalyticsSnapshot = require('../../Domain/Entities/CustomerAnalyticsSnapshot');
 const Customer = require('../../Domain/Entities/Customer');
-const { Op, fn, col, literal } = require('sequelize');
+
+function parseSort(sort) {
+  if (!sort) return [['snapshot_date', 'DESC']];
+  const s = String(sort).trim();
+  const dir = s.startsWith('-') ? 'DESC' : 'ASC';
+  const col = s.replace(/^-/, '');
+  const ALLOWED = new Set([
+    'snapshot_date',
+    'recency_days',
+    'frequency_90d',
+    'monetary_90d',
+    'avg_order_value_90d',
+    'churn_score',
+    'clv_12m',
+    'segment_id',
+  ]);
+  return [[ALLOWED.has(col) ? col : 'snapshot_date', dir]];
+}
 
 class CustomerAnalyticsSnapshotRepository {
-  async upsertSnapshot({ customer_id, snapshot_date, data }) {
-    const [row] = await CustomerAnalyticsSnapshot.upsert(
-      { customer_id, snapshot_date, ...data },
-      { returning: true }
-    );
-    return row;
+  async upsertByCustomerAndDate(customer_id, snapshot_date, payload) {
+    const where = { customer_id, snapshot_date };
+    const existing = await CustomerAnalyticsSnapshot.findOne({ where });
+
+    if (existing) {
+      await existing.update(payload);
+      return existing;
+    }
+    return CustomerAnalyticsSnapshot.create(payload);
   }
 
-  async getLatestSnapshotDate() {
-    const row = await CustomerAnalyticsSnapshot.findOne({
-      attributes: ['snapshot_date'],
-      order: [['snapshot_date', 'DESC']],
-    });
-    return row?.snapshot_date || null;
-  }
-
-  async findLatestByCustomerId(customer_id) {
+  async getLatest(customer_id) {
     return CustomerAnalyticsSnapshot.findOne({
       where: { customer_id },
       order: [['snapshot_date', 'DESC']],
+    });
+  }
+
+  async listByCustomer(customer_id, q = {}) {
+    return CustomerAnalyticsSnapshot.findAll({
+      where: { customer_id },
+      order: [['snapshot_date', 'DESC']],
+      limit: q.limit ? Number(q.limit) : 50,
+      offset: q.offset ? Number(q.offset) : 0,
     });
   }
 
@@ -34,214 +56,64 @@ class CustomerAnalyticsSnapshotRepository {
     return row;
   }
 
+  async getLatestSnapshotDate() {
+    const row = await CustomerAnalyticsSnapshot.findOne({
+      attributes: ['snapshot_date'],
+      order: [['snapshot_date', 'DESC']],
+      raw: true,
+    });
+    return row?.snapshot_date || null;
+  }
+
   async getSummaryByDate(snapshot_date) {
-    const rows = await CustomerAnalyticsSnapshot.findAll({
+    return CustomerAnalyticsSnapshot.findAll({
       where: { snapshot_date },
       attributes: [
         'customer_id',
         'snapshot_date',
-
-        // RFM/CFM
         'recency_days',
         'frequency_90d',
         'monetary_90d',
         'avg_order_value_90d',
-        'cfm_score',
-
-        // Model outputs
         'churn_score',
         'clv_12m',
-        'clv_6m',
-        'segment_id',
-        'segment_name',
+        'metadata',
       ],
       raw: true,
     });
-    return rows;
   }
 
-  async listByDate(snapshot_date, { page = 1, page_size = 20, sort = '-snapshot_date', search = '' } = {}) {
-    const limit = Math.max(1, Math.min(200, Number(page_size) || 20));
-    const offset = (Math.max(1, Number(page) || 1) - 1) * limit;
-
-    const sortMap = {
-      churn_score: ['churn_score'],
-      clv_12m: ['clv_12m'],
-      clv_6m: ['clv_6m'],
-      frequency_90d: ['frequency_90d'],
-      monetary_90d: ['monetary_90d'],
-      recency_days: ['recency_days'],
-      avg_order_value_90d: ['avg_order_value_90d'],
-      cfm_score: ['cfm_score'],
-      snapshot_date: ['snapshot_date'],
-      segment_id: ['segment_id'],
+  async listByDate(snapshot_date, query = {}) {
+    const page = Number(query.page || 1);
+    const page_size = Number(query.page_size || 20);
+    const offset = (page - 1) * page_size;
+    const order = parseSort(query.sort);
+    const search = query.search ? String(query.search).trim() : null;
+    const includeCustomer = {
+      model: Customer,
+      as: 'customer',
+      required: false,
+      attributes: ['customer_id', 'full_name', 'email', 'phone'],
     };
-
-    let order = [['snapshot_date', 'DESC']];
-    if (sort && typeof sort === 'string') {
-      const desc = sort.startsWith('-');
-      const key = desc ? sort.slice(1) : sort;
-      const colPath = sortMap[key];
-      if (colPath) order = [[...colPath, desc ? 'DESC' : 'ASC']];
+    if (search) {
+      includeCustomer.where = {
+        [Op.or]: [
+          { full_name: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } },
+          { phone: { [Op.iLike]: `%${search}%` } },
+        ],
+      };
+      includeCustomer.required = true;
     }
-
-    const include = [
-      {
-        model: Customer,
-        as: 'customer',
-        required: true,
-        attributes: ['customer_id', 'full_name', 'email', 'phone', 'source', 'tags'],
-        where: search
-          ? {
-              [Op.or]: [
-                { full_name: { [Op.iLike]: `%${search}%` } },
-                { email: { [Op.iLike]: `%${search}%` } },
-                { phone: { [Op.iLike]: `%${search}%` } },
-              ],
-            }
-          : undefined,
-      },
-    ];
-
     const { rows, count } = await CustomerAnalyticsSnapshot.findAndCountAll({
       where: { snapshot_date },
-      include,
+      include: [includeCustomer],
       order,
-      limit,
+      limit: page_size,
       offset,
     });
 
-    return {
-      items: rows,
-      total: count,
-      page: Math.max(1, Number(page) || 1),
-      page_size: limit,
-    };
-  }
-
-  // ============================================================
-  // Dashboard: Churn
-  // ============================================================
-  async getChurnSummary({ snapshot_date, high_risk_threshold = 0.5 } = {}) {
-    const date = snapshot_date || (await this.getLatestSnapshotDate());
-    if (!date) {
-      return {
-        snapshot_date: null,
-        total_customers: 0,
-        churn_rate: 0,
-        high_risk_count: 0,
-        revenue_at_risk_30d: 0,
-      };
-    }
-
-    const total = await CustomerAnalyticsSnapshot.count({ where: { snapshot_date: date } });
-
-    const highRiskCount = await CustomerAnalyticsSnapshot.count({
-      where: {
-        snapshot_date: date,
-        churn_score: { [Op.gte]: high_risk_threshold },
-      },
-    });
-
-    const sumRow = await CustomerAnalyticsSnapshot.findOne({
-      where: {
-        snapshot_date: date,
-        churn_score: { [Op.gte]: high_risk_threshold },
-      },
-      attributes: [[fn('COALESCE', fn('SUM', col('revenue_30d')), 0), 'revenue_at_risk_30d']],
-      raw: true,
-    });
-
-    const revenueAtRisk = Number(sumRow?.revenue_at_risk_30d || 0);
-    const churnRate = total > 0 ? highRiskCount / total : 0;
-
-    return {
-      snapshot_date: date,
-      total_customers: total,
-      churn_rate: churnRate,              // 0..1 (frontend có thể *100)
-      high_risk_count: highRiskCount,
-      revenue_at_risk_30d: revenueAtRisk, // VND
-    };
-  }
-
-  async listChurn(snapshot_date, opts = {}) {
-    // listByDate + sort mặc định churn_score desc
-    return this.listByDate(snapshot_date, { sort: '-churn_score', ...opts });
-  }
-
-  // ============================================================
-  // Dashboard: CLV
-  // ============================================================
-  async getCLVSummary({ snapshot_date } = {}) {
-    const date = snapshot_date || (await this.getLatestSnapshotDate());
-    if (!date) {
-      return {
-        snapshot_date: null,
-        total_customers: 0,
-        clv_avg_12m: 0,
-        clv_max_12m: 0,
-      };
-    }
-
-    const row = await CustomerAnalyticsSnapshot.findOne({
-      where: { snapshot_date: date },
-      attributes: [
-        [fn('COUNT', col('snapshot_id')), 'total_customers'],
-        [fn('COALESCE', fn('AVG', col('clv_12m')), 0), 'clv_avg_12m'],
-        [fn('COALESCE', fn('MAX', col('clv_12m')), 0), 'clv_max_12m'],
-      ],
-      raw: true,
-    });
-
-    return {
-      snapshot_date: date,
-      total_customers: Number(row?.total_customers || 0),
-      clv_avg_12m: Number(row?.clv_avg_12m || 0),
-      clv_max_12m: Number(row?.clv_max_12m || 0),
-    };
-  }
-
-  async listCLV(snapshot_date, opts = {}) {
-    return this.listByDate(snapshot_date, { sort: '-clv_12m', ...opts });
-  }
-
-  // ============================================================
-  // Dashboard: CFM / RFM
-  // ============================================================
-  async getCFMSummary({ snapshot_date } = {}) {
-    const date = snapshot_date || (await this.getLatestSnapshotDate());
-    if (!date) {
-      return {
-        snapshot_date: null,
-        freq_avg_month: 0,
-        aov_avg: 0,
-        cfm_score_avg: 0,
-      };
-    }
-
-    // "tần suất mua hàng 4.2 lần/tháng" => giả sử frequency_90d / 3
-    const row = await CustomerAnalyticsSnapshot.findOne({
-      where: { snapshot_date: date },
-      attributes: [
-        [fn('COALESCE', fn('AVG', col('frequency_90d')), 0), 'freq_90d_avg'],
-        [fn('COALESCE', fn('AVG', col('avg_order_value_90d')), 0), 'aov_avg'],
-        [fn('COALESCE', fn('AVG', col('cfm_score')), 0), 'cfm_score_avg'],
-      ],
-      raw: true,
-    });
-
-    const freq90dAvg = Number(row?.freq_90d_avg || 0);
-
-    return {
-      snapshot_date: date,
-      freq_avg_month: freq90dAvg / 3,
-      aov_avg: Number(row?.aov_avg || 0),
-      cfm_score_avg: Number(row?.cfm_score_avg || 0),
-    };
-  }
-
-  async listCFM(snapshot_date, opts = {}) {
-    return this.listByDate(snapshot_date, { sort: '-cfm_score', ...opts });
+    return { page, page_size, total: count, items: rows };
   }
 }
 

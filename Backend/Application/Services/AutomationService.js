@@ -1,24 +1,89 @@
 
+// ============================
+// Imports
+// ============================
 const nunjucks = require('nunjucks');
 const axios = require('axios');
 const { randomUUID } = require('crypto');
 const { URLSearchParams } = require('url');
-const LeadService = require('./LeadService');
+
+// Repos
 const leadRepo = require('../../Infrastructure/Repositories/LeadRepository');
 const flowsRepo = require('../../Infrastructure/Repositories/AutomationFlowRepository');
+const OrderRepo = require('../../Infrastructure/Repositories/OrderRepository');
+const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
+const customerInteractionRepo = require('../../Infrastructure/Repositories/CustomerInteractionRepository');
+const CampaignRepository = require('../../Infrastructure/Repositories/CampaignRepository');
+const CampaignChannelRepository = require('../../Infrastructure/Repositories/CampaignChannelRepository');
+const CampaignChannelFlowRepository = require('../../Infrastructure/Repositories/CampaignChannelFlowRepository');
+const ProductRepository = require('../../Infrastructure/Repositories/ProductRepository');
+const CampaignChannelRepo = require('../../Infrastructure/Repositories/CampaignChannelRepository');
+// const TaskRepository = require('../../Infrastructure/Repositories/TaskRepository');
 
+// Services / infra
 const emailSvc = require('../../Infrastructure/external/EmailService');
 const scheduler = require('../../Infrastructure/scheduler/automationCron');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
-
-const CampaignService = require('./CampaignService');
-const OrderRepo = require('../../Infrastructure/Repositories/OrderRepository');
-const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository');
-
-const ZaloService = require('../Services/campaign_runners/ZaloRunner');
-const FacebookService = require('../Services/campaign_runners/FacebookRunner');
 const { createPaymentLink } = require('../../Infrastructure/utils/paymentLink');
 const { renderTemplate } = require('../../Infrastructure/external/email_templates/TemplateRenderer');
+
+// ============================
+// Constants
+// ============================
+const BRAND_FALLBACK = 'CChain';
+
+// 1) Event routing (hiện tại còn hardcode)
+// - Khi bạn chuyển sang DB routing thì thay block này bằng lookup DB
+const EVENT_ROUTER = Object.freeze({
+  // flows
+  'lead.created': 'flows',
+  'lead.updated': 'flows',
+  'order.paid': 'flows',
+  'order.created': 'flows',
+  'order.refunded': 'flows',
+  'zalo.message': 'flows',
+  'segment.scheduled': 'flows',
+  'engagement.email_opened': 'flows',
+  'engagement.link_clicked': 'flows',
+  'engagement.video_played': 'flows',
+  'cron.daily': 'flows',
+  // tag
+  'tag.added': 'tag',
+  'tag.removed': 'tag',
+  // campaign
+  'campaign.run': 'campaign',
+  'campaign.approved': 'campaign',
+  'campaign.pause': 'campaign',
+  'campaign.end': 'campaign',
+  // campaign channel
+  'campaign.channel.run': 'campaign_channel',
+  'campaign.channel.pause': 'campaign_channel',
+  'campaign.channel.end': 'campaign_channel',
+});
+
+// ============================
+// Small helpers
+// ============================
+function pickFirst(...vals) {
+  for (const v of vals) if (v !== undefined && v !== null && v !== '') return v;
+  return null;
+}
+
+function toJson(x) {
+  return x?.toJSON?.() ?? x ?? null;
+}
+
+function uniq(arr) {
+  return [...new Set((arr || []).filter(Boolean))];
+}
+
+function safeObj(x) {
+  return x && typeof x === 'object' ? x : {};
+}
+
+// ============================
+// Tracking helpers
+// ============================
 function trackUrl({ mid, to, url, templateKey, ctx }) {
   const base = process.env.TRACK_BASE_URL;
   if (!base) return url;
@@ -32,33 +97,41 @@ function trackUrl({ mid, to, url, templateKey, ctx }) {
     order_id: String(ctx?.order?.order_id || ''),
     customer_id: String(ctx?.customer?.customer_id || ''),
     lead_id: String(ctx?.lead?.lead_id || ''),
+    campaign_id: String(ctx?.campaign?.campaign_id || ctx?.campaign?.id || ''),
+    channel_id: String(ctx?.campaign_channel?.channel_id || ctx?.campaign_channel?.id || ''),
   });
 
   return `${base}/v1/track/click?${q.toString()}`;
 }
 
-/**
- * Inject open pixel into HTML
- */
 function injectOpenPixel({ html, mid, to, templateKey, ctx }) {
   const base = process.env.TRACK_BASE_URL;
   if (!base) return html;
 
   const q = new URLSearchParams({
     mid,
-    to,
+    to: to || '',
     template_key: templateKey || '',
     flow_id: String(ctx?.trigger?.flow_id || ''),
     order_id: String(ctx?.order?.order_id || ''),
     customer_id: String(ctx?.customer?.customer_id || ''),
     lead_id: String(ctx?.lead?.lead_id || ''),
+    campaign_id: String(ctx?.campaign?.campaign_id || ctx?.campaign?.id || ''),
+    channel_id: String(ctx?.campaign_channel?.channel_id || ctx?.campaign_channel?.id || ''),
+    source: 'pixel',
   });
 
-  const pixel = `<img src="${base}/v1/track/open.gif?${q.toString()}" width="1" height="1" style="display:none!important" alt="" />`;
+  const src = `${base}/v1/track/o/${mid}.gif?${q.toString()}`;
+  const pixel =
+    `<img src="${src}" width="1" height="1" ` +
+    `style="display:block;border:0;opacity:0;max-width:1px;max-height:1px" alt="">`;
 
-  if (typeof html !== 'string') return pixel;
-  return html.includes('</body>') ? html.replace('</body>', `${pixel}</body>`) : `${html}\n${pixel}`;
+  if (!html) return pixel;
+  if (html.includes('</body>')) return html.replace('</body>', `${pixel}</body>`);
+  if (html.includes('</html>')) return html.replace('</html>', `${pixel}</html>`);
+  return html + pixel;
 }
+
 function rewriteLinksForClickTracking({ html, mid, to, templateKey, ctx }) {
   if (!process.env.TRACK_BASE_URL) return html;
   if (!html || typeof html !== 'string') return html;
@@ -66,15 +139,19 @@ function rewriteLinksForClickTracking({ html, mid, to, templateKey, ctx }) {
   return html.replace(/href\s*=\s*"(.*?)"/gi, (m, href) => {
     if (!href) return m;
     const v = String(href).trim();
-
-    // skip non http(s)
     if (!/^https?:\/\//i.test(v)) return m;
-
     const tracked = trackUrl({ mid, to, url: v, templateKey, ctx });
     return `href="${tracked}"`;
   });
 }
+
+// ============================
+// Automation Service
+// ============================
 class AutomationService {
+  // ---------------------------
+  // Render utils
+  // ---------------------------
   render(str, ctx) {
     if (!str || typeof str !== 'string') return str;
     try {
@@ -85,28 +162,23 @@ class AutomationService {
     }
   }
 
-  renderConditions(obj, ctx) {
-    if (!obj || typeof obj !== 'object') return obj;
-    const out = Array.isArray(obj) ? [] : {};
-    for (const [k, v] of Object.entries(obj)) {
-      if (v == null) {
-        out[k] = v;
-        continue;
-      }
-      if (typeof v === 'string') out[k] = this.render(v, ctx);
-      else if (Array.isArray(v))
-        out[k] = v.map((it) =>
-          typeof it === 'string' ? this.render(it, ctx) : this.renderConditions(it, ctx)
-        );
-      else if (typeof v === 'object') out[k] = this.renderConditions(v, ctx);
-      else out[k] = v;
+  renderDeep(value, ctx) {
+    if (value == null) return value;
+
+    if (typeof value === 'string') return this.render(value, ctx);
+    if (Array.isArray(value)) return value.map((x) => this.renderDeep(x, ctx));
+    if (typeof value === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(value)) out[k] = this.renderDeep(v, ctx);
+      return out;
     }
-    return out;
+    return value;
   }
 
   setByPath(obj, path, value) {
     if (!path || typeof path !== 'string') return;
     const parts = path.split('.').filter(Boolean);
+
     let cur = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const p = parts[i];
@@ -119,6 +191,7 @@ class AutomationService {
   getByPath(obj, path) {
     if (!path || typeof path !== 'string') return undefined;
     const parts = path.split('.').filter(Boolean);
+
     let cur = obj;
     for (const p of parts) {
       if (cur == null || typeof cur !== 'object') return undefined;
@@ -129,6 +202,7 @@ class AutomationService {
 
   evalCondition(expr, ctx, defaultValue = false) {
     if (expr == null) return defaultValue;
+
     const rendered = this.render(String(expr), ctx);
     try {
       // eslint-disable-next-line no-new-func
@@ -141,25 +215,322 @@ class AutomationService {
   }
 
   // ---------------------------
-  // Core flow runner
+  // Trigger condition gating
   // ---------------------------
+  isFlowRunnable(flow, ctx) {
+    const isEnabled = flow.enabled !== false && flow.is_active !== false;
+    const isActive = String(flow.status || '').toLowerCase() === 'active';
+
+    if (!isEnabled || !isActive) {
+      console.log(
+        `[Automation] Skip flow (enabled=${isEnabled}, status=${flow.status}): ${flow.name || flow.flow_id}`
+      );
+      return false;
+    }
+
+    if (!this.matchFlowTriggerConditions(flow, ctx)) {
+      console.log(
+        `[Automation] Skip flow (conditions not matched): ${flow.name || flow.flow_id}`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  matchFlowTriggerConditions(flow, ctx) {
+    const trig = flow?.trigger || {};
+    const cond = trig?.conditions || trig?.condition || null;
+    if (!cond) return true;
+
+    // expression-based
+    const expr = cond.expression || cond.expr || trig.expression || trig.expr;
+    if (expr) return this.evalCondition(expr, ctx, true);
+
+    // filter-based
+    const filters = Array.isArray(cond.filters) ? cond.filters : null;
+    if (filters?.length) return this.matchFilters(filters, ctx);
+
+    // tags-based
+    if (cond.tags_in || cond.tags_not_in) {
+      const ent = ctx?.item || ctx?.customer || ctx?.lead || null;
+      const tags = Array.isArray(ent?.tags) ? ent.tags : [];
+
+      if (Array.isArray(cond.tags_in) && cond.tags_in.length) {
+        if (!cond.tags_in.some((t) => tags.includes(t))) return false;
+      }
+      if (Array.isArray(cond.tags_not_in) && cond.tags_not_in.length) {
+        if (cond.tags_not_in.some((t) => tags.includes(t))) return false;
+      }
+      return true;
+    }
+
+    return true;
+  }
+
+  matchFilters(filters, ctx) {
+    for (const f of filters) {
+      if (!f || typeof f !== 'object') continue;
+
+      const path = f.path || f.field || f.key;
+      const op = String(f.op || f.operator || 'eq').toLowerCase();
+      const rawVal = f.value;
+
+      const left = path ? this.getByPath(ctx, path) : undefined;
+      const right = this.renderDeep(rawVal, ctx);
+
+      const ok = (() => {
+        switch (op) {
+          case 'exists':
+            return left !== undefined && left !== null;
+          case 'eq':
+          case '==':
+            return left == right; // eslint-disable-line eqeqeq
+          case 'neq':
+          case '!=':
+            return left != right; // eslint-disable-line eqeqeq
+          case 'in':
+            return Array.isArray(right) ? right.includes(left) : false;
+          case 'nin':
+          case 'not_in':
+            return Array.isArray(right) ? !right.includes(left) : true;
+          case 'gt':
+            return Number(left) > Number(right);
+          case 'gte':
+            return Number(left) >= Number(right);
+          case 'lt':
+            return Number(left) < Number(right);
+          case 'lte':
+            return Number(left) <= Number(right);
+          case 'contains':
+            if (typeof left === 'string') return String(left).includes(String(right));
+            if (Array.isArray(left)) return left.includes(right);
+            return false;
+          default:
+            return true;
+        }
+      })();
+
+      if (!ok) return false;
+    }
+    return true;
+  }
+
+  // ---------------------------
+  // Entrypoint: Trigger dispatcher
+  // ---------------------------
+  async trigger(eventName, triggerPayload) {
+    console.log(`[Automation] Trigger received: ${eventName}`);
+    if (eventName === 'automation.runAction') {
+      const { action, ctx } = triggerPayload || {};
+      if (!action || !ctx) {
+        console.warn('[Automation] automation.runAction missing action/ctx');
+        return;
+      }
+      await this.execAction(action, ctx);
+      return;
+    }
+    const route = EVENT_ROUTER[eventName];
+    if (!route) {
+      console.warn(`[Automation] Unknown trigger event: ${eventName}`);
+      return;
+    }
+
+    switch (route) {
+      case 'flows': {
+        const ctx = await this.buildDefaultCtx(eventName, triggerPayload);
+        await this.runEventFlows(eventName, ctx);
+        return;
+      }
+      case 'tag':
+        await this.handleTagEvent(eventName, triggerPayload);
+        return;
+      case 'campaign':
+        await this.handleCampaignEvent(eventName, triggerPayload);
+        return;
+      case 'campaign_channel':
+        await this.handleCampaignChannelEvent(eventName, triggerPayload);
+        return;
+      default:
+        console.warn(`[Automation] Unknown route mapping for event: ${eventName} -> ${route}`);
+    }
+  }
+
+  // ---------------------------
+  // Context builder
+  // ---------------------------
+  async buildDefaultCtx(eventName, triggerPayload) {
+    const now = new Date();
+
+    const leadId = pickFirst(triggerPayload.lead_id, triggerPayload.leadId);
+    const orderId = pickFirst(triggerPayload.order_id, triggerPayload.orderId);
+    const customerId = pickFirst(triggerPayload.customer_id, triggerPayload.customerId);
+
+    const campaignId = pickFirst(triggerPayload.campaign_id, triggerPayload.campaignId);
+    const channelId = pickFirst(triggerPayload.channel_id, triggerPayload.channelId);
+
+    const productId = pickFirst(
+      triggerPayload.product_id,
+      triggerPayload.productId,
+      triggerPayload?.item?.product_id
+    );
+
+    const productIds = pickFirst(triggerPayload.product_ids, triggerPayload.productIds);
+
+    // 1) fetch primary entities
+    const [lead, order, customer] = await Promise.all([
+      leadId ? leadRepo.findById(leadId).catch(() => null) : null,
+      orderId ? OrderRepo.findById(orderId).catch(() => null) : null,
+      customerId ? customerRepository.findById(customerId).catch(() => null) : null,
+    ]);
+
+    if (leadId && !lead) console.warn('[Automation] No lead found for trigger:', leadId);
+
+    // 2) campaign + channel
+    let campaign = null;
+    if (campaignId && CampaignRepository?.findById) {
+      try {
+        campaign = await CampaignRepository.findById(campaignId);
+      } catch (e) {
+        console.warn('[Automation] Campaign lookup failed:', e?.message || e);
+      }
+    }
+    const campaignJson = toJson(campaign);
+
+    let campaign_channel = null;
+    if (channelId) {
+      try {
+        if (CampaignChannelRepository?.findById) {
+          campaign_channel = await CampaignChannelRepository.findById(channelId);
+        } else if (CampaignChannelRepository?.findOne) {
+          campaign_channel = await CampaignChannelRepository.findOne({ where: { channel_id: channelId } });
+        } else if (CampaignChannelRepository?.findByCampaignId && campaignId) {
+          const channels = await CampaignChannelRepository.findByCampaignId(campaignId);
+          campaign_channel = (channels || []).find((c) => (c.channel_id || c.id) === channelId) || null;
+        }
+      } catch (e) {
+        console.warn('[Automation] Channel lookup failed:', e?.message || e);
+      }
+    }
+    const channelJson = toJson(campaign_channel);
+
+    // 3) resolve effective products
+    let effectiveProductIds = [];
+    if (Array.isArray(productIds) && productIds.length) effectiveProductIds = productIds;
+    else if (productId) effectiveProductIds = [productId];
+    else if (Array.isArray(campaignJson?.products)) {
+      effectiveProductIds = campaignJson.products
+        .map((p) => (typeof p === 'string' ? p : (p?.product_id || p?.id)))
+        .filter(Boolean);
+    }
+    effectiveProductIds = uniq(effectiveProductIds);
+
+    // 4) fetch products
+    let product = null;
+    let products = [];
+    try {
+      if (productId && ProductRepository?.findById) product = await ProductRepository.findById(productId);
+      if (effectiveProductIds.length && ProductRepository?.findByIds) products = await ProductRepository.findByIds(effectiveProductIds);
+      if (product && (!products || products.length === 0)) products = [product];
+
+      // fallback to campaign-stored products if lookup returns nothing (or partial)
+      if ((!products || products.length === 0) && Array.isArray(campaignJson?.products) && campaignJson.products.length > 0) {
+        products = campaignJson.products;
+      }
+    } catch (e) {
+      console.warn('[Automation] Product lookup failed:', e?.message || e);
+      if (Array.isArray(campaignJson?.products)) products = campaignJson.products;
+    }
+
+    // 5) payment link
+    let payment = null;
+    if (order?.order_id) payment = createPaymentLink(order.order_id, { ttlMinutes: 60 });
+
+    // 6) settings merge + brand
+    const campaignSettings = safeObj(campaignJson?.settings);
+    const channelSettings = safeObj(channelJson?.settings);
+    const mergedSettings = { ...(campaignSettings || {}), ...(channelSettings || {}) };
+    const brandName = mergedSettings.brand_name || BRAND_FALLBACK;
+
+    // 7) target filter -> ctx.conditions
+    const targetFilter = pickFirst(campaignJson?.target_filter, campaignJson?.targetFilter, campaignJson?.target);
+    const normalizedTargetFilter = safeObj(targetFilter);
+
+    const ctx = {
+      lead: toJson(lead),
+      customer: toJson(customer),
+      order: toJson(order),
+
+      product: toJson(product),
+      products: Array.isArray(products) ? products.map(toJson) : [],
+
+      payment,
+
+      campaign: campaignJson,
+      campaign_channel: channelJson,
+
+      condition: normalizedTargetFilter,
+      conditions: normalizedTargetFilter,
+      target_filter: normalizedTargetFilter,
+
+      run_id: pickFirst(triggerPayload.run_id, triggerPayload.trace_id),
+
+      settings: {
+        campaign: campaignSettings,
+        channel: channelSettings,
+        merged: mergedSettings,
+      },
+
+      trigger: { event: eventName, ...triggerPayload },
+
+      brand: { name: brandName },
+      now: now.toISOString(),
+    };
+
+    if (triggerPayload?.options && typeof triggerPayload.options === 'object') {
+      ctx.options = triggerPayload.options;
+    }
+
+    return ctx;
+  }
+
+  // ---------------------------
+  // Run flows
+  // ---------------------------
+  async runEventFlows(eventName, ctx) {
+    const flows = await flowsRepo.findByEvent(eventName);
+    if (!flows?.length) {
+      console.log(`[Automation] No flows found for event: ${eventName}`);
+      return;
+    }
+
+    for (const flow of flows) {
+      if (!this.isFlowRunnable(flow, ctx)) continue;
+
+      console.log(`[Automation] Running flow: ${flow.name} (event=${eventName})`);
+      await this.runFlow(flow, ctx);
+    }
+  }
+
   async runFlow(flow, ctx) {
-    const sortedActions = (flow.actions || []).slice().sort((a, b) => (a.index || 0) - (b.index || 0));
-    for (const action of sortedActions) {
-      const type = action.action_type || action.type;
-      console.log(`[Automation] Running action #${action.index}: ${type}`);
+    const sorted = (flow.actions || [])
+      .slice()
+      .sort((a, b) => (a.order_index ?? a.index ?? 0) - (b.order_index ?? b.index ?? 0));
+
+    for (const action of sorted) {
+      const idx = action.order_index ?? action.index ?? 0;
+      console.log(`[Automation] Running action #${idx}: ${action.action_type}`);
       await this.execAction(action, ctx);
     }
   }
 
   async execAction(action, ctx) {
-    const type = action.action_type || action.type;
+    const type = action?.action_type;
     if (!type) {
-      console.warn('[Automation] execAction: missing action.type');
+      console.warn('[Automation] execAction: missing action_type');
       return;
     }
 
-    // Optional per-action guard condition (if you want):
     if (action.condition && !this.evalCondition(action.condition, ctx, false)) return;
 
     const handler = ACTION_HANDLERS[type];
@@ -177,102 +548,10 @@ class AutomationService {
   }
 
   // ---------------------------
-  // Trigger entrypoint (registry-based, no switch-case)
-  // ---------------------------
-  async trigger(eventName, triggerPayload) {
-    console.log(`[Automation] Trigger received: ${eventName}`);
-
-    const route = EVENT_ROUTER[eventName];
-    if (!route) {
-      console.warn(`[Automation] Unknown trigger event: ${eventName}`);
-      return;
-    }
-
-    // --- Build ctx depending on route
-    // For FLOW events we typically want lead/order/customer loaded if ids exist
-    // For TAG events we build ctx inside handleTagEvent (entity is target_type)
-    // For CAMPAIGN events we don't need ctx from lead/order/customer by default
-
-    if (route === 'flows') {
-      const ctx = await this.buildDefaultCtx(triggerPayload);
-      await this.runEventFlows(eventName, ctx);
-      return;
-    }
-
-    if (route === 'tag') {
-      await this.handleTagEvent(eventName, triggerPayload);
-      return;
-    }
-
-    if (route === 'campaign') {
-      await this.handleCampaignEvent(eventName, triggerPayload);
-      return;
-    }
-
-    console.warn(`[Automation] Unknown route mapping for event: ${eventName} -> ${route}`);
-  }
-
-  async buildDefaultCtx(triggerPayload) {
-    let lead = null;
-    if (triggerPayload.lead_id) {
-      lead = await leadRepo.findById(triggerPayload.lead_id);
-      if (!lead) {
-        console.warn('[Automation] No lead found for trigger:', triggerPayload.lead_id);
-      }
-    }
-
-    let order = null;
-    if (triggerPayload.order_id) {
-      order = await OrderRepo.findById(triggerPayload.order_id);
-    }
-
-    let customer = null;
-    if (triggerPayload.customer_id) {
-      customer = await customerRepository.findById(triggerPayload.customer_id);
-    }
-    let payment = null;
-    if (order?.order_id) {
-      payment = createPaymentLink(order.order_id, { ttlMinutes: 60 });
-    }
-
-    return {
-      lead: lead?.toJSON?.() ?? lead,
-      customer: customer?.toJSON?.() ?? customer,
-      order: order?.toJSON?.() ?? order,
-      payment,
-      trigger: triggerPayload,
-      brand: { name: 'MyShop' },
-      now: new Date(),
-    };
-  }
-
-  // ---------------------------
-  // Event flows
-  // ---------------------------
-  async runEventFlows(eventName, ctx) {
-    const flows = await flowsRepo.findByEvent(eventName);
-    if (!flows?.length) {
-      console.log(`[Automation] No flows found for event: ${eventName}`);
-      return;
-    }
-
-    for (const flow of flows) {
-      const flowName = flow.name || '(no-name)';
-      const trigger = flow.trigger;
-
-      // Optional: flow-level conditions (JSON-Logic recommended)
-      // if (trigger?.conditions && !this.matchConditions(ctx, trigger.conditions)) continue;
-
-      console.log(`[Automation] Running flow: ${flowName} (trigger: ${trigger?.event_type})`);
-      await this.runFlow(flow, ctx);
-    }
-  }
-
-  // ---------------------------
-  // Tag events (data-driven + optional tag conditions)
+  // Tag events
   // ---------------------------
   async handleTagEvent(eventName, triggerPayload) {
-    const { target_type, target_id } = triggerPayload;
+    const { target_type, target_id } = triggerPayload || {};
     if (!target_type || !target_id) {
       console.warn('[Automation] Tag event missing target_type/target_id');
       return;
@@ -280,7 +559,6 @@ class AutomationService {
 
     let entity = null;
     if (target_type === 'lead') entity = await leadRepo.findById(target_id);
-    // If later you allow customer tags: if (target_type === 'customer') entity = await customerRepository.findById(target_id);
 
     if (!entity) {
       console.warn(`[Automation] No ${target_type} found for tag event`);
@@ -288,9 +566,9 @@ class AutomationService {
     }
 
     const ctx = {
-      [target_type]: entity.toJSON?.() ?? entity,
-      trigger: triggerPayload,
-      brand: { name: 'MyShop' },
+      [target_type]: toJson(entity),
+      trigger: { event: eventName, ...triggerPayload },
+      brand: { name: BRAND_FALLBACK },
       now: new Date(),
     };
 
@@ -298,19 +576,14 @@ class AutomationService {
     if (!flows?.length) return;
 
     for (const flow of flows) {
-      const cond = flow.trigger?.conditions || {};
-      const allTags = entity.tags || [];
-
-      if (cond.tags_in && !cond.tags_in.some((t) => allTags.includes(t))) continue;
-      if (cond.tags_not_in && cond.tags_not_in.some((t) => allTags.includes(t))) continue;
-
+      if (!this.isFlowRunnable(flow, ctx)) continue;
       console.log(`[Automation] Running tag flow: ${flow.name}`);
       await this.runFlow(flow, ctx);
     }
   }
 
   // ---------------------------
-  // Campaign events
+  // Campaign events -> fan out to channel events
   // ---------------------------
   async handleCampaignEvent(eventName, payload) {
     const campaignId = payload?.campaign_id || payload?.campaignId;
@@ -321,48 +594,129 @@ class AutomationService {
 
     console.log(`[Automation] Handling campaign event: ${eventName} (campaign_id=${campaignId})`);
 
-    try {
-      switch (eventName) {
-        case 'campaign.run':
-        case 'campaign.approved': {
-          const result = await CampaignService.runCampaign(campaignId);
-          console.log('[Automation] Campaign run result:', result);
-          return result;
-        }
+    const channels = await CampaignChannelRepository.findByCampaignId(campaignId);
+    if (!channels?.length) {
+      console.warn(`[Automation] No channels found for campaign_id=${campaignId}`);
+      return;
+    }
 
-        case 'campaign.pause': {
-          if (CampaignService.pauseCampaign) {
-            const result = await CampaignService.pauseCampaign(campaignId);
-            console.log('[Automation] Campaign pause result:', result);
-            return result;
-          }
-          console.warn('[Automation] pauseCampaign not implemented in CampaignService');
-          return;
-        }
+    const run_id = payload?.run_id || randomUUID();
 
-        case 'campaign.end': {
-          if (CampaignService.endCampaign) {
-            const result = await CampaignService.endCampaign(campaignId);
-            console.log('[Automation] Campaign end result:', result);
-            return result;
-          }
-          console.warn('[Automation] endCampaign not implemented in CampaignService');
-          return;
-        }
+    if (eventName === 'campaign.run' || eventName === 'campaign.approved') {
+      for (const ch of channels) {
+        const chJson = toJson(ch);
+        const channelId = chJson.channel_id || chJson.id;
 
-        default:
-          console.warn('[Automation] Unknown campaign event:', eventName);
-          return;
+        const maps = await CampaignChannelFlowRepository.findByChannelId(channelId);
+        const hasActive = (maps || []).some((m) => m.is_active !== false);
+        if (!hasActive) continue;
+
+        const st = String(chJson.status || '').toLowerCase();
+        if (st && !['draft', 'paused', 'active', 'running'].includes(st)) continue;
+
+        await Rabbit.publish('campaign.channel.run', {
+          campaign_id: campaignId,
+          channel_id: channelId,
+          run_id,
+          options: payload?.options || {},
+        });
       }
-    } catch (err) {
-      console.error('[Automation] handleCampaignEvent error:', err);
-      throw err;
+      return;
+    }
+
+    if (eventName === 'campaign.pause') {
+      for (const ch of channels) {
+        const channelId = (ch.channel_id || ch.id);
+        await Rabbit.publish('campaign.channel.pause', {
+          campaign_id: campaignId,
+          channel_id: channelId,
+          run_id,
+          options: payload?.options || {},
+        });
+      }
+      return;
+    }
+
+    if (eventName === 'campaign.end') {
+      for (const ch of channels) {
+        const channelId = (ch.channel_id || ch.id);
+        await Rabbit.publish('campaign.channel.end', {
+          campaign_id: campaignId,
+          channel_id: channelId,
+          run_id,
+          options: payload?.options || {},
+        });
+      }
+      return;
+    }
+
+    console.warn('[Automation] Unknown campaign event:', eventName);
+  }
+
+  // ---------------------------
+  // Campaign channel events -> run mapped flows
+  // ---------------------------
+  async handleCampaignChannelEvent(eventName, payload) {
+    const campaign_id = payload?.campaign_id;
+    const channel_id = payload?.channel_id;
+    if (!campaign_id || !channel_id) {
+      console.warn('[Automation] Missing campaign_id/channel_id for channel event');
+      return;
+    }
+
+    if (eventName === 'campaign.channel.pause') {
+      console.log('[Automation] campaign.channel.pause received:', { campaign_id, channel_id });
+      return;
+    }
+
+    if (eventName === 'campaign.channel.end') {
+      console.log('[Automation] campaign.channel.end received:', { campaign_id, channel_id });
+      return;
+    }
+
+    const ctx = await this.buildDefaultCtx(eventName, payload);
+
+    const maps = await CampaignChannelFlowRepository.findByChannelId(channel_id);
+    const activeMaps = (maps || [])
+      .filter((m) => m.is_active !== false)
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+    if (!activeMaps.length) {
+      console.log(`[Automation] No mapped flows for channel_id=${channel_id}`);
+      return;
+    }
+
+    if (!flowsRepo.findById) {
+      console.warn('[Automation] flowsRepo.findById is missing. Please implement it to run mapped flows.');
+      return;
+    }
+
+    for (const m of activeMaps) {
+      const mapJson = toJson(m);
+      const flowId = mapJson.flow_id;
+
+      const flow = await flowsRepo.findById(flowId);
+      if (!flow) {
+        console.warn(`[Automation] Flow not found: ${flowId}`);
+        continue;
+      }
+
+      const ctx2 = {
+        ...ctx,
+        channel_flow: mapJson,
+        trigger: { ...(ctx.trigger || {}), flow_id: flowId },
+      };
+
+      if (!this.isFlowRunnable(flow, ctx2)) continue;
+
+      console.log(`[Automation] Running mapped flow ${flowId} (order_index=${mapJson.order_index ?? 0})`);
+      await this.runFlow(flow, ctx2);
     }
   }
 
-  // ---------------------------------------------------
-  // Scheduled automation (your existing design kept)
-  // ---------------------------------------------------
+  // ---------------------------
+  // Scheduled automation (legacy)
+  // ---------------------------
   async resolveScheduledLeadsByType(type, cond, ctx) {
     switch (type) {
       case 'birthday': {
@@ -392,7 +746,7 @@ class AutomationService {
   async collectLeadsForFlow(flow, baseCtx) {
     const trigger = flow.trigger || {};
     const type = trigger.type || 'default';
-    const renderedCond = this.renderConditions(trigger.conditions || {}, baseCtx);
+    const renderedCond = this.renderDeep(trigger.conditions || {}, baseCtx);
     return this.resolveScheduledLeadsByType(type, renderedCond, baseCtx);
   }
 
@@ -407,11 +761,11 @@ class AutomationService {
 
       for (const flow of (scheduledFlows || [])) {
         const flowName = flow.name || '(no-name)';
-        const baseCtx = { brand: { name: 'MyShop' }, now };
+        const baseCtx = { brand: { name: BRAND_FALLBACK }, now };
 
         console.log(`[Automation] Scanning flow: ${flowName}`);
-        let leads = [];
 
+        let leads = [];
         try {
           leads = await this.collectLeadsForFlow(flow, baseCtx);
         } catch (e) {
@@ -444,8 +798,7 @@ class AutomationService {
       }
 
       if (runLegacyJobs) {
-        if (LeadService.predictBatch) await LeadService.predictBatch(500);
-        if (LeadService.autoConvertEligibleLeads) await LeadService.autoConvertEligibleLeads();
+        // placeholder
       }
     } catch (err) {
       console.error('[Automation] Error in scheduled automation:', err);
@@ -460,48 +813,17 @@ class AutomationService {
   }
 }
 
-// ---------------------------
-// EVENT_ROUTER (primitive trigger routing)
-// ---------------------------
-const EVENT_ROUTER = Object.freeze({
-  // flow-driven events
-  'lead.created': 'flows',
-  'lead.updated': 'flows',
-  'order.paid': 'flows',
-  'order.created': 'flows',
-  'order.refunded': 'flows',
-  'zalo.message': 'flows',
-  'segment.scheduled': 'flows',
-  'engagement.email_opened': 'flows',
-  'engagement.link_clicked': 'flows',
-  'engagement.video_played': 'flows',
-
-  // NEW: cron trigger
-  'cron.daily': 'flows',
-
-  // tag-driven
-  'tag.added': 'tag',
-  'tag.removed': 'tag',
-
-  // campaign-driven
-  'campaign.run': 'campaign',
-  'campaign.approved': 'campaign',
-  'campaign.pause': 'campaign',
-  'campaign.end': 'campaign',
-});
-
-// ---------------------------
-// ACTION_HANDLERS (primitive action registry)
-// signature: async (svc, action, ctx) => void
-// ---------------------------
+// ============================
+// Action handlers registry
+// ============================
 const ACTION_HANDLERS = Object.freeze({
   // -------------------
   // Email
   // -------------------
   send_email: async (svc, action, ctx) => {
     const cfg = action.content || {};
+    const merged = ctx?.settings?.merged || {};
 
-    // 0) current entity (for_each / batch)
     const currentEntity =
       ctx.item ||
       ctx.customer ||
@@ -510,7 +832,6 @@ const ACTION_HANDLERS = Object.freeze({
       (cfg.item_key ? ctx?.[cfg.item_key] : null) ||
       null;
 
-    // 1) Resolve recipient
     const rawTo =
       cfg.to ||
       action.to ||
@@ -520,24 +841,24 @@ const ACTION_HANDLERS = Object.freeze({
       ctx.order?.email;
 
     const to = svc.render(rawTo, ctx);
-    if (!to) {
-      console.warn('[Automation] send_email: missing recipient `to`');
-      return;
-    }
+    if (!to) return console.warn('[Automation] send_email: missing recipient `to`');
 
-    // 2) subject
-    const subject = svc.render(cfg.subject || '', ctx) || '(no-subject)';
-
-    // 3) template data
-    const email = cfg.email ? svc.renderConditions(cfg.email, ctx) : {};
-    const theme = cfg.theme ? svc.renderConditions(cfg.theme, ctx) : {};
+    const subjectPrefix = merged.subject_prefix || merged.subjectPrefix || '';
+    const rawSubject = cfg.subject || merged.subject || '';
+    const subject = svc.render(`${subjectPrefix}${rawSubject}`, ctx) || '(no-subject)';
 
     const templateKey =
       cfg.template_key ||
       cfg.template?.key ||
-      cfg.templateName ||
-      cfg.template?.name ||
+      merged.template_key ||
       null;
+
+    const from_name = merged.from_name || merged.fromName || null;
+    const from_email = merged.from_email || merged.fromEmail || null;
+    const reply_to = merged.reply_to || merged.replyTo || null;
+
+    const email = cfg.email ? svc.renderDeep(cfg.email, ctx) : {};
+    const theme = cfg.theme ? svc.renderDeep(cfg.theme, ctx) : {};
 
     const templateCtx = {
       ...ctx,
@@ -545,15 +866,11 @@ const ACTION_HANDLERS = Object.freeze({
       subject,
       email,
       theme,
-      now: ctx.now || new Date(),
-      brand: ctx.brand || { name: 'MyShop' },
+      now: (ctx.now instanceof Date ? ctx.now.toISOString() : (ctx.now || new Date().toISOString())),
+      brand: ctx.brand || { name: BRAND_FALLBACK },
       item: currentEntity,
-      lead: ctx.lead ?? null,
-      customer: ctx.customer ?? null,
-      order: ctx.order ?? null,
     };
 
-    // 4) render HTML
     let bodyHtml = '';
     if (templateKey) {
       try {
@@ -564,32 +881,27 @@ const ACTION_HANDLERS = Object.freeze({
       }
     }
 
-    // fallback legacy
     if (!bodyHtml || String(bodyHtml).trim() === '') {
-      const legacy = svc.render(cfg.body || '', templateCtx);
-      bodyHtml =
-        legacy && legacy.trim()
-          ? legacy
-          : `<!doctype html>
-<html>
-  <body style="margin:0;padding:24px;background:#f6f7fb;font-family:Arial,sans-serif;">
-    <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
-      <h3 style="margin:0 0 10px 0;">${subject}</h3>
-      <div style="font-size:14px;line-height:1.6;color:#111827;">
-        ${email?.body_text ? String(email.body_text) : 'Thông báo từ hệ thống.'}
-      </div>
-      <div style="margin-top:16px;font-size:12px;color:#6b7280;">
-        © ${new Date().getFullYear()} ${templateCtx.brand?.name || 'MyShop'}
-      </div>
-    </div>
-  </body>
-</html>`;
+      const bodySource = cfg.body || merged.body || '';
+      const legacy = svc.render(bodySource, templateCtx);
+      bodyHtml = legacy?.trim()
+        ? legacy
+        : `<!doctype html><html><body>${subject}</body></html>`;
     }
 
-    // 5) tracking id for this email
+    // Ensure theme/email data from UI can be used even if using template_key
+    // If templateKey is used, we've already rendered bodyHtml.
+    // However, we want to allow the template to access email.intro, email.message, etc.
+    // which are already in templateCtx.
+
+    // INTEGRATION: If cfg.body exists but email.body_html is missing (legacy UI content),
+    // we inject it into email object for template use.
+    if (cfg.body && !templateCtx.email.body_html) {
+      templateCtx.email.body_html = svc.render(cfg.body, templateCtx);
+    }
+
     const mid = randomUUID();
 
-    // 6) rewrite links (click tracking)
     bodyHtml = rewriteLinksForClickTracking({
       html: bodyHtml,
       mid,
@@ -598,7 +910,6 @@ const ACTION_HANDLERS = Object.freeze({
       ctx: templateCtx,
     });
 
-    // 7) inject open pixel
     bodyHtml = injectOpenPixel({
       html: bodyHtml,
       mid,
@@ -607,285 +918,172 @@ const ACTION_HANDLERS = Object.freeze({
       ctx: templateCtx,
     });
 
-    // 8) send
-    return await emailSvc.send({
+    const result = await emailSvc.send({
       to,
       subject,
-      body: bodyHtml, // HTML
+      body: bodyHtml,
       channel: action.channel || cfg.channel || 'email',
       template: templateKey ? { key: templateKey } : null,
-    });
-  },
-
-  // -------------------
-  // Zalo
-  // content: { to?, message?, template_id?, params? }
-  // -------------------
-  send_zalo: async (svc, action, ctx) => {
-    const cfg = action.content || {};
-    const to = svc.render(cfg.to || ctx.lead?.zalo_id || ctx.customer?.zalo_id, ctx);
-    if (!to) return console.warn('[Automation] send_zalo: missing zalo recipient (zalo_id)');
-
-    const message = svc.render(cfg.message || '', ctx);
-    const templateId = cfg.template_id || null;
-    const params = cfg.params ? svc.renderConditions(cfg.params, ctx) : {};
-
-    await ZaloService.sendMessage({ to, message, template_id: templateId, params });
-    console.log('[Automation] send_zalo ->', to);
-  },
-
-  // -------------------
-  // Facebook Page post
-  // content: { page_id?, message, link?, image_url? }
-  // -------------------
-  post_facebook: async (svc, action, ctx) => {
-    const cfg = action.content || {};
-    const pageId = cfg.page_id || process.env.FB_PAGE_ID;
-    if (!pageId) return console.warn('[Automation] post_facebook: missing page_id');
-
-    const message = svc.render(cfg.message || '', ctx);
-    const link = cfg.link ? svc.render(cfg.link, ctx) : null;
-    const imageUrl = cfg.image_url ? svc.render(cfg.image_url, ctx) : null;
-
-    await FacebookService.createPost({
-      page_id: pageId,
-      message,
-      link,
-      image_url: imageUrl,
+      from_name,
+      from_email,
+      reply_to,
     });
 
-    console.log('[Automation] post_facebook -> page', pageId);
+    const channelId =
+      ctx?.campaign_channel?.channel_id ||
+      ctx?.campaign_channel?.id ||
+      ctx?.trigger?.channel_id ||
+      ctx?.trigger?.channelId ||
+      null;
+
+    if (channelId) {
+      try {
+        await CampaignChannelRepo.incById(channelId, { sent: 1, delivered: 1 });
+      } catch (e) {
+        console.warn('[Automation] Failed to inc sent/delivered:', e?.message || e);
+      }
+    } else {
+      console.warn('[Automation] send_email: missing channel_id → cannot inc sent/delivered');
+    }
+
+    return result;
   },
 
   // -------------------
-  // Lead interaction
+  // Interaction
   // -------------------
   add_interaction: async (svc, action, ctx) => {
     const payload = JSON.parse(svc.render(JSON.stringify(action.content || {}), ctx));
-    const leadId = ctx?.lead?.lead_id || ctx?.lead?.id || ctx?.item?.lead_id || ctx?.item?.id;
-    if (!leadId) return console.warn('[Automation] add_interaction: missing lead_id in ctx');
-    await leadRepo.addInteraction(leadId, payload);
-  },
 
-  // -------------------
-  // Conditional status update
-  // action.condition is JS expression using ctx
-  // -------------------
-  update_status_if: async (svc, action, ctx) => {
-    const ok = svc.evalCondition(action.condition || 'true', ctx, true);
-    if (!ok) return;
+    const customerId =
+      ctx?.customer?.customer_id ||
+      ctx?.customer?.id ||
+      ctx?.order?.customer_id ||
+      ctx?.lead?.customer_id ||
+      ctx?.trigger?.customer_id ||
+      ctx?.item?.customer_id ||
+      null;
 
-    const leadId = ctx?.lead?.lead_id || ctx?.lead?.id || ctx?.item?.lead_id || ctx?.item?.id;
-    if (!leadId) return console.warn('[Automation] update_status_if: missing lead_id');
+    let leadId =
+      ctx?.lead?.lead_id ||
+      ctx?.lead?.id ||
+      ctx?.item?.lead_id ||
+      ctx?.item?.id ||
+      ctx?.trigger?.lead_id ||
+      null;
 
-    await leadRepo.updateById(
-      leadId,
-      { status: action.to_status },
-      { reason: svc.render(action.reason || 'auto_by_flow', ctx) }
-    );
-  },
-
-  // -------------------
-  // Tags
-  // -------------------
-  tag_update: async (svc, action, ctx) => {
-    const mode = action.mode || action.op || action.content?.mode || action.content?.op || 'add';
-    const tags = action.content?.tags ?? action.tags ?? [];
-    const leadId = ctx?.lead?.lead_id || ctx?.lead?.id || ctx?.item?.lead_id || ctx?.item?.id;
-
-    if (!leadId || !Array.isArray(tags) || !tags.length) return;
-
-    await leadRepo.updateTags(leadId, tags, mode);
-    console.log(`[Automation] tag_update(${mode}) -> ${leadId}:`, tags);
-  },
-
-  // -------------------
-  // Tasks
-  // -------------------
-  create_task: async (svc, action, ctx) => {
-    const dueIn = Number(action.content?.due_in_minutes || 0);
-    const dueAt = dueIn > 0 ? new Date(Date.now() + dueIn * 60000).toISOString() : null;
-
-    const leadId = ctx.lead?.lead_id || ctx.lead?.id || ctx.item?.lead_id || null;
-    const customerId = ctx.lead?.customer_id || ctx.customer?.customer_id || ctx.customer?.id || null;
-
-    const taskPayload = {
-      type: action.content?.type || 'follow_up',
-      lead_id: leadId,
-      customer_id: customerId,
-      title: svc.render(action.content?.title || 'Follow-up lead', ctx),
-      description: svc.render(action.content?.description || '', ctx),
-      assignee: action.content?.assignee || null,
-      due_at: dueAt,
-      source_flow_id: ctx.trigger?.flow_id || null,
-    };
-
-    await Rabbit.publish('task.create', taskPayload);
-  },
-
-  // -------------------
-  // Scheduling (delayed next_action)
-  // -------------------
-  schedule: async (svc, action, ctx) => {
-    const delay = action.delay_iso || `PT${action.delay_minutes || 5}M`;
-    const nextAction = action.next_action || { type: 'send_email' };
-    await scheduler.enqueueIn(delay, 'automation.runAction', { action: nextAction, ctx });
-  },
-
-  // -------------------
-  // Logging
-  // -------------------
-  log: async (svc, action, ctx) => {
-    const level = action.level || action.content?.level || 'info';
-    const message = svc.render(action.message || action.content?.message || '', ctx);
-    const meta = action.content?.meta || {};
-    console[level] ? console[level](`[Automation][log] ${message}`, meta) : console.log(`[Automation][log] ${message}`, meta);
-  },
-
-  // -------------------
-  // Campaign run/stop as actions (optional)
-  // -------------------
-  'campaign.run': async (svc, action, ctx) => {
-    const campaignId = action.content?.campaign_id || ctx.campaign?.campaign_id;
-    if (!campaignId) return console.warn('[Automation] campaign.run: missing campaign_id');
-    await Rabbit.publish('campaign.run', { campaign_id: campaignId, ctx });
-  },
-
-  'campaign.stop': async (svc, action, ctx) => {
-    const campaignId = action.content?.campaign_id || ctx.campaign?.campaign_id;
-    if (!campaignId) return console.warn('[Automation] campaign.stop: missing campaign_id');
-    await Rabbit.publish('campaign.stop', { campaign_id: campaignId, ctx });
-  },
-
-  send_internal_report: async (svc, action, ctx) => {
-    const to = action.content?.to || process.env.INTERNAL_REPORT_TO;
-    if (!to) return console.warn('[Automation] send_internal_report: missing to');
-
-    const subject = svc.render(action.content?.subject || 'Campaign summary', ctx);
-    const body = svc.render(action.content?.body || '', ctx);
-
-    await emailSvc.send({ to, subject, body, channel: action.channel || 'email' });
-  },
-
-  // -------------------
-  // Generic HTTP request (AI/integration)
-  // content: { method,url,headers?,params?,body?,timeout_ms?,save_to_ctx? }
-  // save_to_ctx: "ai.result" or "ai"
-  // -------------------
-  'http.request': async (svc, action, ctx) => {
-    const cfg = action.content || {};
-    const method = String(cfg.method || 'POST').toUpperCase();
-    const url = svc.render(cfg.url || '', ctx);
-    if (!url) return console.warn('[Automation] http.request: missing url');
-
-    const headers = cfg.headers ? svc.renderConditions(cfg.headers, ctx) : {};
-    const params = cfg.params ? svc.renderConditions(cfg.params, ctx) : undefined;
-    const data = cfg.body ? svc.renderConditions(cfg.body, ctx) : undefined;
-    const timeout = Number(cfg.timeout_ms || 10000);
-
-    const res = await axios({ method, url, headers, params, data, timeout });
-
-    if (cfg.save_to_ctx) {
-      svc.setByPath(ctx, cfg.save_to_ctx, res.data);
+    if (!leadId && customerId && leadRepo.getLeadIDbyCustommerID) {
+      try {
+        leadId = await leadRepo.getLeadIDbyCustommerID(customerId);
+      } catch {
+        // ignore
+      }
     }
+
+    if (customerId) {
+      try {
+        await customerInteractionRepo.addInteraction(customerId, payload);
+      } catch (e) {
+        console.warn('[Automation] add_interaction: failed customer_interactions:', e?.message || e);
+      }
+    }
+
+    if (leadId) {
+      try {
+        await leadRepo.addInteraction(leadId, payload);
+      } catch (e) {
+        console.warn('[Automation] add_interaction: failed lead_interactions:', e?.message || e);
+      }
+    }
+
+    if (!customerId && !leadId) console.warn('[Automation] add_interaction: missing both customer_id and lead_id');
   },
 
   // -------------------
   // set_ctx
-  // content: { path, value } OR { values: { "x.y": "...", ... } }
   // -------------------
   set_ctx: async (svc, action, ctx) => {
     const cfg = action.content || {};
     if (cfg.values && typeof cfg.values === 'object') {
-      const rendered = svc.renderConditions(cfg.values, ctx);
+      const rendered = svc.renderDeep(cfg.values, ctx);
       for (const [path, val] of Object.entries(rendered)) svc.setByPath(ctx, path, val);
       return;
     }
     if (!cfg.path) return console.warn('[Automation] set_ctx: missing path');
-    const val = typeof cfg.value === 'string' ? svc.render(cfg.value, ctx) : svc.renderConditions(cfg.value, ctx);
+
+    const val = svc.renderDeep(cfg.value, ctx);
     svc.setByPath(ctx, cfg.path, val);
   },
 
   // -------------------
-  // branch: { condition, then_action, else_action }
-  // condition uses ctx (JS expression)
-  // -------------------
-  branch: async (svc, action, ctx) => {
-    const cfg = action.content || {};
-    const ok = svc.evalCondition(cfg.condition || 'false', ctx, false);
-    const next = ok ? cfg.then_action : cfg.else_action;
-    if (next) await svc.execAction(next, ctx);
-  },
-
-  // -------------------
-  // query.leads: { conditions, limit, save_to_ctx? } default save_to_ctx="batch"
-  // ctx.batch.items -> for_each
+  // query.leads
   // -------------------
   'query.leads': async (svc, action, ctx) => {
     const cfg = action.content || {};
-    const cond = svc.renderConditions(cfg.conditions || {}, ctx);
+    const condFromCtx = (ctx?.conditions || ctx?.condition || ctx?.target_filter || ctx?.campaign?.target_filter || ctx?.campaign_channel?.target_filter || {});
+    const cond = svc.renderDeep({ ...condFromCtx, ...(cfg.conditions || {}) }, ctx);
     const limit = Number(cfg.limit || 5000);
+
+    console.log('[Automation] query.leads: conditions=', JSON.stringify(cond));
     const rows = await leadRepo.findByConditions({ ...cond, limit });
+    console.log(`[Automation] query.leads: found ${rows?.length || 0} leads`);
 
-    const out = {
-      entity: 'leads',
-      items: (rows || []).map((x) => x?.toJSON?.() ?? x),
-    };
-
+    const out = { entity: 'leads', items: (rows || []).map(toJson) };
     if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, out);
     else ctx.batch = out;
   },
 
   // -------------------
-  // query.orders: { conditions, limit, save_to_ctx? }
+  // query.customers
+  // -------------------
+  'query.customers': async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const condFromCtx = (ctx?.conditions || ctx?.condition || ctx?.target_filter || ctx?.campaign?.target_filter || ctx?.campaign_channel?.target_filter || {});
+    const cond = svc.renderDeep({ ...condFromCtx, ...(cfg.conditions || {}) }, ctx);
+    const limit = Number(cfg.limit || 5000);
+    const hasCond = cond && Object.keys(cond).length > 0;
+
+    console.log('[Automation] query.customers: conditions=', JSON.stringify(cond));
+    let rows = [];
+    if (customerRepository.findByConditions) {
+      if (!hasCond) {
+        console.warn('[Automation] query.customers: EMPTY conditions → BLOCKED');
+        rows = [];
+      } else {
+        rows = await customerRepository.findByConditions({ ...cond, limit });
+        console.log(`[Automation] query.customers: found ${rows?.length || 0} customers`);
+      }
+    } else {
+      console.warn('[Automation] customerRepository.findByConditions missing');
+      rows = [];
+    }
+
+    const out = { entity: 'customers', items: (rows || []).map(toJson) };
+    if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, out);
+    else ctx.batch = out;
+  },
+
+  // -------------------
+  // query.orders
   // -------------------
   'query.orders': async (svc, action, ctx) => {
     const cfg = action.content || {};
-    const cond = svc.renderConditions(cfg.conditions || {}, ctx);
+    const cond = svc.renderDeep(cfg.conditions || {}, ctx);
     const limit = Number(cfg.limit || 5000);
 
-    if (!OrderRepo.findByConditions) {
-      console.warn('[Automation] query.orders: OrderRepo.findByConditions not implemented');
-      const out = { entity: 'orders', items: [] };
-      if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, out);
-      else ctx.batch = out;
-      return;
-    }
-
-    const rows = await OrderRepo.findByConditions({ ...cond, limit });
-    const out = {
-      entity: 'orders',
-      items: (rows || []).map((x) => x?.toJSON?.() ?? x),
-    };
-
-    if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, out);
-    else ctx.batch = out;
-  },
-  'query.customers': async (svc, action, ctx) => {
-    const cfg = action.content || {};
-    const cond = svc.renderConditions(cfg.conditions || {}, ctx);
-    const limit = Number(cfg.limit || 5000);
     let rows = [];
-    if (customerRepository.findByConditions) {
-      rows = await customerRepository.findByConditions({ ...cond, limit });
-      console.log('[Automation] query.customers: used findByConditions, total customers=', rows.length);
-      console.log('[Automation] query.customers items sample:', rows.map(x => ({ id: x.customer_id, email: x.email })));
-    } else if (customerRepository.findAll) {
-      const all = await customerRepository.findAll();
-      rows = Array.isArray(all) ? all.slice(0, limit) : [];
-      console.log('[Automation] query.customers: used findAll fallback, total customers=', all.length);
-      console.log('[Automation] query.customers items sample:', rows.map(x => ({ id: x.customer_id, email: x.email })));
-    } else {
-      console.warn('[Automation] query.customers: customerRepository.findByConditions/findAll not implemented');
-      rows = [];
+    if (OrderRepo.findByConditions) {
+      rows = await OrderRepo.findByConditions({ ...cond, limit });
     }
-    const out = {
-      entity: 'customers',
-      items: (rows || []).map((x) => x?.toJSON?.() ?? x),
-    };
+
+    const out = { entity: 'orders', items: (rows || []).map(toJson) };
     if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, out);
     else ctx.batch = out;
   },
+
+  // -------------------
+  // for_each (Enhanced Concurrency)
+  // -------------------
   for_each: async (svc, action, ctx) => {
     const cfg = action.content || {};
     const fromPath = cfg.from_path;
@@ -897,11 +1095,196 @@ const ACTION_HANDLERS = Object.freeze({
 
     if (!next) return console.warn('[Automation] for_each: missing next_action');
 
-    for (const it of items) {
-      const childCtx = { ...ctx, [itemKey]: it };
-      await svc.execAction(next, childCtx);
+    const mode = cfg.mode || 'sequential';
+
+    if (mode === 'distributed') {
+      console.log(`[Automation] for_each (distributed): dispatching ${items.length} items to RabbitMQ`);
+      const pArr = items.map(async (it) => {
+        const childCtx = { ...ctx, [itemKey]: it };
+        const singleBatch = { items: [it], entity: batch?.entity };
+        if (fromPath) svc.setByPath(childCtx, fromPath, singleBatch);
+        else childCtx.batch = singleBatch;
+        return Rabbit.publish('automation.runAction', { action: next, ctx: childCtx });
+      });
+      await Promise.all(pArr);
+    } else if (mode === 'parallel') {
+      const concurrency = Number(cfg.concurrency || process.env.AUTOMATION_FOR_EACH_LIMIT || 5);
+      console.log(`[Automation] for_each (parallel): concurrency=${concurrency}`);
+      const executing = new Set();
+      const results = [];
+      for (const it of items) {
+        const childCtx = { ...ctx, [itemKey]: it };
+        const p = svc.execAction(next, childCtx);
+        results.push(p);
+        executing.add(p);
+        p.finally(() => executing.delete(p));
+        if (executing.size >= concurrency) await Promise.race(executing);
+      }
+      await Promise.all(results);
+    } else {
+      // Sequential (Default)
+      for (const it of items) {
+        const childCtx = { ...ctx, [itemKey]: it };
+        await svc.execAction(next, childCtx);
+      }
+    }
+  },
+
+  // -------------------
+  // log
+  // -------------------
+  log: async (svc, action, ctx) => {
+    const level = action.level || action.content?.level || 'info';
+    const message = svc.render(action.message || action.content?.message || '', ctx);
+    const meta = action.content?.meta || {};
+    console[level] ? console[level](`[Automation][log] ${message}`, meta) : console.log(`[Automation][log] ${message}`, meta);
+  },
+
+  // -------------------
+  // schedule
+  // -------------------
+  schedule: async (svc, action, ctx) => {
+    const delay = action.delay_iso || `PT${action.delay_minutes || 5}M`;
+    const nextAction = action.next_action || { type: 'send_email' };
+    await scheduler.enqueueIn(delay, 'automation.runAction', { action: nextAction, ctx });
+  },
+
+  // -------------------
+  // branch
+  // -------------------
+  branch: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const ok = svc.evalCondition(cfg.condition || 'false', ctx, false);
+    const next = ok ? cfg.then_action : cfg.else_action;
+    if (next) await svc.execAction(next, ctx);
+  },
+
+  // -------------------
+  // http.request
+  // -------------------
+  'http.request': async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const method = String(cfg.method || 'POST').toUpperCase();
+    const url = svc.render(cfg.url || '', ctx);
+    if (!url) return console.warn('[Automation] http.request: missing url');
+
+    const headers = cfg.headers ? svc.renderDeep(cfg.headers, ctx) : {};
+    const params = cfg.params ? svc.renderDeep(cfg.params, ctx) : undefined;
+    const data = cfg.body ? svc.renderDeep(cfg.body, ctx) : undefined;
+    const timeout = Number(cfg.timeout_ms || 10000);
+
+    const res = await axios({ method, url, headers, params, data, timeout });
+
+    if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, res.data);
+  },
+
+  // -------------------
+  // tag_update
+  // -------------------
+  tag_update: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const op = cfg.op || 'add';
+    const tags = Array.isArray(cfg.tags) ? cfg.tags : (cfg.tags ? [cfg.tags] : []);
+
+    if (!tags.length) return;
+
+    // Determine target (Lead or Customer)
+    let lead = ctx.lead;
+    let customer = ctx.customer;
+
+    // Try to resolve if missing
+    if (!lead && ctx.leadId) lead = await leadRepo.findById(ctx.leadId);
+    if (!customer && ctx.customerId) customer = await customerRepository.findById(ctx.customerId);
+
+    // Apply to Lead
+    if (lead && leadRepo.addTags && leadRepo.removeTags) {
+      try {
+        if (op === 'add') await leadRepo.addTags(lead.lead_id || lead.id, tags);
+        else if (op === 'remove') await leadRepo.removeTags(lead.lead_id || lead.id, tags);
+        console.log(`[Automation] tag_update(${op}) on Lead ${lead.lead_id || lead.id}:`, tags);
+      } catch (e) {
+        console.warn('[Automation] tag_update lead failed:', e.message);
+      }
+    }
+
+    // Apply to Customer
+    if (customer && customerRepository.addTags && customerRepository.removeTags) {
+      try {
+        const cid = customer.customer_id || customer.id;
+        if (op === 'add') await customerRepository.addTags(cid, tags);
+        else if (op === 'remove') await customerRepository.removeTags(cid, tags);
+        console.log(`[Automation] tag_update(${op}) on Customer ${cid}:`, tags);
+      } catch (e) {
+        console.warn('[Automation] tag_update customer failed:', e.message);
+      }
+    }
+  },
+
+  // -------------------
+  // create_task
+  // -------------------
+  create_task: async (svc, action, ctx) => {
+    // const cfg = action.content || {};
+    // if (!TaskRepository?.create) return console.warn('[Automation] TaskRepository.create missing');
+
+    // const title = svc.render(cfg.title || 'New Task', ctx);
+    // const desc = svc.render(cfg.description || '', ctx);
+    // const dueMin = Number(cfg.due_in_minutes || 0);
+
+    // const dueDate = new Date();
+    // if (dueMin > 0) dueDate.setMinutes(dueDate.getMinutes() + dueMin);
+
+    // const related = {};
+    // if (ctx.lead && (ctx.lead.lead_id || ctx.lead.id)) {
+    //   related.related_id = ctx.lead.lead_id || ctx.lead.id;
+    //   related.related_type = 'lead';
+    // } else if (ctx.customer && (ctx.customer.customer_id || ctx.customer.id)) {
+    //   related.related_id = ctx.customer.customer_id || ctx.customer.id;
+    //   related.related_type = 'customer';
+    // }
+
+    // try {
+    //   await TaskRepository.create({
+    //     title,
+    //     description: desc,
+    //     due_date: dueDate.toISOString(),
+    //     type: cfg.type || 'todo',
+    //     priority: cfg.priority || 'medium',
+    //     status: 'todo',
+    //     ...related
+    //   });
+    //   console.log(`[Automation] Task created: ${title}`);
+    // } catch (e) {
+    //   console.warn('[Automation] create_task failed:', e.message);
+    // }
+  },
+
+  // -------------------
+  // update_status_if
+  // -------------------
+  update_status_if: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    // Condition check
+    if (cfg.condition && !svc.evalCondition(cfg.condition, ctx, false)) {
+      return;
+    }
+    const newStatus = cfg.to_status;
+    if (!newStatus) return;
+
+    // Usually applies to Lead
+    const leadId = ctx.lead?.lead_id || ctx.lead?.id;
+    if (leadId && leadRepo.updateStatus) {
+      try {
+        await leadRepo.updateStatus(leadId, newStatus, cfg.reason || 'Automation');
+        console.log(`[Automation] Lead ${leadId} status updated to ${newStatus}`);
+      } catch (e) {
+        console.warn('[Automation] update_status_if failed:', e.message);
+      }
     }
   },
 });
 
+// ============================
+// Export
+// ============================
 module.exports = new AutomationService();

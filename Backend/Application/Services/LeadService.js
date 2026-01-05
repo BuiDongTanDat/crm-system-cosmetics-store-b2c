@@ -1,9 +1,10 @@
-// backend/src/Domain/Services/LeadService.js
+
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 const leadRepository = require('../../Infrastructure/Repositories/LeadRepository.js');
 const customerRepository = require('../../Infrastructure/Repositories/CustomerRepository.js');
 const campaignRepository = require('../../Infrastructure/Repositories/CampaignRepository.js');
+const leadInterestRepository = require('../../Infrastructure/Repositories/LeadInterestRepository.js');
 const stateMachine = require('../../Domain/Entities/leadStateMachine.js');
 const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 const aiClient = require('../../Infrastructure/external/AIClient.js');
@@ -16,11 +17,17 @@ const MAP_TO_DB = {
   nurturing: 'nurturing', converted: 'converted', 'closed-lost': 'closed_lost',
   closed_lost: 'closed_lost', lost: 'closed_lost',
 };
+function normSource(v) {
+  const s = String(v || '').trim().toLowerCase();
+  const ALLOWED = ['inbound', 'outbound', 'ads', 'referral'];
+  return ALLOWED.includes(s) ? s : 'inbound';
+}
+
 class LeadService {
   constructor() {
     this.repo = leadRepository;
+    this.interestRepo = leadInterestRepository;
   }
-
   // ----------------------------
   // CRUD cơ bản
   // ----------------------------
@@ -39,18 +46,22 @@ class LeadService {
 
       // 2) Validate cơ bản + kiểm tra trùng
       const {
-        customer_id, source, status, lead_score, conversion_prob,
-        assigned_to, tags, priority, product_interest
+        customer_id,
+        source,
+        status,
+        lead_score,
+        conversion_prob,
+        assigned_to,
+        tags,
+        priority,
+        product_interest,
+        product_id = null,
+        product_ids = null,
+        product_name = null,
+        meta = {},
       } = leadData;
 
-      // if (leadData.email) {
-      //   const dupEmail = await this.repo.findByEmail(leadData.email);
-      //   if (dupEmail) throw new AppError('Email already exists', { status: 400, code: 'DUPLICATE_EMAIL' });
-      // }
-      // if (leadData.phone) {
-      //   const dupPhone = await this.repo.findByPhone(leadData.phone);
-      //   if (dupPhone) throw new AppError('Phone number already exists', { status: 400, code: 'DUPLICATE_PHONE' });
-      // }
+      const sourceNorm = normSource(source);
 
       let finalCustomerId = null;
       if (customer_id) {
@@ -65,28 +76,29 @@ class LeadService {
         throw new AppError('conversion_prob must be between 0 and 1', { status: 400, code: 'VALIDATION_ERROR' });
       }
 
+      const dealName =
+        (campaign?.name && String(campaign.name).trim())
+          ? String(campaign.name).trim()
+          : sourceNorm;
+
       // 3) Chuẩn bị payload cơ bản
       const payload = {
         customer_id: finalCustomerId,
         name: leadData.name || 'Unnamed Lead',
         phone: leadData.phone || null,
         email: leadData.email || null,
-        source: source || 'inbound',          // NOTE: model default đang 'Inbound', bạn có thể đồng bộ lại
-        status: status || 'new',
+        source: sourceNorm,
+        status: (status ? String(status).trim().toLowerCase() : 'new'),
         campaign_id: leadData.campaign_id || null,
         tags: Array.isArray(tags) ? tags : [],
         lead_score: lead_score ?? 0,
         conversion_prob: conversion_prob ?? 0,
         assigned_to: assigned_to || null,
         created_at: new Date(),
-
-        // Trường mới:
         priority: priority || 'medium',
-        product_interest: leadData.product_interest || null,
-        // tên deal = tên chiến dịch (nếu có campaign)
-        deal_name: campaign?.name || null,
+        product_interest: product_interest || leadData.product_interest || null,
+        deal_name: dealName,
 
-        // chỗ chứa kết quả AI (sẽ set sau khi gọi AI)
         predicted_prob: null,
         predicted_value: 0,
         predicted_value_currency: 'VND',
@@ -100,7 +112,7 @@ class LeadService {
           name: payload.name,
           email: payload.email,
           phone: payload.phone,
-          source: payload.source,           // nên normalize về lowercase: 'inbound'
+          source: payload.source,
           lead_score: payload.lead_score,
           tags: payload.tags,
           campaign_id: payload.campaign_id,
@@ -114,13 +126,7 @@ class LeadService {
 
         const aiResp = await aiClient.scoreLead(features);
         if (aiResp) {
-          const {
-            score,
-            reason,
-            predicted_prob,
-            predicted_value,
-            predicted_value_currency
-          } = aiResp;
+          const { score, reason, predicted_prob, predicted_value, predicted_value_currency } = aiResp;
 
           if (Number.isFinite(score)) {
             payload.lead_score = Number(score);
@@ -144,27 +150,48 @@ class LeadService {
       // 5) Transaction: tạo lead + tạo interaction "interested"
       const result = await sequelize.transaction(async (t) => {
         const lead = await this.repo.create(payload, { transaction: t });
-
-        await this.repo.addInteraction(lead.lead_id, {
-          type: 'interested',
-          channel: campaign?.channel || payload.source || 'unknown',
-          occurred_at: new Date(),
-          properties: {
-            campaign_id: lead.campaign_id,
-            campaign_name: campaign?.name || null,
-            product_interest: payload.product_interest || null,
-            note: 'Tương tác đầu tiên từ chiến dịch marketing',
-            ai_predicted_prob: payload.predicted_prob,
-            ai_predicted_value: payload.predicted_value,
-            ai_currency: payload.predicted_value_currency,
+        const ids = []
+          .concat(product_id ? [product_id] : [])
+          .concat(Array.isArray(product_ids) ? product_ids : [])
+          .filter(Boolean);
+        if (ids.length && this.interestRepo?.upsertInterest) {
+          for (const pid of ids) {
+            await this.interestRepo.upsertInterest(
+              {
+                lead_id: lead.lead_id,
+                product_id: pid,
+                product_name: product_name || product_interest || null,
+                source: payload.source,                       // inbound/outbound/ads/referral
+                campaign_id: payload.campaign_id || null,
+                meta: meta || {},
+              },
+              { transaction: t }
+            );
+          }
+        }
+        await this.repo.addInteraction(
+          lead.lead_id,
+          {
+            type: 'interested',
+            channel: campaign?.channel || payload.source || 'unknown',
+            occurred_at: new Date(),
+            properties: {
+              campaign_id: lead.campaign_id,
+              campaign_name: campaign?.name || null,
+              product_interest: payload.product_interest || null,
+              product_id: product_id || (Array.isArray(product_ids) ? product_ids[0] : null),
+              note: 'Tương tác đầu tiên từ chiến dịch marketing',
+              ai_predicted_prob: payload.predicted_prob,
+              ai_predicted_value: payload.predicted_value,
+              ai_currency: payload.predicted_value_currency,
+            },
+            score_delta: 5,
+            created_by: assigned_to || null,
           },
-          score_delta: 5,
-          created_by: assigned_to || null,
-        }, { transaction: t });
-
+          { transaction: t }
+        );
         return lead;
       });
-
       try {
         await Rabbit.publish(LEAD_CREATED, {
           lead_id: result.lead_id,
@@ -177,8 +204,11 @@ class LeadService {
           predicted_prob: result.predicted_prob,
           predicted_value: result.predicted_value,
           predicted_value_currency: result.predicted_value_currency,
+          product_id: product_id,
+          product_ids: product_ids,
         });
         console.log(`[EVENT] lead_created published for lead ${result.lead_id}`);
+        console.log('Published event payload:', { lead_id: result.lead_id, campaign_id: result.campaign_id, source: result.source, tags: result.tags, priority: result.priority, product_interest: result.product_interest, deal_name: result.deal_name, predicted_prob: result.predicted_prob, predicted_value: result.predicted_value, predicted_value_currency: result.predicted_value_currency, product_id: result.product_id });
       } catch (pubErr) {
         console.error('[RabbitMQ] Failed to publish lead_created:', pubErr);
       }
@@ -188,31 +218,122 @@ class LeadService {
       return fail(asAppError(err, { status: err?.status || 500, code: 'CREATE_LEAD_FAILED' }));
     }
   }
+  async trackInterest(input = {}) {
+    try {
+      const {
+        anon_id,
+        product_id,
+        product_name = null,
+        source = 'inbound',
+        campaign_id = null,
+        channel = null,
+        occurred_at = null,
+        meta = {},
+        assigned_to = null,
+      } = input;
 
-  async addInteraction(leadId, payload) {
-    const toContacted = stateMachine.interactionHints?.toContacted?.(payload);
-    const toClosedLost = stateMachine.interactionHints?.toClosedLost?.(payload);
+      if (!anon_id) {
+        throw new AppError('anon_id is required', { status: 400, code: 'VALIDATION_ERROR' });
+      }
+      if (!product_id) {
+        throw new AppError('product_id is required', { status: 400, code: 'VALIDATION_ERROR' });
+      }
 
-    let nextStatus = null;
-    if (toContacted && lead.status === 'new') nextStatus = 'contacted';
-    if (toClosedLost) nextStatus = 'closed_lost';
+      // validate campaign nếu có
+      let campaign = null;
+      if (campaign_id) {
+        campaign = await campaignRepository.findById(campaign_id);
+        if (!campaign) console.log(`[WARN] Campaign ${campaign_id} not found`);
+      }
 
-    const scoreDelta = Number(payload.score_delta || 0);
-    const newScore = (lead.lead_score || 0) + scoreDelta;
-    if (!nextStatus &&
-      newScore >= stateMachine.thresholds.qualifiedScore &&
-      ['new', 'contacted'].includes(lead.status)) {
-      nextStatus = 'qualified';
-    }
+      const result = await sequelize.transaction(async (t) => {
+        // 1) Upsert lead theo anon_id
+        let lead = await this.repo.findByAnonId?.(anon_id, { transaction: t });
 
-    if (nextStatus && nextStatus !== lead.status && stateMachine.canTransition(lead.status, nextStatus)) {
-      await this.changeStatus(
-        leadId,
-        nextStatus,
-        `auto_transition_by_interaction:${payload.type}`,
-        payload.created_by || null,
-        { interaction_id: item.interaction_id }
-      );
+        if (!lead) {
+          const sourceNorm = normSource(source);
+          const dealName =
+            (campaign?.name && String(campaign.name).trim())
+              ? String(campaign.name).trim()
+              : sourceNorm;
+
+          // tạo anonymous lead tối thiểu
+          lead = await this.repo.create(
+            {
+              anon_id,
+              source: sourceNorm,
+              deal_name: dealName,
+              status: 'new',
+              lead_score: 0,
+              conversion_prob: 0,
+              campaign_id: campaign_id || null,
+              assigned_to: assigned_to || null,
+              tags: [],
+              priority: 'medium',
+              created_at: new Date(),
+            },
+            { transaction: t }
+          );
+        } else {
+          // nếu có campaign_id mới thì set (best-effort)
+          if (campaign_id && !lead.campaign_id) {
+            const newDealName =
+              (campaign?.name && String(campaign.name).trim())
+                ? String(campaign.name).trim()
+                : normSource(lead.source);
+
+            await this.repo.updateById?.(
+              lead.lead_id,
+              { campaign_id, deal_name: newDealName },
+              { transaction: t }
+            );
+          }
+        }
+
+        // 2) Upsert lead_interest (lead_id + product_id unique)
+        const interest = await this.interestRepo.upsertInterest(
+          {
+            lead_id: lead.lead_id,
+            product_id,
+            product_name,
+            source: normSource(source || lead.source),
+            campaign_id: campaign_id || lead.campaign_id || null,
+            meta,
+          },
+          { transaction: t }
+        );
+
+        const interaction = await this.repo.addInteraction(
+          lead.lead_id,
+          {
+            type: 'interested',
+            channel: channel || campaign?.channel || lead.source || 'unknown',
+            occurred_at: occurred_at ? new Date(occurred_at) : new Date(),
+            properties: {
+              anon_id,
+              product_id,
+              product_name,
+              campaign_id: campaign_id || lead.campaign_id || null,
+              campaign_name: campaign?.name || null,
+              ...meta,
+            },
+            score_delta: 2,
+            created_by: assigned_to || null,
+          },
+          { transaction: t }
+        );
+
+        return { lead, interest, interaction };
+      });
+
+      return ok({
+        lead_id: result.lead.lead_id,
+        anon_id: result.lead.anon_id,
+        product_id,
+        interested: true,
+      });
+    } catch (err) {
+      return fail(asAppError(err, { status: err?.status || 500, code: 'TRACK_INTEREST_FAILED' }));
     }
   }
   // Thay thế hàm static cũ bằng bản instance dưới đây:
@@ -299,32 +420,6 @@ class LeadService {
     }
   }
 
-  // async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
-  //   try {
-  //     const to = String(toStatus || '').trim().toLowerCase();
-
-  //     const lead = await this.repo.findById(leadId);
-  //     if (!lead) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Không tìm thấy lead' });
-
-  //     const from = String(lead.status || '').toLowerCase();
-  //     if (from === to) return ok({ message: 'Status unchanged', data: lead });
-
-  //     // state machine guard
-  //     if (!stateMachine.canTransition(from, to)) {
-  //       return fail({ status: 400, code: 'INVALID_TRANSITION', message: `Invalid transition ${from} → ${to}` });
-  //     }
-
-  //     const updated = await this.repo.logStatusChange(leadId, to, {
-  //       reason, changed_by: changedBy, meta
-  //     }); // repo sẽ transaction + lock + ghi LeadStatusHistory
-  //     if (!updated) return fail({ status: 404, code: 'LEAD_NOT_FOUND', message: 'Lead không tồn tại' });
-
-  //     return ok(updated);
-  //   } catch (err) {
-  //     return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
-  //   }
-  // }
-
   async getPipelineSummary() {
     try {
       const rows = await this.repo.aggregateByStatus();
@@ -343,16 +438,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'GET_LEAD_FAILED' }));
     }
   }
-
-  // Danh sách có phân trang (khớp với repo.paginate)
-  // async listLeads() {
-  //   try {
-  //     const res = await this.repo.findAll();
-  //     return ok(res);
-  //   } catch (err) {
-  //     return fail(asAppError(err, { status: 500, code: 'LIST_LEADS_FAILED' }));
-  //   }
-  // }
   async getAll() {
     const items = await this.repo.findAll();
     if (!items || items.length === 0) {
@@ -374,29 +459,33 @@ class LeadService {
         const dupPhone = await this.repo.findByPhone(patch.phone);
         if (dupPhone) throw new AppError('Phone number already exists', { status: 400, code: 'DUPLICATE_PHONE' });
       }
-      await this.repo.update(patch || {});
-      return ok(lead);
+      const updated = await this.repo.update(leadId, patch || {});
+      return ok(updated || lead);
     } catch (err) {
       return fail(asAppError(err, { status: 500, code: 'UPDATE_LEAD_FAILED' }));
     }
   }
   // chuyển lead thành khách hàng thủ công 
-  async convertLeadToCustomer(leadId, { by = null, reason = 'Manual convert', customerPatch = {} } = {}) {
+  async convertLeadToCustomer(
+    leadId,
+    { by = null, reason = 'Manual convert', customerPatch = {} } = {}
+  ) {
     try {
       const result = await sequelize.transaction(async (t) => {
-        // 1) Lấy & khóa lead
-        const lead = await this.repo.findById(leadId);
+        // 1) Lấy lead trong transaction
+        const lead = await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 
-        // Nếu đã có customer_id thì coi như đã convert
+        // Đã convert rồi
         if (lead.customer_id) {
-          const existingCustomer = await customerRepository.findById(lead.customer_id);
-          return { lead, customer: existingCustomer };
+          const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          return { lead, customer: existingCustomer, already_converted: true };
         }
 
-        // 2) Tạo dữ liệu khách hàng (kết hợp patch nếu có)
+        // 2) Build customer data
         const customerData = {
-          name: lead.name || lead.full_name || 'Unnamed Customer',
+          // tuỳ schema customer của bạn, ở đây giữ nguyên logic hiện tại
+          full_name: lead.name || lead.full_name || 'Unnamed Customer',
           email: lead.email || null,
           phone: lead.phone || null,
           source: lead.source || 'lead',
@@ -405,50 +494,73 @@ class LeadService {
           ...customerPatch,
         };
 
-        // 3) Tránh trùng: tìm theo email/phone, nếu chưa có thì tạo mới (trong transaction)
-        const customer = await customerRepository.findOrCreateSmart(customerData, { transaction: t });
+        // 3) Find-or-create customer trong cùng transaction
+        const createdOrFound = await customerRepository.findOrCreateSmart(customerData, { transaction: t });
+        const customer = Array.isArray(createdOrFound) ? createdOrFound[0] : createdOrFound;
 
-        // 4) Cập nhật Lead: set customer_id + đổi status & ghi lịch sử (transactional trong repo)
+        const customerId =
+          customer?.customer_id ??
+          customer?.id ??
+          customer?.dataValues?.customer_id ??
+          customer?.dataValues?.id;
+
+        if (!customerId) {
+          throw new AppError('Customer id not returned from repository', {
+            status: 500,
+            code: 'CUSTOMER_ID_MISSING',
+          });
+        }
+
         await this.repo.updateById(
           leadId,
-          { customer_id: customer.customer_id, status: 'converted', conversion_prob: 1 },
-          { changed_by: by, reason, meta: { method: 'manual_convert' } }
+          { customer_id: customerId, conversion_prob: 1 },
+          { transaction: t }
         );
 
-        // 5) Ghi interaction để audit
-        await this.repo.addInteraction(leadId, {
-          type: 'manual_convert',
-          channel: 'system',
-          properties: { reason },
-          score_delta: 0,
-          created_by: by || null,
+        // status -> converted (có history) trong cùng transaction
+        await this.repo.logStatusChange(leadId, 'converted', {
+          reason,
+          changed_by: by,
+          meta: { method: 'manual_convert' },
+          transaction: t,
         });
 
-        // 6) Lấy lại lead mới nhất
-        const updatedLead = await this.repo.findById(leadId);
-        return { lead: updatedLead, customer };
+        // 5) Interaction audit trong cùng transaction
+        await this.repo.addInteraction(
+          leadId,
+          {
+            type: 'manual_convert',
+            channel: 'system',
+            occurred_at: new Date(),
+            properties: { reason, customer_id: customerId },
+            score_delta: 0,
+            created_by: by || null,
+          },
+          { transaction: t }
+        );
+
+        // 6) Lấy lead mới nhất trong transaction
+        const updatedLead = await this.repo.findById(leadId, { transaction: t });
+
+        return { lead: updatedLead, customer, already_converted: false };
       });
 
       return ok(result);
     } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'CONVERT_LEAD_FAILED' }));
+      return fail(asAppError(err, { status: err?.status || 500, code: 'CONVERT_LEAD_FAILED' }));
     }
   }
-  // chuyển lead thành khách hàng tự động khi có đơn hàng được chuyển đổi 
-  // LeadService.js
   async autoConvertLead(leadId, { orderId = null, by = null, customerPatch = {} } = {}) {
     try {
       const result = await sequelize.transaction(async (t) => {
-        const lead = await this.repo.findById(leadId, { transaction: t });
+        const lead = await this.repo.findByIdForUpdate
+          ? await this.repo.findByIdForUpdate(leadId, { transaction: t })
+          : await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
-
-        // Đã liên kết customer rồi thì trả về
         if (lead.customer_id) {
           const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
-          return { lead, customer: existingCustomer };
+          return { lead, customer: existingCustomer, already_converted: true };
         }
-
-        // Tạo/tìm customer trong CÙNG transaction
         const createdOrFound = await customerRepository.findOrCreateSmart(
           {
             full_name: lead.name || 'Guest',
@@ -461,15 +573,13 @@ class LeadService {
           { transaction: t }
         );
 
-        // Chuẩn hoá instance (phòng trường hợp repo trả [instance, created])
-        const customerInstance = Array.isArray(createdOrFound) ? createdOrFound[0] : createdOrFound;
+        const customer = Array.isArray(createdOrFound) ? createdOrFound[0] : createdOrFound;
 
-        // Lấy ID an toàn từ nhiều kiểu trả về
         const customerId =
-          customerInstance?.customer_id ??
-          customerInstance?.id ??
-          customerInstance?.dataValues?.customer_id ??
-          customerInstance?.dataValues?.id;
+          customer?.customer_id ??
+          customer?.id ??
+          customer?.dataValues?.customer_id ??
+          customer?.dataValues?.id;
 
         if (!customerId) {
           throw new AppError('Customer id not returned from repository', {
@@ -477,23 +587,25 @@ class LeadService {
             code: 'CUSTOMER_ID_MISSING',
           });
         }
-
         const reason = orderId ? `Auto-convert by order ${orderId}` : 'Auto-convert';
-
-        // Cập nhật lead trong cùng transaction
         await this.repo.updateById(
           leadId,
-          { customer_id: customerId, status: 'converted', conversion_prob: 1 },
-          { transaction: t, changed_by: by, reason, meta: { order_id: orderId } }
+          { customer_id: customerId, conversion_prob: 1 },
+          { transaction: t }
         );
-
-        // (tuỳ chọn) ghi interaction trong cùng transaction
-        await this.repo.addInteraction?.(
+        await this.repo.logStatusChange(leadId, 'converted', {
+          reason,
+          changed_by: by,
+          meta: { method: 'auto_convert', order_id: orderId },
+          transaction: t,
+        });
+        await this.repo.addInteraction(
           leadId,
           {
             type: 'order_converted',
             channel: 'system',
-            properties: { order_id: orderId },
+            occurred_at: new Date(),
+            properties: { order_id: orderId, customer_id: customerId },
             score_delta: 0,
             created_by: by || null,
           },
@@ -501,12 +613,12 @@ class LeadService {
         );
 
         const updatedLead = await this.repo.findById(leadId, { transaction: t });
-        return { lead: updatedLead, customer: customerInstance };
+        return { lead: updatedLead, customer, already_converted: false };
       });
 
       return ok(result);
     } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'AUTO_CONVERT_LEAD_FAILED' }));
+      return fail(asAppError(err, { status: err?.status || 500, code: 'AUTO_CONVERT_LEAD_FAILED' }));
     }
   }
 
@@ -526,7 +638,6 @@ class LeadService {
       totalDeals += count;
       totalValue += sum;
     }
-
     const converted = byStatus.converted?.count || 0;
     const closedLost = byStatus.closed_lost?.count || 0;
     const lost = byStatus.lost?.count || 0;
@@ -545,26 +656,35 @@ class LeadService {
   }
   async getLeadDetails(leadId) {
     try {
-      // 1) Lấy lead chính
-      const lead = await this.repo.findById(leadId);
-      if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
+      const detail = await this.repo.findDetailById?.(leadId);
+      if (!detail) {
+        const lead = await this.repo.findById(leadId);
+        if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
+        const [interactions, statusHistory, customer, productInterests] = await Promise.all([
+          this.repo.listInteractions?.(leadId) ?? [],
+          this.repo.listStatusHistory?.(leadId) ?? [],
+          lead.customer_id ? customerRepository.findById(lead.customer_id) : null,
+          this.interestRepo?.listByLeadId?.(leadId) ?? [],   // bạn implement bên LeadInterestRepository
+        ]);
+        return ok({
+          ...lead.toJSON(),
+          customer: customer ? (customer.toJSON?.() ?? customer) : null,
+          product_interests: productInterests.map(x => x.toJSON?.() ?? x),
+          interactions: interactions.map(i => i.toJSON?.() ?? i),
+          statusHistory: statusHistory.map(h => h.toJSON?.() ?? h),
+        });
+      }
 
-      // 2) Lấy các bản ghi liên quan
-      const [interactions, statusHistory, customer] = await Promise.all([
-        this.repo.listInteractions?.(leadId) ?? [],
-        this.repo.listStatusHistory?.(leadId) ?? [],
-        lead.customer_id ? customerRepository.findById(lead.customer_id) : null,
-      ]);
+      const { lead, productInterests, interactions } = detail;
 
-      // 3) Gom dữ liệu lại thành 1 object
-      const details = {
+      const customer = lead.customer_id ? await customerRepository.findById(lead.customer_id) : null;
+
+      return ok({
         ...lead.toJSON(),
-        customer: customer ? customer.toJSON?.() ?? customer : null,
-        interactions: interactions.map(i => i.toJSON?.() ?? i),
-        statusHistory: statusHistory.map(h => h.toJSON?.() ?? h),
-      };
-
-      return ok(details);
+        customer: customer ? (customer.toJSON?.() ?? customer) : null,
+        product_interests: (productInterests || []).map(x => x.toJSON?.() ?? x),
+        interactions: (interactions || []).map(x => x.toJSON?.() ?? x),
+      });
     } catch (err) {
       return fail(asAppError(err, { status: 500, code: 'GET_LEAD_DETAILS_FAILED' }));
     }
@@ -579,13 +699,10 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'DELETE_LEAD_FAILED' }));
     }
   }
-  // ======= SINGLE PREDICT =======
   async predictConversion(leadId, { force = false } = {}) {
     try {
       const lead = await this.repo.findById(leadId);
       if (!lead) throw new AppError('Lead not found', { status: 404 });
-
-      // Caching — nếu đã có predicted_prob trong 24h, không gọi lại AI
       if (!force && lead.predicted_prob && lead.last_predicted_at) {
         const ageHours = (Date.now() - new Date(lead.last_predicted_at)) / (1000 * 60 * 60);
         if (ageHours < 24) {
@@ -596,11 +713,7 @@ class LeadService {
           });
         }
       }
-
-      // Lấy interactions
       const interactions = await leadRepository.listInteractions(leadId);
-
-      // Chuẩn hóa dữ liệu gửi AI
       const payload = {
         lead_id: lead.lead_id,
         lead_score: lead.lead_score,
@@ -619,8 +732,6 @@ class LeadService {
 
       const aiRes = await aiClient.predictConversion(payload);
       const prob = aiRes.probability ?? 0;
-
-      // Update cache
       await leadRepository.update(leadId, {
         predicted_prob: prob,
         last_predicted_at: new Date(),
@@ -636,51 +747,9 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'PREDICT_CONVERSION_FAILED' }));
     }
   }
-
-  // ======= BATCH PREDICT =======
-  async predictBatch(limit = 100) {
-    try {
-      // Lấy các lead chưa có dự báo hoặc quá 24h
-      const leads = await leadRepository.findStalePredictions(limit);
-
-      if (!leads.length) return ok({ message: 'No leads need prediction', count: 0 });
-
-      // Gọi AI theo batch
-      const payloads = [];
-      for (const lead of leads) {
-        const interactions = await leadRepository.listInteractions(lead.lead_id);
-        payloads.push({
-          lead_id: lead.lead_id,
-          lead_score: lead.lead_score,
-          status: lead.status,
-          source: lead.source,
-          interaction_count: interactions.length,
-        });
-      }
-
-      const aiRes = await aiClient.predictBatch(payloads); // cần hỗ trợ batch bên AIClient
-
-      // Update DB song song
-      for (const r of aiRes.results) {
-        await leadRepository.update(r.lead_id, {
-          predicted_prob: r.probability,
-          last_predicted_at: new Date(),
-        });
-      }
-
-      return ok({ message: 'Batch prediction completed', count: aiRes.results.length });
-    } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'BATCH_PREDICT_FAILED' }));
-    }
-  }
-  // ----------------------------
-  // Nghiệp vụ: Trạng thái & Lịch sử
-  // ----------------------------
   async changeStatus(leadId, toStatus, reason = null, changedBy = null, meta = {}) {
     try {
       if (!toStatus) throw new AppError('toStatus is required', { status: 400, code: 'VALIDATION_ERROR' });
-
-      // dùng method transactional trong repo
       const lead = await this.repo.logStatusChange(leadId, toStatus, {
         reason,
         changed_by: changedBy,
@@ -693,7 +762,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'CHANGE_STATUS_FAILED' }));
     }
   }
-
   async listStatusHistory(leadId, params = {}) {
     try {
       const list = await this.repo.getStatusHistory(leadId, params);
@@ -702,41 +770,53 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'LIST_STATUS_HISTORY_FAILED' }));
     }
   }
-
-  // (tùy chọn) Ghi thủ công 1 bản ghi lịch sử — thường không cần vì changeStatus đã tự ghi
   async appendStatusHistory(leadId, history) {
     try {
       // đảm bảo lead tồn tại
       const found = await this.repo.findById(leadId);
       if (!found) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
-
-      // viết trực tiếp qua model nếu bạn muốn; ở đây tận dụng repo (có thể expose 1 helper riêng).
-      // đơn giản: đổi trạng thái về chính nó để tạo record (không khuyến khích)
-      // => tốt hơn là tạo 1 method repo dành riêng, nhưng ở repo hiện tại chưa mở sẵn.
       throw new AppError('Not supported directly. Use changeStatus()', { status: 400, code: 'NOT_SUPPORTED' });
     } catch (err) {
       return fail(asAppError(err, { status: err?.status || 500, code: 'APPEND_STATUS_HISTORY_FAILED' }));
     }
   }
+  async addInteraction(leadId, payload) {
+    try {
+      const lead = await this.repo.findById(leadId);
+      if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 
-  // ----------------------------
-  // Interaction & Scoring
-  // ----------------------------
-  // async addInteraction(leadId, interactionData) {
-  //   try {
-  //     const result = await this.repo.addInteraction(leadId, interactionData);
-  //     if (!result) {
-  //       throw new AppError('Lead not found or cannot add interaction', {
-  //         status: 404,
-  //         code: 'LEAD_OR_INTERACTION_ERROR',
-  //       });
-  //     }
-  //     return ok(result);
-  //   } catch (err) {
-  //     return fail(asAppError(err, { status: 500, code: 'ADD_INTERACTION_FAILED' }));
-  //   }
-  // }
+      const item = await this.repo.addInteraction(leadId, payload);
+      if (!item) throw new AppError('Cannot add interaction', { status: 400, code: 'ADD_INTERACTION_FAILED' });
+      const toContacted = stateMachine.interactionHints?.toContacted?.(payload);
+      const toClosedLost = stateMachine.interactionHints?.toClosedLost?.(payload);
+      let nextStatus = null;
+      if (toContacted && lead.status === 'new') nextStatus = 'contacted';
+      if (toClosedLost) nextStatus = 'closed_lost';
+      const scoreDelta = Number(payload?.score_delta || 0);
+      const newScore = (lead.lead_score || 0) + scoreDelta;
 
+      if (
+        !nextStatus &&
+        newScore >= stateMachine.thresholds.qualifiedScore &&
+        ['new', 'contacted'].includes(lead.status)
+      ) {
+        nextStatus = 'qualified';
+      }
+      if (nextStatus && nextStatus !== lead.status && stateMachine.canTransition(lead.status, nextStatus)) {
+        await this.changeStatus(
+          leadId,
+          nextStatus,
+          `auto_transition_by_interaction:${payload.type}`,
+          payload.created_by || null,
+          { interaction_id: item.interaction_id }
+        );
+      }
+
+      return ok(item);
+    } catch (err) {
+      return fail(asAppError(err, { status: err?.status || 500, code: 'ADD_INTERACTION_FAILED' }));
+    }
+  }
   async listInteractions(leadId, params = {}) {
     try {
       const list = await this.repo.getInteractions(leadId, params);
@@ -745,7 +825,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'LIST_INTERACTIONS_FAILED' }));
     }
   }
-
   async deleteInteraction(interactionId) {
     try {
       await this.repo.deleteInteraction(interactionId);
@@ -754,7 +833,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'DELETE_INTERACTION_FAILED' }));
     }
   }
-
   async recentActivity(params = {}) {
     try {
       const items = await this.repo.getRecentActivity(params);
@@ -763,8 +841,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'RECENT_ACTIVITY_FAILED' }));
     }
   }
-
-  // Điều chỉnh điểm: ghi 1 interaction với score_delta để vừa audit vừa cập nhật điểm
   async adjustScore(leadId, delta = 0, { reason = null, by = null } = {}) {
     try {
       const res = await this.repo.addInteraction(leadId, {
@@ -780,7 +856,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'ADJUST_SCORE_FAILED' }));
     }
   }
-
   async recomputeLeadScore(leadId) {
     try {
       const lead = await this.repo.recomputeLeadScore(leadId);
@@ -790,10 +865,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'RECOMPUTE_SCORE_FAILED' }));
     }
   }
-
-  // ----------------------------
-  // Tagging (giả định cột tags là ARRAY/JSONB trên Lead)
-  // ----------------------------
   async addTag(leadId, tag) {
     try {
       if (!tag) throw new AppError('Tag is required', { status: 400, code: 'VALIDATION_ERROR' });
@@ -809,7 +880,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'ADD_TAG_FAILED' }));
     }
   }
-
   async removeTag(leadId, tag) {
     try {
       if (!tag) throw new AppError('Tag is required', { status: 400, code: 'VALIDATION_ERROR' });
@@ -824,21 +894,21 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'REMOVE_TAG_FAILED' }));
     }
   }
-
   async findLeadsByTag(tag) {
     try {
-      // nếu muốn tối ưu, chuyển qua repo query iLike JSONB/ARRAY; ở đây dùng paginate filter thô
-      const res = await this.repo.paginate({ page: 1, pageSize: 100, filters: {} });
-      const list = (res?.data || []).filter(l => Array.isArray(l.tags) && l.tags.includes(tag));
-      return ok(list);
+      const t = String(tag || '').trim();
+      if (!t) throw new AppError('Tag is required', { status: 400, code: 'VALIDATION_ERROR' });
+      const list = await this.repo.findByConditions({
+        tags_in: [t],
+        limit: 100,
+        offset: 0,
+        order: 'created_at:DESC',
+      });
+      return ok(list || []);
     } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'FIND_BY_TAG_FAILED' }));
+      return fail(asAppError(err, { status: err?.status || 500, code: 'FIND_BY_TAG_FAILED' }));
     }
   }
-
-  // ----------------------------
-  // Assign / Flow tiện ích
-  // ----------------------------
   async assignLead(leadId, userId) {
     try {
       if (!userId) throw new AppError('userId is required', { status: 400, code: 'VALIDATION_ERROR' });
@@ -849,7 +919,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'ASSIGN_LEAD_FAILED' }));
     }
   }
-
   async unassignLead(leadId) {
     try {
       const lead = await this.repo.assignOwner(leadId, null);
@@ -859,7 +928,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'UNASSIGN_LEAD_FAILED' }));
     }
   }
-
   async updateFlow(leadId, { flow_id = null, trigger_type = null, trigger_at = null } = {}) {
     try {
       const lead = await this.repo.updateFlow(leadId, { flow_id, trigger_type, trigger_at });
@@ -869,10 +937,6 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'UPDATE_FLOW_FAILED' }));
     }
   }
-
-  // ----------------------------
-  // Import CSV
-  // ----------------------------
   async importLeadsFromCSV(filePath) {
     try {
       const rows = await csv().fromFile(filePath);
@@ -887,7 +951,6 @@ class LeadService {
           results.push({ ok: false, error: e?.message || String(e) });
         }
       }
-
       return ok({
         total: dtoList.length,
         succeeded: results.filter(r => r.ok).length,
@@ -898,6 +961,214 @@ class LeadService {
       return fail(asAppError(err, { status: 500, code: 'IMPORT_CSV_FAILED' }));
     }
   }
-}
+  async fromInterest(input = {}) {
+    try {
+      const {
+        anon_id,
+        name,
+        email,
+        phone,
+        source = 'inbound',
+        campaign_id = null,
+        assigned_to = null,
+        priority = 'medium',
+        note = null,
+        tags = [],
+        meta = {},
+        rescore = true,
+      } = input;
 
+      if (!anon_id) {
+        throw new AppError('anon_id is required', { status: 400, code: 'VALIDATION_ERROR' });
+      }
+
+      const hasAnyInfo = Boolean(
+        (name && String(name).trim()) ||
+        (email && String(email).trim()) ||
+        (phone && String(phone).trim())
+      );
+      if (!hasAnyInfo) {
+        throw new AppError('Missing contact info (name/email/phone)', { status: 400, code: 'MISSING_CONTACT_INFO' });
+      }
+
+      let campaign = null;
+      if (campaign_id) campaign = await campaignRepository.findById(campaign_id);
+
+      const sourceNorm = normSource(source);
+      const dealName =
+        (campaign?.name && String(campaign.name).trim())
+          ? String(campaign.name).trim()
+          : sourceNorm;
+
+      const result = await sequelize.transaction(async (t) => {
+        const lead = await this.repo.findByAnonId(anon_id, { transaction: t });
+
+        if (!lead) {
+          const created = await this.repo.create(
+            {
+              anon_id,
+              name: name || null,
+              email: email || null,
+              phone: phone || null,
+              source: sourceNorm,
+              status: 'new',
+              campaign_id: campaign_id || null,
+              deal_name: dealName,
+              assigned_to: assigned_to || null,
+              priority: priority || 'medium',
+              tags: Array.isArray(tags) ? tags : [],
+              notes: note || null,
+              lead_score: 0,
+              conversion_prob: 0,
+              created_at: new Date(),
+            },
+            { transaction: t }
+          );
+
+          await this.repo.addInteraction(
+            created.lead_id,
+            {
+              type: 'promote_from_interest',
+              channel: campaign?.channel || created.source || 'web',
+              occurred_at: new Date(),
+              properties: { anon_id, meta },
+              score_delta: 5,
+              created_by: assigned_to || null,
+            },
+            { transaction: t }
+          );
+
+          return { lead: created, created_new: true };
+        }
+
+        const sourceNorm2 = normSource(source || lead.source);
+        const dealName2 =
+          (campaign?.name && String(campaign.name).trim())
+            ? String(campaign.name).trim()
+            : sourceNorm2;
+
+        const patch = {
+          name: name ?? lead.name,
+          email: email ?? lead.email,
+          phone: phone ?? lead.phone,
+          source: sourceNorm2,
+          campaign_id: lead.campaign_id || campaign_id || null,
+          deal_name: dealName2,
+          assigned_to: lead.assigned_to || assigned_to || null,
+          priority: priority || lead.priority || 'medium',
+          notes: note ?? lead.notes,
+        };
+
+        const currentTags = Array.isArray(lead.tags) ? lead.tags : [];
+        const incomingTags = Array.isArray(tags) ? tags : [];
+        patch.tags = Array.from(new Set([...currentTags, ...incomingTags]));
+
+        const updated = await this.repo.updateById(lead.lead_id, patch, { transaction: t });
+
+        await this.repo.addInteraction(
+          lead.lead_id,
+          {
+            type: 'promote_from_interest',
+            channel: campaign?.channel || updated.source || 'web',
+            occurred_at: new Date(),
+            properties: {
+              anon_id,
+              updated_fields: Object.keys(patch),
+              campaign_id: patch.campaign_id,
+              campaign_name: campaign?.name || null,
+              meta,
+            },
+            score_delta: 5,
+            created_by: assigned_to || null,
+          },
+          { transaction: t }
+        );
+
+        return { lead: updated, created_new: false };
+      });
+
+      if (rescore) {
+        try {
+          const lead = result.lead;
+          const interactions = await this.repo.listInteractions?.(lead.lead_id) ?? [];
+          const features = {
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            source: lead.source,
+            tags: lead.tags,
+            campaign_id: lead.campaign_id,
+            priority: lead.priority,
+            note: lead.notes,
+            interaction_count: interactions.length,
+            campaign_channel: campaign?.channel || null,
+            campaign_name: campaign?.name || null,
+            meta,
+          };
+
+          const aiResp = await aiClient.scoreLead(features);
+          if (aiResp) {
+            const patchAI = {};
+            if (Number.isFinite(aiResp.score)) patchAI.lead_score = Number(aiResp.score);
+            if (Number.isFinite(aiResp.predicted_prob) && aiResp.predicted_prob >= 0 && aiResp.predicted_prob <= 1) {
+              patchAI.conversion_prob = Number(aiResp.predicted_prob);
+              patchAI.predicted_prob = Number(aiResp.predicted_prob);
+            }
+            if (Number.isFinite(aiResp.predicted_value)) patchAI.predicted_value = Number(aiResp.predicted_value);
+            if (aiResp.predicted_value_currency) patchAI.predicted_value_currency = aiResp.predicted_value_currency;
+            if (aiResp.reason) patchAI.ai_reason = aiResp.reason;
+            patchAI.last_predicted_at = new Date();
+
+            if (Object.keys(patchAI).length) {
+              await this.repo.updateById(result.lead.lead_id, patchAI);
+            }
+          }
+        } catch (aiErr) {
+          console.warn('[AI] fromInterest(rescore) failed:', aiErr?.message || aiErr);
+        }
+      }
+
+      // Sau khi result có lead
+      try {
+        const lead = result.lead;
+
+        // 1) Lấy lại product interests trước đó
+        let productInterests = [];
+        if (this.interestRepo?.listByLeadId) {
+          productInterests = await this.interestRepo.listByLeadId(lead.lead_id);
+        }
+        const product_ids = (productInterests || [])
+          .map(x => x.product_id || x?.toJSON?.()?.product_id)
+          .filter(Boolean);
+        await Rabbit.publish(
+          result.created_new ? LEAD_CREATED : LEAD_CREATED,
+          {
+            lead_id: lead.lead_id,
+            anon_id: lead.anon_id,
+            campaign_id: lead.campaign_id,
+            source: lead.source,
+            tags: lead.tags,
+            priority: lead.priority,
+            product_ids,
+            product_id: product_ids[0] || null,
+            product_interests: (productInterests || []).map(x => x.toJSON?.() ?? x),
+            predicted_prob: lead.predicted_prob,
+            predicted_value: lead.predicted_value,
+            predicted_value_currency: lead.predicted_value_currency,
+          }
+        );
+      } catch (pubErr) {
+        console.error('[RabbitMQ] Failed to publish lead event (fromInterest):', pubErr?.message || pubErr);
+      }
+
+
+      return ok({
+        lead: result.lead,
+        created_new: result.created_new,
+      });
+    } catch (err) {
+      return fail(asAppError(err, { status: err?.status || 500, code: 'FROM_INTEREST_FAILED' }));
+    }
+  }
+}
 module.exports = new LeadService();

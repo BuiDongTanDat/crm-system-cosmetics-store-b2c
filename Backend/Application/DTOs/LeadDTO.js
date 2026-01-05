@@ -29,13 +29,13 @@ class ImportLeadFromCSVDTO {
         this.name = asString(row.FullName);
         this.phone = asString(row.Phone);
         this.email = asString(row.Email);
-        this.source = asString(row.Source || row.source) || 'Inbound';
+        this.source = asString(row.Source || row.source) || 'inbound';
         this.status = asString(row.Status) || 'New';
         this.lead_score = asNumber(row.LeadScore, 0);
         this.conversion_rate = asFloat(row.ConversionRate, 0);
         this.assigned_to = asString(row.AssignedTo || row.assigned_to);
         this.created_at = asDate(row.CreatedAt);
-        this.tags = asStringArray(row.Tags || row.tags || 'Quang Cao san pham thang 10'); // <-- thêm tags, parse từ chuỗi CSV
+        this.tags = asStringArray(row.Tags || row.tags || 'Quang Cao san pham thang 10');
     }
 
     static fromCSVRow(row = {}) {

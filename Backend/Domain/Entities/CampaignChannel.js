@@ -3,7 +3,7 @@ const { DataTypes, Model } = require('sequelize');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
-class CampaignChannel extends Model {}
+class CampaignChannel extends Model { }
 
 CampaignChannel.init({
   channel_id: {
@@ -11,8 +11,6 @@ CampaignChannel.init({
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
-
-  // FK tới campaigns
   campaign_id: {
     type: DataTypes.UUID,
     allowNull: false,
@@ -20,66 +18,30 @@ CampaignChannel.init({
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   },
-
-  // Thông tin kênh
-  channel: {
-    type: DataTypes.STRING, // ví dụ: 'facebook_ads', 'google_ads', 'tiktok', 'email'
-    allowNull: false,
-  },
-  account_name: {
-    type: DataTypes.STRING, // tên tài khoản/platform
-    allowNull: true,
-  },
-  budget: {
-    type: DataTypes.FLOAT, // ngân sách riêng cho kênh (nếu có)
-    allowNull: true,
-  },
-  start_date: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  end_date: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  target_filter: {
-    type: DataTypes.JSONB,
-    defaultValue: {},
-    comment: 'Targeting riêng cho kênh (ghi đè hoặc bổ sung)',
-  },
-  data_source: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    comment: 'Nguồn đồng bộ số liệu của kênh (ví dụ: GA4, FB Ads API)',
-  },
-  status: {
-    type: DataTypes.STRING,
-    defaultValue: 'draft', // draft | active | paused | completed
-  },
-
-  // Số liệu hiệu quả cơ bản
+  channel: { type: DataTypes.STRING, allowNull: false }, // 'email', 'facebook_ads', ...
+  account_name: { type: DataTypes.STRING, allowNull: true },
+  budget: { type: DataTypes.FLOAT, allowNull: true },
+  start_date: { type: DataTypes.DATE, allowNull: true },
+  end_date: { type: DataTypes.DATE, allowNull: true },
+  target_filter: { type: DataTypes.JSONB, defaultValue: {} },
+  data_source: { type: DataTypes.STRING, allowNull: true },
+  status: { type: DataTypes.STRING, defaultValue: 'draft' },
   impressions: { type: DataTypes.BIGINT, defaultValue: 0 },
-  clicks:      { type: DataTypes.BIGINT, defaultValue: 0 },
-  conversions: { type: DataTypes.FLOAT,  defaultValue: 0 },
-  cost:        { type: DataTypes.FLOAT,  defaultValue: 0 },
-  revenue:     { type: DataTypes.FLOAT,  defaultValue: 0 },
-
-  // Mở rộng: lưu thêm metric/raw payload nếu cần
-  metrics_extra: {
-    type: DataTypes.JSONB,
-    defaultValue: {},
-    comment: 'Bất kỳ metric khác (cpm, cpc chi tiết theo adset, v.v.)',
-  },
-
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-  updated_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-  // Các field ảo để tính nhanh
+  clicks: { type: DataTypes.BIGINT, defaultValue: 0 },
+  conversions: { type: DataTypes.FLOAT, defaultValue: 0 },
+  cost: { type: DataTypes.FLOAT, defaultValue: 0 },
+  revenue: { type: DataTypes.FLOAT, defaultValue: 0 },
+  sent: { type: DataTypes.BIGINT, defaultValue: 0 },
+  delivered: { type: DataTypes.BIGINT, defaultValue: 0 },
+  opens_unique: { type: DataTypes.BIGINT, defaultValue: 0 },
+  clicks_unique: { type: DataTypes.BIGINT, defaultValue: 0 },
+  opens_total: { type: DataTypes.BIGINT, defaultValue: 0 },
+  clicks_total: { type: DataTypes.BIGINT, defaultValue: 0 },
+  last_engagement_sync_at: { type: DataTypes.DATE, allowNull: true },
+  metrics_extra: { type: DataTypes.JSONB, defaultValue: {} },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  settings: { type: DataTypes.JSONB, defaultValue: {} },
   ctr: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -112,6 +74,22 @@ CampaignChannel.init({
       return cost > 0 ? rev / cost : 0;
     }
   },
+  open_rate: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const delivered = Number(this.getDataValue('delivered') || 0);
+      const opensU = Number(this.getDataValue('opens_unique') || 0);
+      return delivered > 0 ? opensU / delivered : 0;
+    }
+  },
+  click_rate: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const delivered = Number(this.getDataValue('delivered') || 0);
+      const clicksU = Number(this.getDataValue('clicks_unique') || 0);
+      return delivered > 0 ? clicksU / delivered : 0;
+    }
+  },
 }, {
   sequelize,
   modelName: 'CampaignChannel',
@@ -119,7 +97,8 @@ CampaignChannel.init({
   timestamps: false,
   indexes: [
     { fields: ['campaign_id'] },
-    { fields: ['campaign_id', 'channel'], unique: false },
+    { fields: ['campaign_id', 'channel'] },
+    { fields: ['channel'] },
   ],
 });
 

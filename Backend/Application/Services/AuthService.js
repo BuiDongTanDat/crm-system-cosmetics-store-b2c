@@ -16,7 +16,6 @@ class AuthService {
     if (user.status === 'inactive') {
       throw new Error('Tài khoản đã bị khóa');
     }
-
     // Kiểm tra mật khẩu
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) throw new Error('Email hoặc mật khẩu không chính xác');

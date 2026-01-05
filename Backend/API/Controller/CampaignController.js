@@ -1,19 +1,52 @@
-// Method	Endpoint	Description
-// GET	/campaigns	Danh sách chiến dịch
-// GET	/campaigns/:id	Xem chi tiết
-// POST	/campaigns	Tạo chiến dịch mới
-// PUT	/campaigns/:id	Cập nhật
-// DELETE	/campaigns/:id	Xoá
-// POST	/campaigns/:id/start	Kích hoạt chiến dịch
-// POST	/campaigns/:id/complete	Hoàn thành chiến dịch
-// POST	/campaigns/import	Import từ CSV
-// GET	/campaigns/:id/performance	Phân tích hiệu quả (ROI, reach, click...)
-// POST	/campaigns/ai/suggest	AI gợi ý chiến dịch (budget, kênh, thời gian, trigger)
+// backend/src/Application/Controllers/CampaignController.js
 const CampaignService = require('../../Application/Services/CampaignService');
+const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
+
 class CampaignController {
+  static async metrics(req, res) {
+    try {
+      const { id } = req.params || {};
+      if (!id) {
+        return res.status(400).json({ ok: false, error: { code: 'MISSING_ID', message: 'Thiếu campaign_id.' } });
+      }
+
+      const result = await CampaignService.getMetrics(id);
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      return res.status(500).json({
+        ok: false,
+        error: { code: 'GET_CAMPAIGN_METRICS_FAILED', message: err?.message || 'Internal server error' },
+      });
+    }
+  }
+  static async listByChannel(req, res) {
+    try {
+      const params = {
+        channel: req.query.channel,
+        status: req.query.status,
+        page: req.query.page,
+        limit: req.query.limit,
+        search: req.query.search,
+        from: req.query.from,
+        to: req.query.to,
+        sort: req.query.sort,
+        order: req.query.order,
+      };
+
+      const result = await CampaignService.listByChannel(params);
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      return res.status(500).json({
+        ok: false,
+        error: { code: 'LIST_BY_CHANNEL_FAILED', message: err?.message || 'Internal server error' },
+      });
+    }
+  }
   static async getAll(req, res) {
     try {
-      // Lấy query params từ client (ví dụ ?page=1&limit=20)
       const params = {
         page: req.query.page,
         limit: req.query.limit,
@@ -27,116 +60,221 @@ class CampaignController {
         order: req.query.order,
       };
 
-      // Gọi service xử lý logic
       const result = await CampaignService.getAll(params);
 
-      // Gửi kết quả về client
-      res.status(200).json(result);
+      // result theo chuẩn ok/fail của bạn
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
     } catch (err) {
-      console.error("❌ Error in getAll:", err);
-      res.status(err.status || 500).json({
+      console.error('Error in CampaignController.getAll:', err);
+      return res.status(500).json({
         ok: false,
-        code: err.code || "GET_CAMPAIGNS_FAILED",
-        message: err.message || "Internal server error",
+        error: {
+          code: 'GET_CAMPAIGNS_FAILED',
+          message: err?.message || 'Internal server error',
+        },
       });
     }
   }
-
-  // static async getById(req, res) {
-  //   const data = await CampaignService.getById(req.params.id);
-  //   res.json(data);
-  // }
-
-  static async create(req, res) {
-    const data = await CampaignService.createCampaign(req.body);
-    res.json(data);
+  static async getOne(req, res) {
+    try {
+      const { id } = req.params;
+      const result = await CampaignService.getCampaign(id);
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: { message: err.message } });
+    }
   }
+  static async create(req, res) {
+    try {
+      const payload = { ...req.body };
+
+      // 1. Upload Image if exists
+      if (req.file) {
+        try {
+          const uploadRes = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'campaigns',
+            resource_type: 'image',
+          });
+          payload.image = uploadRes.secure_url;
+          payload.image_id = uploadRes.public_id;
+
+          // Cleanup
+          if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        } catch (uErr) {
+          console.error('Cloudinary upload failed:', uErr);
+          if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        }
+      }
+
+      // 2. Parse JSON fields if string (FormData support)
+      const jsonFields = ['products', 'target_filter', 'expected_kpi', 'settings', 'channel_configs', 'performance'];
+      jsonFields.forEach(field => {
+        if (typeof payload[field] === 'string') {
+          try {
+            payload[field] = JSON.parse(payload[field]);
+          } catch (e) {
+            // keep as string or ignore?
+            console.warn(`Failed to parse JSON for field ${field}:`, e);
+          }
+        }
+      });
+
+      if (!payload?.name) {
+        return res.status(400).json({
+          ok: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Campaign name is required' },
+        });
+      }
+      const result = await CampaignService.createCampaign(payload);
+      const httpStatus = result?.ok ? 201 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      console.error('❌ Error in CampaignController.create:', err);
+      // Cleanup if error occurs after upload but before finish (edge case)
+      if (req.file && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) { }
+      }
+      return res.status(500).json({
+        ok: false,
+        error: { code: 'CREATE_CAMPAIGN_FAILED', message: err?.message || 'Internal server error' },
+      });
+    }
+  }
+  static async update(req, res) {
+    try {
+      const { id } = req.params;
+      const payload = { ...req.body };
+
+      // Handle Image Upload update
+      if (req.file) {
+        try {
+          const uploadRes = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'campaigns',
+            resource_type: 'image',
+          });
+          payload.image = uploadRes.secure_url;
+          payload.image_id = uploadRes.public_id;
+          if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        } catch (uErr) {
+          console.error('Cloudinary update failed:', uErr);
+        }
+      }
+
+      // Parse JSON fields
+      const jsonFields = ['products', 'target_filter', 'expected_kpi', 'settings', 'channel_configs', 'performance'];
+      jsonFields.forEach(field => {
+        if (typeof payload[field] === 'string') {
+          try { payload[field] = JSON.parse(payload[field]); } catch (e) { }
+        }
+      });
+
+      const result = await CampaignService.updateCampaign(id, payload);
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: { code: 'UPDATE_ERROR', message: err.message } });
+    }
+  }
+
+  static async submit(req, res) {
+    try {
+      const result = await CampaignService.submitCampaign(req.params.id);
+      return res.status(result.ok ? 200 : 400).json(result);
+    } catch (err) { return res.status(500).json({ ok: false, error: { message: err.message } }); }
+  }
+
+  static async reject(req, res) {
+    try {
+      const result = await CampaignService.rejectCampaign(req.params.id, req.body?.reason);
+      return res.status(result.ok ? 200 : 400).json(result);
+    } catch (err) { return res.status(500).json({ ok: false, error: { message: err.message } }); }
+  }
+
+  static async approve(req, res) {
+    try {
+      // Mock owner ID until Auth is fully integrated
+      const ownerId = req.body?.owner_id || req.user?.user_id || 'sys_admin';
+      const result = await CampaignService.approveCampaignFull(req.params.id, ownerId);
+      return res.status(result.ok ? 200 : 400).json(result);
+    } catch (err) { return res.status(500).json({ ok: false, error: { message: err.message } }); }
+  }
+
   static async getRunning(req, res) {
     try {
-      const { from, to } = req.query;
+      const { from, to } = req.query || {};
       const result = await CampaignService.getRunningWithProducts({ from, to });
-      res.status(200).json(result);
+
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
     } catch (err) {
-      console.error('getRunning controller error:', err);
-      res.status(500).json({
-        success: false,
-        code: 'GET_RUNNING_CAMPAIGNS_FAILED',
-        message: err.message || 'Internal Server Error',
+      console.error(' Error in CampaignController.getRunning:', err);
+      return res.status(500).json({
+        ok: false,
+        error: {
+          code: 'GET_RUNNING_CAMPAIGNS_FAILED',
+          message: err?.message || 'Internal server error',
+        },
       });
     }
   }
+  // PATCH /campaigns/:id/status
   static async updateStatus(req, res) {
     try {
-      const { id } = req.params; // id campaign
-      const { status } = req.body;
+      const { id } = req.params || {};
+      const { status } = req.body || {};
 
       if (!id) {
         return res.status(400).json({
           ok: false,
-          code: "MISSING_ID",
-          message: "Thiếu campaign_id.",
+          error: { code: 'MISSING_ID', message: 'Thiếu campaign_id.' },
         });
       }
 
       if (!status) {
         return res.status(400).json({
           ok: false,
-          code: "MISSING_STATUS",
-          message: "Thiếu giá trị status cần cập nhật.",
+          error: { code: 'MISSING_STATUS', message: 'Thiếu giá trị status cần cập nhật.' },
         });
       }
 
+      // service sẽ validate status + update DB + publish campaign.run nếu running
       const result = await CampaignService.updateStatus(id, status);
 
-      if (!result.ok) {
-        return res.status(result.status || 400).json(result);
-      }
-
-      res.status(200).json(result);
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
     } catch (err) {
-      console.error("❌ Error in updateStatus:", err);
-      res.status(500).json({
+      console.error('Error in CampaignController.updateStatus:', err);
+      return res.status(500).json({
         ok: false,
-        code: "UPDATE_STATUS_FAILED",
-        message: "Internal server error.",
+        error: { code: 'UPDATE_STATUS_FAILED', message: err?.message || 'Internal server error' },
       });
     }
   }
-  // static async update(req, res) {
-  //   const data = await CampaignService.update(req.params.id, req.body);
-  //   res.json(data);
-  // }
+  // POST /campaigns/:id/run
+  static async run(req, res) {
+    try {
+      const { id } = req.params || {};
+      if (!id) {
+        return res.status(400).json({
+          ok: false,
+          error: { code: 'MISSING_ID', message: 'Thiếu campaign_id.' },
+        });
+      }
 
-  // static async delete(req, res) {
-  //   const data = await CampaignService.delete(req.params.id);
-  //   res.json(data);
-  // }
+      const result = await CampaignService.runCampaign(id, {});
 
-  // static async start(req, res) {
-  //   const data = await CampaignService.startCampaign(req.params.id);
-  //   res.json(data);
-  // }
-
-  // static async complete(req, res) {
-  //   const data = await CampaignService.completeCampaign(req.params.id);
-  //   res.json(data);
-  // }
-
-  // static async importCampaigns(req, res) {
-  //   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-  //   const result = await CampaignService.importCampaigns(req.file.path);
-  //   res.json(result);
-  // }
-
-  // static async analyzePerformance(req, res) {
-  //   const result = await CampaignService.analyzePerformance(req.params.id);
-  //   res.json(result);
-  // }
-
-  // static async aiSuggest(req, res) {
-  //   const result = await CampaignService.aiSuggestCampaign(req.body);
-  //   res.json(result);
-  // }
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      console.error(' Error in CampaignController.run:', err);
+      return res.status(500).json({
+        ok: false,
+        error: { code: 'RUN_CAMPAIGN_FAILED', message: err?.message || 'Internal server error' },
+      });
+    }
+  }
 }
 
 module.exports = CampaignController;

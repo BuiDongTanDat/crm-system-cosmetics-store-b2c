@@ -11,8 +11,6 @@ const ORDER_STATUSES = [
   'shipped',
   'completed',
 ];
-
-// (tuỳ chọn) rule chuyển trạng thái “nhẹ” – bật/tắt tuỳ bạn
 const VALID_TRANSITIONS = {
   draft_cart: ['awaiting_customer_confirmation', 'cancelled'],
   awaiting_customer_confirmation: ['paid', 'cancelled'],
@@ -25,7 +23,6 @@ const VALID_TRANSITIONS = {
   failed: [],
   pending: ['processing', 'cancelled'],
 };
-
 class OrderController {
   async createQuick(req, res, next) {
     try {
