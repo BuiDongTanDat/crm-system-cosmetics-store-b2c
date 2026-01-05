@@ -1,19 +1,16 @@
 
 import { request } from '@/utils/api';
-
 // Lấy danh sách event types
 export const getEventTypes = (params = {}) =>
   request('/automation-event/event-types', {
     method: 'GET',
     params,
   });
-
 // Lấy chi tiết 1 event type
 export const getEventType = (eventType) =>
   request(`/automation-event/event-types/${eventType}`, {
     method: 'GET',
   });
-
 // Tạo event type mới
 export const createEventType = (payload) =>
   request('/automation-event/event-types', {

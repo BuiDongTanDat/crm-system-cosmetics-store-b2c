@@ -130,7 +130,9 @@ class UpdateActionRequestDTO {
 
 class AutomationFlowResponseDTO {
   constructor(flow) {
+    if (!flow) return;
     this.id = flow.flow_id;
+    this.flow_id = flow.flow_id;
     this.name = flow.name;
     this.description = flow.description;
     this.enabled = flow.enabled;
@@ -150,7 +152,9 @@ class AutomationFlowResponseDTO {
 
 class TriggerResponseDTO {
   constructor(trigger) {
-    this.id = trigger.trigger_id;
+    if (!trigger) return;
+    this.id = trigger.trigger_id || trigger.id;
+    this.trigger_id = trigger.trigger_id || trigger.id;
     this.flow_id = trigger.flow_id;
     this.event_type = trigger.event_type;
     this.conditions = trigger.conditions;
@@ -161,7 +165,9 @@ class TriggerResponseDTO {
 
 class ActionResponseDTO {
   constructor(action) {
-    this.id = action.action_id;
+    if (!action) return;
+    this.id = action.action_id || action.id;
+    this.action_id = action.action_id || action.id;
     this.flow_id = action.flow_id;
     this.trigger_id = action.trigger_id;
     this.action_type = action.action_type;
@@ -197,6 +203,8 @@ class SaveEditorRequestDTO {
           name: asString(flow_meta?.name),
           description: asString(flow_meta?.description),
           tags: asStringArray(flow_meta?.tags),
+          enabled: asBool(flow_meta?.enabled),
+          status: asString(flow_meta?.status),
         }),
         upserts: {
           triggers: Array.isArray(upserts?.triggers)
@@ -237,7 +245,9 @@ class SaveEditorRequestDTO {
       };
 
       // Cờ thay đổi (autosave): có gì trong upserts/deletes là true
+      // Cờ thay đổi: có bất kỳ thay đổi nào trong metadata, upserts hoặc deletes
       dto.isNewRecord =
+        Object.keys(dto.flow_meta).length > 0 ||
         dto.upserts.triggers.length > 0 ||
         dto.upserts.actions.length > 0 ||
         dto.deletes.trigger_ids.length > 0 ||
@@ -281,7 +291,7 @@ class SaveEditorRequestDTO {
       upserts: { triggers: normTriggers, actions: normActions },
       deletes: { trigger_ids: [], action_ids: [] },
     };
-    dto.isNewRecord = normTriggers.length > 0 || normActions.length > 0;
+    dto.isNewRecord = normTriggers.length > 0 || normActions.length > 0 || Object.keys(dto.flow_meta).length > 0;
     return dto;
   }
 }

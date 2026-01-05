@@ -17,11 +17,30 @@ import {
   Search,
   Info,
   Settings2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DropdownOptions from "@/components/common/DropdownOptions";
-import Toggle from "./components/flow/Toggle";
 import { Block } from "./components/flow/Block";
+import { SortableBlock } from "./components/flow/SortableBlock";
+import Toggle from "./components/flow/Toggle";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import InspectorPanel from "./components/flow/InspectorPanel";
 import { getEventTypes, getActionTypes } from "@/services/automationCatalog";
 import {
@@ -33,6 +52,7 @@ import {
 import { Input } from "@/components/ui/input";
 import AppDialog from "@/components/dialogs/AppDialog";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const toTagsArray = (tags) => {
   if (Array.isArray(tags)) return tags;
@@ -88,9 +108,10 @@ const pickFlowId = (res) =>
 //chuẩn hóa list triggers gửi lên server
 const toUpsertTriggers = (list) =>
   list.map((t) => ({
-    trigger_id: t.trigger_id ?? null, // giữ id cũ để UPDATE, null = CREATE
+    trigger_id: t.trigger_id ?? null,
+    node_id: t.nodeId ?? t.node_id ?? null,     // ✅ thêm
     event_type: t.event_type || t.key,
-    is_active: t.is_active ?? t.enabled ?? true,
+    is_active: t.enabled ?? t.is_active ?? true,
     conditions: t.conditions || {},
   }));
 
@@ -98,21 +119,22 @@ const toUpsertTriggers = (list) =>
 const toUpsertActions = (list) =>
   list.map((a, idx) => {
     const action_type = a.action_type || a.key;
-    const channel =
-      a.channel || (action_type === "send_email" ? "email" : undefined);
+    const channel = a.channel || (action_type === "send_email" ? "email" : undefined);
+
     return {
-      action_id: a.action_id ?? null, // giữ id cũ để UPDATE, null = CREATE
+      action_id: a.action_id ?? null,
+      node_id: a.nodeId ?? a.node_id ?? null,   // ✅ thêm
       trigger_id: a.trigger_id ?? null,
+
       action_type,
       channel,
-      content: a.content || a.config || {}, // object/chuỗi thuần
+      content: a.config || a.content || {},      // ✅ UI dùng config, backend dùng content
       delay_minutes: Number(a.delay_minutes || 0),
       order_index: Number(a.order_index ?? idx),
       status: a.status || "pending",
     };
   });
 
-//tính danh sách id bị xóa (diff giữa snapshot và hiện tại)
 const calcDeletes = (initial, current) => {
   const initT = new Set(
     initial.triggers.map((t) => t.trigger_id).filter(Boolean)
@@ -129,7 +151,10 @@ const calcDeletes = (initial, current) => {
     action_ids: [...initA].filter((id) => !nowA.has(id)),
   };
 };
-
+const makeNodeId = () =>
+  (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `node_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 export default function FlowBuilderPage() {
   const { id } = useParams(); // "new" | flow_id
   const navigate = useNavigate();
@@ -251,15 +276,17 @@ export default function FlowBuilderPage() {
         const acItems = acRes?.data?.data || acRes?.data || acRes?.items || [];
 
         const evNormalized = (evItems || []).map((e) => ({
-          key: e.event_type, // dùng event_type làm key
-          label: e.name || e.event_type, // label hiển thị
+          ...e, // keep all original fields (including config_schema)
+          key: e.event_type,
+          label: e.name || e.event_type,
           icon: TRIGGER_ICON_MAP[e.event_type] || UserPlus,
           description: e.description || "",
           default_conditions: e.default_conditions || {},
         }));
 
         const acNormalized = (acItems || []).map((a) => ({
-          key: a.action_type, // dùng action_type làm key
+          ...a, // keep all original fields (including config_schema)
+          key: a.action_type,
           label: a.name || a.action_type,
           icon: ACTION_ICON_MAP[a.action_type] || Bell,
           description: a.description || "",
@@ -291,31 +318,44 @@ export default function FlowBuilderPage() {
 
     setTriggers(
       Array.isArray(automation.triggers)
-        ? automation.triggers.map((t) => {
-            const k = t.event_type || t.key;
-            const cat = eventCatalog.find((i) => i.key === k);
-            return {
-              ...t,
-              key: k,
-              icon: cat?.icon || getTriggerIcon(k),
-              label: cat?.label || k || "Trigger",
-              enabled: t.is_active ?? t.enabled ?? true,
-            };
-          })
+        ? automation.triggers.map((t, idx) => {
+          const eventType = t.event_type || t.key;
+          const cat = eventCatalog.find((i) => i.key === eventType);
+
+          return {
+            ...t,
+            nodeId: t.trigger_id || `trg_${eventType}_${idx}`, // UI identity
+            event_type: eventType,
+            key: eventType, // giữ để lookup catalog (không dùng làm identity)
+            icon: cat?.icon || getTriggerIcon(eventType),
+            label: cat?.label || eventType || "Trigger",
+            description: cat?.description || "",
+            payload_schema: cat?.payload_schema || {}, // chỉ để hiển thị, không edit
+            enabled: t.is_active ?? t.enabled ?? true,
+          };
+        })
         : []
     );
 
     setActions(
       Array.isArray(automation.actions)
-        ? automation.actions.map((a, idx) => {
-            const k = a.action_type || a.key;
-            const cat = actionCatalog.find((i) => i.key === k);
+        ? [...automation.actions]
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+          .map((a, idx) => {
+            const actionType = a.action_type || a.key;
+            const cat = actionCatalog.find((i) => i.key === actionType);
+
+            // Clean up 'config' key and ensure 'content' is used
+            const { config, ...rest } = a; // Destructure to remove 'config' if it exists
+
             return {
-              ...a,
-              key: k,
-              icon: cat?.icon || getActionIcon(k),
-              label: cat?.label || k || "Action",
-              config: a.content || a.config || {},
+              ...rest, // Use rest to include all other properties
+              nodeId: a.action_id || `act_${actionType}_${idx}`, // UI identity
+              action_type: actionType,
+              key: actionType, // giữ để lookup catalog
+              icon: cat?.icon || getActionIcon(actionType),
+              label: cat?.label || actionType || "Action",
+              content: a.content || config || {}, // Prioritize a.content, fallback to config, then empty object
               order_index: a.order_index ?? idx,
               delay_minutes: a.delay_minutes ?? 0,
             };
@@ -330,6 +370,48 @@ export default function FlowBuilderPage() {
   const [qTrigger, setQTrigger] = useState("");
   const [qAction, setQAction] = useState("");
   const [selected, setSelected] = useState(null); // {type, key}
+
+  const [activeId, setActiveId] = useState(null);
+  const [activeType, setActiveType] = useState(null); // "trigger" | "action"
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event, type) => {
+    setActiveId(event.active.id);
+    setActiveType(type);
+  };
+
+  const handleDragEnd = (event, type) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setActiveType(null);
+
+    if (!over || active.id === over.id) return;
+
+    if (type === "trigger") {
+      setTriggers((items) => {
+        const oldIndex = items.findIndex((i) => i.nodeId === active.id);
+        const newIndex = items.findIndex((i) => i.nodeId === over.id);
+        const next = arrayMove(items, oldIndex, newIndex);
+        return next.map((t, idx) => ({ ...t, order_index: idx }));
+      });
+    } else {
+      setActions((items) => {
+        const oldIndex = items.findIndex((i) => i.nodeId === active.id);
+        const newIndex = items.findIndex((i) => i.nodeId === over.id);
+        const next = arrayMove(items, oldIndex, newIndex);
+        return next.map((a, idx) => ({ ...a, order_index: idx }));
+      });
+    }
+    setSaved(false);
+  };
 
   const filteredTriggerCatalog = useMemo(() => {
     const q = qTrigger.trim().toLowerCase();
@@ -350,14 +432,14 @@ export default function FlowBuilderPage() {
   const currentTrigger = useMemo(
     () =>
       selected?.type === "trigger"
-        ? triggers.find((t) => t.key === selected.key) || null
+        ? triggers.find((t) => t.nodeId === selected.nodeId) || null
         : null,
     [triggers, selected]
   );
   const currentAction = useMemo(
     () =>
       selected?.type === "action"
-        ? actions.find((a) => a.key === selected.key) || null
+        ? actions.find((a) => a.nodeId === selected.nodeId) || null
         : null,
     [actions, selected]
   );
@@ -375,67 +457,78 @@ export default function FlowBuilderPage() {
   };
 
   // ACTIONS
-  const toggleTrigger = (itemKey) => {
+  const toggleTrigger = (nodeId) => {
     setTriggers((prev) =>
-      prev.map((t) => (t.key === itemKey ? { ...t, enabled: !t.enabled } : t))
+      prev.map((t) => (t.nodeId === nodeId ? { ...t, enabled: !t.enabled } : t))
     );
     setSaved(false);
   };
 
   const addTrigger = (item) => {
+    const nodeId = makeNodeId();
     setTriggers((prev) => [
       ...prev,
       {
-        ...item,
+        nodeId,
+        trigger_id: null,
         event_type: item.key,
+        key: item.key,
+        icon: item.icon,
+        label: item.label,
+        description: item.description,
+        payload_schema: item.payload_schema || {}, // read-only
         conditions: item.default_conditions || {},
         enabled: true,
         is_active: true,
       },
     ]);
-    setSelected({ type: "trigger", key: item.key });
+    setSelected({ type: "trigger", nodeId });
     setShowTriggerPicker(false);
     setQTrigger("");
     setSaved(false);
   };
 
-  const deleteTrigger = (itemKey) => {
-    setTriggers((prev) => prev.filter((t) => t.key !== itemKey));
-    if (selected?.type === "trigger" && selected.key === itemKey)
-      setSelected(null);
+
+  const deleteTrigger = (nodeId) => {
+    setTriggers((prev) => prev.filter((t) => t.nodeId !== nodeId));
+    if (selected?.type === "trigger" && selected.nodeId === nodeId) setSelected(null);
     setSaved(false);
   };
 
   const addAction = (item) => {
+    const nodeId = makeNodeId();
     const action_type = item.key;
 
     const base = {
-      ...item,
+      nodeId,
+      action_id: null,
+      trigger_id: null,
       action_type,
+      key: action_type,
+      icon: item.icon,
+      label: item.label,
       channel:
         item.default_channel ||
         (action_type === "send_email" ? "email" : undefined),
-      config: item.default_content || {},
+      content: item.default_content || {},
       order_index: actions.length,
       delay_minutes: 0,
     };
 
-    // nếu muốn đảm bảo email luôn có subject/body
     if (action_type === "send_email") {
-      base.config = { subject: "", body: "", ...(base.config || {}) };
+      base.content = { subject: "", body: "", ...(base.content || {}) };
     }
 
     setActions((prev) => [...prev, base]);
-    setSelected({ type: "action", key: item.key });
+    setSelected({ type: "action", nodeId });
     setShowActionPicker(false);
     setQAction("");
     setSaved(false);
   };
 
-  const deleteAction = (itemKey) => {
-    setActions((prev) => prev.filter((a) => a.key !== itemKey));
-    if (selected?.type === "action" && selected.key === itemKey)
-      setSelected(null);
+  const deleteAction = (nodeId) => {
+    setActions((prev) => prev.filter((a) => a.nodeId !== nodeId));
+    if (selected?.type === "action" && selected.nodeId === nodeId) setSelected(null);
     setSaved(false);
   };
 
@@ -444,8 +537,34 @@ export default function FlowBuilderPage() {
     if (!currentAction) return;
     setActions((prev) =>
       prev.map((a) =>
-        a.key === currentAction.key
-          ? { ...a, config: { ...(a.config || {}), ...patch } }
+        a.nodeId === currentAction.nodeId
+          ? { ...a, content: { ...(a.content || {}), ...patch } }
+          : a
+      )
+    );
+    setSaved(false);
+  };
+
+  // update trigger config
+  const updateTriggerConfig = (patch) => {
+    if (!currentTrigger) return;
+    setTriggers((prev) =>
+      prev.map((t) =>
+        t.nodeId === currentTrigger.nodeId
+          ? { ...t, conditions: patch } // ✅ conditions là object (không merge lung tung)
+          : t
+      )
+    );
+    setSaved(false);
+  };
+
+  // update action config (generic)
+  const updateActionConfig = (patch) => {
+    if (!currentAction) return;
+    setActions((prev) =>
+      prev.map((a) =>
+        a.nodeId === currentAction.nodeId
+          ? { ...a, content: { ...(a.content || {}), ...patch } }
           : a
       )
     );
@@ -497,6 +616,7 @@ export default function FlowBuilderPage() {
           name: automation?.name || "New Flow",
           description: automation?.description || "",
           tags: Array.isArray(automation?.tags) ? automation.tags : [],
+          enabled: automation?.enabled ?? true,
         },
         upserts: { triggers: [], actions: [] },
         deletes: { trigger_ids: [], action_ids: [] },
@@ -528,6 +648,7 @@ export default function FlowBuilderPage() {
           name: automation?.name || "New Flow",
           description: automation?.description || "",
           tags: Array.isArray(automation?.tags) ? automation.tags : [],
+          enabled: automation?.enabled ?? true,
         },
         upserts: { triggers: upsertTriggers, actions: upsertActions },
         deletes, // <— QUAN TRỌNG
@@ -695,9 +816,16 @@ export default function FlowBuilderPage() {
           {/* Right: Status & Save */}
           <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-3 lg:w-auto">
             <div className="flex w-full gap-1.5 text-sm justify-end">
-              <Badge variant="status" className="w-24">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span className="text-gray-700">
+              <Badge
+                variant="status"
+                className={cn("w-28", saved ? "border-emerald-500" : "border-amber-500")}
+              >
+                {saved ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                )}
+                <span className={saved ? "text-emerald-700" : "text-amber-700"}>
                   {saved ? "Đã lưu" : "Có thay đổi"}
                 </span>
               </Badge>
@@ -886,41 +1014,53 @@ export default function FlowBuilderPage() {
                     Chưa có trigger. Nhấn "+" để chọn.
                   </div>
                 )}
-                {triggers.map((t, idx) => (
-                  <Block
-                    key={t.key + "_" + idx}
-                    icon={t.icon}
-                    label={
-                      <span>
-                        {t.label}
-                      </span>
-                    }
-                    className="cursor-pointer"
-                    active={
-                      selected?.type === "trigger" && selected?.key === t.key
-                    }
-                    onClick={() => setSelected({ type: "trigger", key: t.key })}
-                    right={
-                      <div className="flex items-center gap-2">
-                        <Toggle
-                          checked={!!t.enabled}
-                          onChange={() => toggleTrigger(t.key)}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={(e) => handleDragStart(e, "trigger")}
+                  onDragEnd={(e) => handleDragEnd(e, "trigger")}
+                  modifiers={[restrictToVerticalAxis]}
+                >
+                  <SortableContext
+                    items={triggers.map(t => t.nodeId)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {triggers.map((t) => (
+                      <SortableBlock
+                        key={t.nodeId}
+                        id={t.nodeId}
+                        icon={t.icon}
+                        label={t.label}
+                        active={selected?.type === "trigger" && selected?.nodeId === t.nodeId}
+                        onClick={() => setSelected({ type: "trigger", nodeId: t.nodeId })}
+                        right={
+                          <div className="flex items-center gap-2">
+                            <Toggle checked={!!t.enabled} onChange={() => toggleTrigger(t.nodeId)} />
+                            <Button
+                              variant="actionDelete"
+                              size="icon"
+                              title="Xoá Trigger"
+                              onClick={(e) => { e.stopPropagation(); deleteTrigger(t.nodeId); }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        }
+                      />
+                    ))}
+                  </SortableContext>
+                  <DragOverlay adjustScale={false}>
+                    {activeId && activeType === "trigger" ? (
+                      <div className="scale-105 shadow-2xl rounded-xl cursor-grabbing">
+                        <Block
+                          label={triggers.find(t => t.nodeId === activeId)?.label}
+                          icon={triggers.find(t => t.nodeId === activeId)?.icon}
+                          isDragging
                         />
-                        <Button
-                          variant="actionDelete"
-                          size="icon"
-                          title="Xoá Trigger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteTrigger(t.key);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
-                    }
-                  />
-                ))}
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               </Section>
 
               <Section
@@ -947,35 +1087,52 @@ export default function FlowBuilderPage() {
                     Chưa có hành động. Nhấn "+" để chọn.
                   </div>
                 )}
-                {actions.map((a, idx) => (
-                  <Block
-                    key={a.key + "_" + idx}
-                    icon={a.icon}
-                    label={
-                      <span>
-                        {a.label}
-                      </span>
-                    }
-                    className="cursor-pointer"
-                    active={
-                      selected?.type === "action" && selected?.key === a.key
-                    }
-                    onClick={() => setSelected({ type: "action", key: a.key })}
-                    right={
-                      <Button
-                        variant="actionDelete"
-                        size="icon"
-                        title="Xoá Hành động"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteAction(a.key);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    }
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={(e) => handleDragStart(e, "action")}
+                  onDragEnd={(e) => handleDragEnd(e, "action")}
+                  modifiers={[restrictToVerticalAxis]}
+                >
+                  <SortableContext
+                    items={actions.map(a => a.nodeId)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {actions.map((a) => (
+                      <SortableBlock
+                        key={a.nodeId}
+                        id={a.nodeId}
+                        icon={a.icon}
+                        label={a.label}
+                        active={selected?.type === "action" && selected?.nodeId === a.nodeId}
+                        onClick={() => setSelected({ type: "action", nodeId: a.nodeId })}
+                        right={
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="actionDelete"
+                              size="icon"
+                              title="Xoá Action"
+                              onClick={(e) => { e.stopPropagation(); deleteAction(a.nodeId); }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        }
+                      />
+                    ))}
+                  </SortableContext>
+                  <DragOverlay adjustScale={false}>
+                    {activeId && activeType === "action" ? (
+                      <div className="scale-105 shadow-2xl rounded-xl cursor-grabbing">
+                        <Block
+                          label={actions.find(a => a.nodeId === activeId)?.label}
+                          icon={actions.find(a => a.nodeId === activeId)?.icon}
+                          isDragging
+                        />
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               </Section>
             </div>
 
@@ -987,7 +1144,10 @@ export default function FlowBuilderPage() {
                 currentAction={currentAction}
                 toggleTrigger={toggleTrigger}
                 updateEmailConfig={updateEmailConfig}
+                updateTriggerConfig={updateTriggerConfig}
+                updateActionConfig={updateActionConfig}
                 onGenEmailAI={handleGenEmailAI}
+                actionTypes={actionCatalog}
               />
             </div>
           </div>
@@ -1017,16 +1177,6 @@ export default function FlowBuilderPage() {
   );
 }
 
-const updateActionConfig = (actionKey, patch) => {
-  setActions((prev) =>
-    prev.map((a) =>
-      a.key === actionKey
-        ? { ...a, config: { ...(a.config || {}), ...patch } }
-        : a
-    )
-  );
-  setSaved(false);
-};
 // Section helper
 const Section = ({ title, subtitle, footer, children }) => (
   <div className="bg-white rounded-2xl border p-4 space-y-3">

@@ -1,23 +1,8 @@
-// Method	Endpoint	Mô tả	Gọi AI Service
-// GET	/leads	Danh sách leads	
-// GET	/leads/:id	Chi tiết lead	
-// POST	/leads	Tạo lead mới	
-// PUT	/leads/:id	Cập nhật lead	
-// GET /pipeline/summary	Tổng hợp số deals, giá trị, tỷ lệ	→ sử dụng aggregateByStatus()
-// GET /pipeline/columns	Trả về danh sách cột (stage) và lead tương ứng	group theo status
-// PATCH /pipeline/:leadId/status	Cập nhật status khi kéo thả lead sang cột khác	nhận { status: 'CONTACTED' }
-// DELETE	/leads/:id	Xóa lead	
-// POST	/leads/:id/assign	Gán lead cho nhân viên	
-// POST	/leads/:id/status	Cập nhật trạng thái	
-// GET	/leads/:id/analyze-score	Chấm điểm lead	
-// GET	/leads/:id/auto-classify	Phân loại lead	
-// POST	/leads/auto-distribute	AI tự gán leads	
-// POST	/leads/:id/convert	AI tự chuyển thành khách hàng
-// POST	/leads/import	Import danh sách khách hàng tiềm năng từ CSV
-// const LeadService = require('../../Application/Services/LeadService');
+
 const LeadService = require('../../Application/Services/LeadService');
 const { ok, fail, asAppError } = require('../../Application/helpers/errors');
 const { CreateRequestLeadDTO } = require('../../Application/DTOs/LeadDTO');
+const LeadScoringService = require('../../Application/Services/LeadScoringService');
 class LeadController {
 
   static async importLeads(req, res) {
@@ -29,7 +14,82 @@ class LeadController {
       res.status(400).json({ error: err.message });
     }
   }
+  static async trackInterest(req, res) {
+    try {
+      const {
+        anon_id,
+        product_id,
+        product_name,
+        source,
+        campaign_id,
+        meta,
+      } = req.body || {};
 
+      if (!anon_id) {
+        throw new AppError('anon_id is required', { status: 400 });
+      }
+      if (!product_id) {
+        throw new AppError('product_id is required', { status: 400 });
+      }
+
+      const result = await LeadService.trackInterest({
+        anon_id,
+        product_id,
+        product_name: product_name || null,
+        source: source || 'web',
+        campaign_id: campaign_id || null,
+        meta: meta || {},
+      });
+
+      return res
+        .status(result.ok ? 200 : (result.error?.status || 500))
+        .json(result);
+
+    } catch (err) {
+      return res
+        .status(err.status || 500)
+        .json(fail(asAppError(err, { code: 'TRACK_INTEREST_FAILED' })));
+    }
+  }
+  static async fromInterest(req, res) {
+    try {
+      const {
+        anon_id,
+        name,
+        email,
+        phone,
+        source,
+        campaign_id,
+        assigned_to,
+        priority,
+        note,
+        tags,
+        meta,
+      } = req.body || {};
+
+      const result = await LeadService.fromInterest({
+        anon_id,
+        name,
+        email,
+        phone,
+        source: source || 'web',
+        campaign_id: campaign_id || null,
+        assigned_to: assigned_to || null,
+        priority: priority || 'medium',
+        note: note || null,
+        tags: Array.isArray(tags) ? tags : [],
+        meta: meta || {},
+      });
+
+      if (!result?.ok) {
+        return res.status(result?.error?.status || 500).json(result);
+      }
+      return res.status(201).json(result);
+    } catch (err) {
+      const e = asAppError(err, { status: err?.status || 500, code: 'FROM_INTEREST_FAILED' });
+      return res.status(e.status || 500).json(fail(e));
+    }
+  }
   static async getLeadDetails(req, res) {
     const { id } = req.params;
     const result = await LeadService.getLeadDetails(id);
@@ -37,12 +97,23 @@ class LeadController {
   }
   static async create(req, res) {
     try {
-      const leadData = CreateRequestLeadDTO.from(req.body);
+      const dto = CreateRequestLeadDTO.from(req.body);
+      const leadData = {
+        ...dto,
+        product_id: req.body?.product_id ?? dto.product_id ?? null,
+        product_ids: req.body?.product_ids ?? dto.product_ids ?? null,
+        product_name: req.body?.product_name ?? dto.product_name ?? null,
+        meta: req.body?.meta ?? dto.meta ?? {},
+      };
       const result = await LeadService.createLead(leadData);
-      res.status(result.ok ? 201 : result.error?.status || 400).json(result);
+      return res
+        .status(result.ok ? 201 : (result.error?.status || 400))
+        .json(result);
     } catch (err) {
-      res.status(result.ok).json(fail(asAppError(err, { status: 400, code: 'CREATE_LEAD_FAILED' }))
-      );
+      const e = asAppError(err, { status: 400, code: 'CREATE_LEAD_FAILED' });
+      return res
+        .status(e.status || 400)
+        .json(fail(e));
     }
   }
   static async getPipelineMetrics(req, res) {
@@ -126,16 +197,6 @@ class LeadController {
       res.status(400).json({ error: err.message });
     }
   }
-  // Toi so may cai vuong toi delete ong oi =))
-  // static async delete(req, res) {
-  //   try {
-  //     await LeadService.delete(req.params.id);
-  //     res.status(204).send();
-  //   } catch (err) {
-  //     res.status(400).json({ error: err.message });
-  //   }
-  // }
-
   static async changeStatus(req, res) {
     try {
       const { status } = req.body;
@@ -145,18 +206,6 @@ class LeadController {
       res.status(400).json({ error: err.message });
     }
   }
-
-  // AI endpoints
-  static async changeStatus(req, res) {
-    try {
-      const { toStatus, reason, changedBy } = req.body;
-      const result = await LeadService.changeStatus(req.params.id, toStatus, reason, changedBy);
-      res.status(200).json(result);
-    } catch (err) {
-      res.status(err.status || 400).json({ error: err.message });
-    }
-  }
-
   static async listStatusHistory(req, res) {
     try {
       const list = await LeadService.listStatusHistory(req.params.id);
@@ -165,7 +214,6 @@ class LeadController {
       res.status(500).json({ error: err.message });
     }
   }
-
   static async convertLeadToCustomer(req, res) {
     try {
       const result = await LeadService.convertLeadToCustomer(req.params.id);
@@ -247,13 +295,83 @@ class LeadController {
       });
     }
   }
-  static async predictBatch(req, res) {
+  static async rescoreLead(req, res) {
     try {
-      const limit = Number(req.query.limit) || 100;
-      const result = await LeadService.predictBatch(limit);
-      res.status(200).json(result);
+      const { leadId } = req.params;
+      const trigger = req.body?.trigger || 'manual';
+      const out = await LeadScoringService.rescoreLead(leadId, { trigger });
+      return res.status(200).json({ ok: true, data: out });
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: { message: e.message } });
+    }
+  }
+
+  static async rescoreDaily(req, res) {
+    try {
+      const limit = Number(req.query?.limit || 200);
+      const offset = Number(req.query?.offset || 0);
+      const out = await LeadScoringService.rescoreDailyBatch({ limit, offset });
+      return res.status(200).json(out);
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: { message: e.message } });
+    }
+  }
+  static async getPredictions(req, res) {
+    try {
+      const leadId = req.params.leadId || req.params.id;
+      const { limit, offset, since, until, order } = req.query;
+
+      const result = await LeadScoringService.getPredictions(leadId, {
+        limit: limit ? Number(limit) : 50,
+        offset: offset ? Number(offset) : 0,
+        since,
+        until,
+        order: order || 'desc',
+      });
+
+      return res.status(200).json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({
+        ok: false,
+        data: null,
+        error: { status: 500, code: 'GET_LEAD_PREDICTIONS_FAILED', message: err.message },
+      });
+    }
+  }
+  static async addTag(req, res) {
+    try {
+      const leadId = req.params.id;
+      const tag = req.body?.tag;
+
+      const result = await LeadService.addTag(leadId, tag);
+      if (result?.ok === false) return res.status(result.error?.status || 400).json(result);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, data: null, error: { status: 500, code: 'ADD_TAG_FAILED', message: err.message } });
+    }
+  }
+  static async removeTag(req, res) {
+    try {
+      const leadId = req.params.id;
+      const tag = req.params.tag;
+
+      const result = await LeadService.removeTag(leadId, tag);
+      if (result?.ok === false) return res.status(result.error?.status || 400).json(result);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, data: null, error: { status: 500, code: 'REMOVE_TAG_FAILED', message: err.message } });
+    }
+  }
+
+  static async findLeadsByTag(req, res) {
+    try {
+      const tag = req.params.tag;
+
+      const result = await LeadService.findLeadsByTag(tag);
+      if (result?.ok === false) return res.status(result.error?.status || 400).json(result);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, data: null, error: { status: 500, code: 'FIND_BY_TAG_FAILED', message: err.message } });
     }
   }
 }

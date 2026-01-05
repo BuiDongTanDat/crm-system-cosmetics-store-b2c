@@ -1,43 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const LeadController = require('../Controller/LeadController');
+
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
-
 router.post('/import', upload.single('file'), LeadController.importLeads);
-// CRUD
-router.post('/', LeadController.create);
-router.get('/', LeadController.getAll);
+router.post('/interest', LeadController.trackInterest);
+router.post('/from-interest', LeadController.fromInterest);
 router.get('/qualified', LeadController.getQualifiedLeads);
-router.get('/:id', LeadController.getById);
-router.get('/detail/:id', LeadController.getLeadDetails);
-router.patch('/:id', LeadController.update);
-// router.delete('/:id', LeadController.delete);
-// Status & History
-router.patch('/:id/status', LeadController.changeStatus);
-router.get('/:id/status-history', LeadController.listStatusHistory);
 router.get('/pipeline/metrics', LeadController.getPipelineMetrics);
-
-// Interactions
-router.post('/:id/interactions', LeadController.addInteraction);
-router.get('/:id/interactions', LeadController.listInteractions);
 router.get('/pipeline/summary', LeadController.getPipelineSummary);
 router.get('/pipeline/columns', LeadController.getPipelineColumns);
 router.patch('/pipeline/:leadId/status', LeadController.updateLeadStatus);
-// // Assign / Flow
-// router.post('/:id/assign', LeadController.assign);
-// router.post('/:id/unassign', LeadController.unassign);
-// router.post('/:id/flow', LeadController.updateFlow);
-
-// Conversion
+router.get('/detail/:id', LeadController.getLeadDetails);
+router.post('/', LeadController.create);
+router.get('/', LeadController.getAll);
+router.get('/:id', LeadController.getById);
+router.patch('/:id', LeadController.update);
+router.patch('/:id/status', LeadController.changeStatus);
+router.get('/:id/status-history', LeadController.listStatusHistory);
+router.post('/:id/interactions', LeadController.addInteraction);
+router.get('/:id/interactions', LeadController.listInteractions);
 router.post('/:id/convert', LeadController.convert);
 router.post('/:id/auto-convert', LeadController.autoConvert);
-
-// Scoring
-// router.post('/:id/score/adjust', LeadController.adjustScore);
-
-// Prediction
-router.get('/:id/predict', LeadController.predict);
-router.get('/predict/batch', LeadController.predictBatch);
-
+router.post('/:leadId/rescore', LeadController.rescoreLead);
+router.post('/rescore/daily', LeadController.rescoreDaily);
+router.get('/:leadId/predictions', LeadController.getPredictions);
+router.post('/:id/tags', LeadController.addTag);           
+router.delete('/:id/tags/:tag', LeadController.removeTag); 
+router.get('/tags/:tag', LeadController.findLeadsByTag);  
 module.exports = router;
