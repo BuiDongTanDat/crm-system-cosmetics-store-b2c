@@ -3,9 +3,6 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  Star,
-  UserX,
-  MessageCircle,
   CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +20,7 @@ import ProductReport from "@/pages/report/components/ProductReport";
 import RevenueReport from "@/pages/report/components/RevenueReport";
 import LeadCustomerReport from "@/pages/report/components/LeadCustomerReport";
 import DropdownOptions from "@/components/common/DropdownOptions";
+import GeneralReport from "./components/GeneralReport";
 
 export default function ReportPage() {
   const [selectedTab, setSelectedTab] = useState("overview");
@@ -182,41 +180,7 @@ export default function ReportPage() {
 
       {/* Nội dung các tab */}
       <div className="flex-1 space-y-6">
-        {selectedTab === "overview" && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard
-                title="CSAT Score"
-                value={reportData.csatData.currentScore}
-                suffix="/5"
-                trend={reportData.csatData.trend}
-                icon={Star}
-                color="yellow"
-              />
-              <MetricCard
-                title="NPS Score"
-                value={reportData.npsData.score}
-                trend={reportData.npsData.trend}
-                icon={TrendingUp}
-                color="green"
-              />
-              <MetricCard
-                title="Tỷ lệ rời bỏ"
-                value={reportData.churnData.rate}
-                suffix="%"
-                trend={reportData.churnData.trend}
-                icon={UserX}
-                color="red"
-              />
-              <MetricCard
-                title="Thời gian phản hồi"
-                value={reportData.customerInteraction.quality.responseTime}
-                icon={MessageCircle}
-                color="blue"
-              />
-            </div>
-          </>
-        )}
+        {selectedTab === "overview" && <GeneralReport />}
         {selectedTab === "product" && <ProductReport filters={filters} />}
         {selectedTab === "revenue" && <RevenueReport />}
         {selectedTab === "customer_lead" && (

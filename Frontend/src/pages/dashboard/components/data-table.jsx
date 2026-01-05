@@ -156,7 +156,7 @@ export function DataTable() {
         onClick={() => {
           navigate("/orders");
         }}
-        className="group hover:bg-gray-50 transition-colors cursor-pointer border-b"
+        className="group hover:bg-gray-100 transition-colors cursor-pointer border-b"
       >
         <td className="px-4 py-2 text-sm text-gray-900 text-left">
           {row.customer_name || "Khách"}

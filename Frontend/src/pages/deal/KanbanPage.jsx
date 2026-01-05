@@ -577,7 +577,7 @@ export default function KanbanPage() {
             )}
 
             <Button onClick={handleCreateDeal} variant="actionCreate" className="gap-2 flex-1">
-              <Plus className="w-4 h-4" /> Thêm Deal
+              <Plus className="w-4 h-4" /> Thêm Lead
             </Button>
           </div>
         </div>

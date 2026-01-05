@@ -136,9 +136,9 @@ export default function LeadCustomerReport() {
         gender,
         count,
         fill: gender === "Nam"
-          ? "#3b82f6"
+          ? "skyblue"
           : gender === "Nữ"
-          ? "#f472b6"
+          ? "pink"
           : "#a3a3a3",
       }));
 
@@ -657,30 +657,8 @@ export default function LeadCustomerReport() {
         </Card>
       </div>
 
-      {/* Thông tin lead/khách hàng nổi bật */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 flex flex-col gap-2">
-        <h3 className="text-lg font-semibold mb-4">Thông tin Lead nổi bật</h3>
-        <div className="space-y-2">
-          <div>
-            <span className="font-semibold">Đang xử lý: </span>
-            <span>{stats.processingLeads}</span>
-          </div>
-          <div>
-            <span className="font-semibold">Đã xử lý: </span>
-            <span>{stats.doneLeads}</span>
-          </div>
-          <div>
-            <span className="font-semibold">Tổng giá trị Lead: </span>
-            <span>{formatCurrency(stats.totalValue)}</span>
-          </div>
-          <div>
-            <span className="font-semibold">Tỉ lệ chuyển đổi: </span>
-            <span>{stats.conversionRate}%</span>
-          </div>
-        </div>
-      </div>
       {/* Bảng danh sách khách hàng/lead */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
+      <div className="shadow bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4">Danh sách khách hàng & Lead</h3>
         <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">
