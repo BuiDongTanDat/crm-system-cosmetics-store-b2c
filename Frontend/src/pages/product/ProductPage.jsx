@@ -42,7 +42,10 @@ export default function ProductPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [sortCreated, setSortCreated] = useState("desc"); // "desc" | "asc"
+
   const [modal, setModal] = useState({
     open: false,
     mode: "view",
@@ -58,12 +61,26 @@ export default function ProductPage() {
   });
   const productsPerPage = 8;
   const fileInputRef = useRef(null);
+  // Bộ lọc mệnh giá (giá tiền)
+  const PRICE_FILTER_OPTIONS = [
+    { value: "all", label: "Mệnh giá" },
+    { value: "<100k", label: "Dưới 100.000" },
+    { value: "100k-500k", label: "100.000 - 500.000" },
+    { value: "500k-1tr", label: "500.000 - 1.000.000" },
+    { value: ">1tr", label: "Trên 1.000.000" },
+  ];
 
   const STATUS_FILTER_OPTIONS = [
     { value: "all", label: "Trạng thái" },
     { value: "AVAILABLE", label: "Còn hàng" },
     { value: "OUT_OF_STOCK", label: "Hết hàng" },
     { value: "DISCONTINUED", label: "Đã ngừng" },
+  ];
+
+  // Bộ lọc sắp xếp theo ngày tạo
+  const CREATED_SORT_OPTIONS = [
+    { value: "desc", label: "Ngày tạo mới nhất" },
+    { value: "asc", label: "Ngày tạo cũ nhất" },
   ];
 
   // Check render option
@@ -203,20 +220,44 @@ export default function ProductPage() {
   // Lọc
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return products.filter((p) => {
+    let result = products.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(term) ||
         p.short_description.toLowerCase().includes(term);
       const matchesCategory =
         selectedCategory === "all" || p.category === selectedCategory;
       const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchesSearch && matchesCategory && matchesStatus;
+      // Lọc theo mệnh giá
+      let matchesPrice = true;
+      const price = Number(p.price_current) || 0;
+      if (priceFilter === "<100k") matchesPrice = price < 100000;
+      else if (priceFilter === "100k-500k")
+        matchesPrice = price >= 100000 && price <= 500000;
+      else if (priceFilter === "500k-1tr")
+        matchesPrice = price > 500000 && price <= 1000000;
+      else if (priceFilter === ">1tr") matchesPrice = price > 1000000;
+      return matchesSearch && matchesCategory && matchesStatus && matchesPrice;
     });
-  }, [products, searchTerm, selectedCategory, statusFilter]);
+    // Sắp xếp theo ngày tạo
+    result = result.slice().sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+      if (sortCreated === "asc") return dateA - dateB;
+      return dateB - dateA;
+    });
+    return result;
+  }, [
+    products,
+    searchTerm,
+    selectedCategory,
+    statusFilter,
+    priceFilter,
+    sortCreated,
+  ]);
 
   useEffect(
     () => setCurrentPage(1),
-    [searchTerm, selectedCategory, statusFilter]
+    [searchTerm, selectedCategory, statusFilter, priceFilter, sortCreated]
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage));
   const currentProducts = filtered.slice(
@@ -303,111 +344,127 @@ export default function ProductPage() {
             </div>
           </div>
           {/* Cụm phải: */}
-          <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
-            {/* Search + Filter row: LUÔN cùng 1 hàng từ md trở xuống */}
-            <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
-              {/* Search */}
-              <div className="relative w-full lg:w-56">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Tìm kiếm sản phẩm..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-2 w-full"
-                />
+          <div className="flex flex-col gap-2 w-full  lg:items-end lg:gap-2 lg:w-auto">
+            <div className="flex flex-row gap-2 w-full lg:w-auto">
+              {/* Search +button */}
+              <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
+                {/* Search */}
+                <div className="relative w-full lg:w-56">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Tìm kiếm sản phẩm..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-3 py-2 w-full"
+                  />
+                </div>
               </div>
-              {/* Filter row: Category + Status filter */}
-              <div className="flex flex-row gap-2 w-full lg:w-auto">
-                <DropdownOptions
-                  options={categoryOptions}
-                  value={selectedCategory}
-                  onChange={(val) => setSelectedCategory(val)}
-                  width="w-full lg:w-44"
-                  placeholder="Danh mục"
-                />
-                <DropdownOptions
-                  options={STATUS_FILTER_OPTIONS}
-                  value={statusFilter}
-                  onChange={(val) => setStatusFilter(val)}
-                  width="w-full lg:w-36"
-                  placeholder="Trạng thái"
-                />
+              {/* Nút thêm và import/export */}
+              <div className="flex  gap-2 w-full md:w-auto">
+                <PermissionGuard module="product" action="create">
+                  <Button
+                    onClick={openAdd}
+                    variant="actionCreate"
+                    className="gap-2 flex-1 lg:w-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="">Thêm Sản phẩm</span>
+                  </Button>
+                </PermissionGuard>
+                {(canImport || canExport) && (
+                  <>
+                    <ImportExportDropdown
+                      menuItems={[
+                        ...(canImport
+                          ? [
+                              {
+                                label: "Nhập CSV",
+                                icon: Upload,
+                                action: () => fileInputRef.current?.click(),
+                              },
+                            ]
+                          : []),
+                        ...(canExport
+                          ? [
+                              {
+                                label: "Xuất CSV",
+                                icon: Download,
+                                action: async () => {
+                                  try {
+                                    const csvBlob = await exportProductsCSV();
+                                    if (!csvBlob) {
+                                      toast.error(
+                                        "Không có dữ liệu để xuất CSV."
+                                      );
+                                      return;
+                                    }
+                                    const url =
+                                      window.URL.createObjectURL(csvBlob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = "products.csv";
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    window.URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error("Export error:", err);
+                                    toast.error("Lỗi khi xuất CSV.");
+                                  }
+                                },
+                              },
+                            ]
+                          : []),
+                      ]}
+                      trigger="icon"
+                      className="px-2 py-2 min-w-0  lg:w-auto lg:h-auto shrink-0"
+                    />
+                    {/* hidden file input for import */}
+                    {canImport && (
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        onChange={handleImportFile}
+                        name="file"
+                      />
+                    )}
+                  </>
+                )}
               </div>
             </div>
-            {/* Nút thêm và import/export */}
-            <div className="flex  gap-2 w-full md:w-auto">
-              <PermissionGuard module="product" action="create">
-                <Button
-                  onClick={openAdd}
-                  variant="actionCreate"
-                  className="gap-2 flex-1 lg:w-auto"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="">Thêm Sản phẩm</span>
-                </Button>
-              </PermissionGuard>
-              {(canImport || canExport) && (
-                <>
-                  <ImportExportDropdown
-                    menuItems={[
-                      ...(canImport
-                        ? [
-                            {
-                              label: "Nhập CSV",
-                              icon: Upload,
-                              action: () => fileInputRef.current?.click(),
-                            },
-                          ]
-                        : []),
-                      ...(canExport
-                        ? [
-                            {
-                              label: "Xuất CSV",
-                              icon: Download,
-                              action: async () => {
-                                try {
-                                  const csvBlob = await exportProductsCSV();
-                                  if (!csvBlob) {
-                                    toast.error(
-                                      "Không có dữ liệu để xuất CSV."
-                                    );
-                                    return;
-                                  }
-                                  const url =
-                                    window.URL.createObjectURL(csvBlob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = "products.csv";
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  window.URL.revokeObjectURL(url);
-                                } catch (err) {
-                                  console.error("Export error:", err);
-                                  toast.error("Lỗi khi xuất CSV.");
-                                }
-                              },
-                            },
-                          ]
-                        : []),
-                    ]}
-                    trigger="icon"
-                    className="px-2 py-2 min-w-0  lg:w-auto lg:h-auto shrink-0"
-                  />
-                  {/* hidden file input for import */}
-                  {canImport && (
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      onChange={handleImportFile}
-                      name="file"
-                    />
-                  )}
-                </>
-              )}
+            {/* Filter row: Category + Status filter */}
+            <div className="flex flex-row gap-2 w-full lg:w-auto">
+              <DropdownOptions
+                options={categoryOptions}
+                value={selectedCategory}
+                onChange={(val) => setSelectedCategory(val)}
+                width="w-full lg:w-44"
+                placeholder="Danh mục"
+              />
+              <DropdownOptions
+                options={STATUS_FILTER_OPTIONS}
+                value={statusFilter}
+                onChange={(val) => setStatusFilter(val)}
+                width="w-full lg:w-36"
+                placeholder="Trạng thái"
+              />
+              <DropdownOptions
+                options={PRICE_FILTER_OPTIONS}
+                value={priceFilter}
+                onChange={(val) => setPriceFilter(val)}
+                width="w-full lg:w-40"
+                placeholder="Mệnh giá"
+              />
+              <DropdownOptions
+                options={CREATED_SORT_OPTIONS}
+                value={sortCreated}
+                onChange={(val) => setSortCreated(val)}
+                width="w-full lg:w-44"
+                placeholder="Sắp xếp ngày tạo"
+              />
             </div>
           </div>
         </div>

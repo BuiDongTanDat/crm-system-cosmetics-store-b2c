@@ -11,10 +11,18 @@ import { RevenueChart } from "./components/revenue-chart";
 import { useEffect, useState } from "react";
 import { formatDate } from "@/utils/helper";
 import { Calendar } from "lucide-react";
+import Loading from "@/components/common/Loading"; // Thêm import
 
 export default function DashBoard() {
   const ANIM_COUNT = 4;
   const [visible, setVisible] = useState(Array(ANIM_COUNT).fill(false));
+  const [loading, setLoading] = useState(true); // Thêm state loading
+
+  useEffect(() => {
+    // Giả lập loading (có thể thay bằng fetch API thực tế)
+    const timer = setTimeout(() => setLoading(false), 200); // 600ms hoặc tuỳ chỉnh
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // TÍnh toán thời gian hợp lý để stagger animation
@@ -34,6 +42,10 @@ export default function DashBoard() {
     }
     return () => timers.forEach((t) => clearTimeout(t));
   }, []);
+
+  if (loading) {
+    return <Loading />; // Hiển thị loading khi đang tải
+  }
 
   return (
     <div className="flex flex-1 flex-col">

@@ -1,6 +1,8 @@
 import { request } from "@/utils/api";
 
-export async function getYoutubeAuthUrl(returnTo = "/streams") {
+const FRONTEND_URL = import.meta.env.FRONTEND_URL || "http://localhost:5173";
+
+export async function getYoutubeAuthUrl(returnTo = FRONTEND_URL + "/streams") {
   try {
     const data = await request(`/youtube/auth?returnTo=${encodeURIComponent(returnTo)}`);
     if (data.url) {
@@ -10,6 +12,17 @@ export async function getYoutubeAuthUrl(returnTo = "/streams") {
     }
   } catch (err) {
     console.error("Lỗi khi lấy URL YouTube auth:", err);
+  }
+}
+
+// Helper:  Redirect trực tiếp với loginUrl từ error
+export function redirectToYoutubeAuth(loginUrl, returnTo = FRONTEND_URL + "/streams") {
+  if (loginUrl) {
+    // Nếu backend đã trả về loginUrl, dùng luôn
+    window.location. href = loginUrl;
+  } else {
+    // Fallback: gọi API để lấy loginUrl
+    getYoutubeAuthUrl(returnTo);
   }
 }
 

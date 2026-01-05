@@ -94,14 +94,48 @@ class YouTubeService {
         if (!this.auth.credentials.access_token) {
             await this.init();
         }
+
+        // Kiểm tra nếu không có credentials sau khi init
+        if (!this.auth.credentials.access_token) {
+            const loginUrl = this.getLoginUrl();
+            const error = new Error('Not authenticated. Please login first.');
+            error.code = 'AUTH_REQUIRED';
+            error.loginUrl = loginUrl;
+            throw error;
+        }
+
         // Refresh if token expired
         if (this.auth.credentials.expiry_date < Date.now()) {
-            const newTokens = await this.auth.refreshAccessToken();
-            this.auth.setCredentials(newTokens.credentials);
-            await this.saveTokens(this.auth.credentials);
+            try {
+                console.log('Token expired, attempting to refresh...');
+                const newTokens = await this.auth.refreshAccessToken();
+                this.auth.setCredentials(newTokens.credentials);
+                await this.saveTokens(this.auth.credentials);
+                console.log('Token refreshed successfully');
+            } catch (error) {
+                console.log('Token refresh failed:', error.message);
+
+                // Xóa token cũ
+                try {
+                    await fs.unlink(this.tokenFile);
+                    console.log('Deleted expired tokens file');
+                } catch (unlinkErr) {
+                    // Không quan trọng nếu file không tồn tại
+                }
+
+                // Reset credentials
+                this.auth.setCredentials({});
+
+                // Tạo URL đăng nhập mới
+                const loginUrl = this.getLoginUrl();
+                const authError = new Error('Refresh token expired or revoked. Please re-authenticate.');
+                authError.code = 'AUTH_EXPIRED';
+                authError.loginUrl = loginUrl;
+                throw authError;
+            }
         }
     }
-
+    
     // Tìm live chat ID từ broadcast đang active
     async findActiveChat() {
         const res = await this.youtube.liveBroadcasts.list({
@@ -196,7 +230,7 @@ class YouTubeService {
     async setThumbnail(broadcastId, thumbnailPath = null) {
         await this.ensureAuth();
         const sleep = ms => new Promise(r => setTimeout(r, ms));
-         
+
         thumbnailPath = path.join(process.cwd(), "public", "product_temp_small.png");
         // Step 1 — chờ broadcast vào state "ready"
         const waitForReady = async () => {

@@ -47,6 +47,16 @@ class StreamingController {
 
       return res.status(200).json({ ok: true, youtube: ytInfo.youtube, rtmpPublishUrl: ytInfo.rtmpPublishUrl });
     } catch (err) {
+      // Kiểm tra nếu lỗi là AUTH_REQUIRED hoặc AUTH_EXPIRED
+      if (err.code === 'AUTH_REQUIRED' || err.code === 'AUTH_EXPIRED') {
+        return res.status(401).json({
+          ok: false,
+          error: err.message,
+          code: err.code,
+          loginUrl: err.loginUrl,
+          requireAuth: true
+        });
+      }
       console.error('prepareYoutube error', err);
       return res.status(500).json({ ok: false, error: err.message });
     }

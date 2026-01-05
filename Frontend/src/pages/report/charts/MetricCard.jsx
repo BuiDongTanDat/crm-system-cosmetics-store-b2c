@@ -12,7 +12,7 @@ export default function MetricCard({ title, value, trend, suffix = '', icon: Ico
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200">
+    <div className="shadow bg-white p-6 rounded-lg border border-gray-200">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600 mb-1">{title}</p>

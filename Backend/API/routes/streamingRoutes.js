@@ -1,18 +1,19 @@
 const express = require('express');
 const StreamingController = require('../Controller/StreamingController.js');
 const permissionRoute = require('../Middleware/permissionMiddleware');
+const protectedRoute = require('../Middleware/authMiddleware');
 
 const router = express.Router();
 
 // Tạo streamId mới
-router.post('/', permissionRoute('youtube', 'create'), StreamingController.createStream.bind(StreamingController));
+router.post('/', protectedRoute, permissionRoute('youtube', 'create'), StreamingController.createStream.bind(StreamingController));
 
 // Prepare YouTube live cho streamId
-router.post('/:streamId/youtube', permissionRoute('youtube', 'create'), StreamingController.prepareYoutube.bind(StreamingController));
+router.post('/:streamId/youtube', StreamingController.prepareYoutube.bind(StreamingController));
 
 // Upload video
 router.post(
-  '/:streamId/upload',permissionRoute('youtube', 'create'), 
+  '/:streamId/upload',protectedRoute, permissionRoute('youtube', 'create'), 
   StreamingController.upload,
   StreamingController.uploadVideo.bind(StreamingController)
 );

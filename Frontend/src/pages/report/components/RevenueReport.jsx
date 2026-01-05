@@ -137,9 +137,9 @@ export default function RevenueReport() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Thống kê tổng quan doanh thu */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4  gap-4">
         <MetricCard
           title="Tổng số đơn hàng"
           value={stats.totalOrders}
@@ -166,13 +166,13 @@ export default function RevenueReport() {
         />
       </div>
       {/* Biểu đồ đơn hàng và doanh thu */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
         <OrdersChart />
         <RevenueChart />
       </div>
       {/* Pie chart trạng thái đơn hàng */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
+        <div className="shadow flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
             <div className="mb-4">
               <h3 className="text-base font-semibold">
@@ -212,7 +212,7 @@ export default function RevenueReport() {
               })}
             </div>
           </div>
-          <div className="flex items-center justify-center w-1/2">
+          <div className=" flex items-center justify-center w-1/2">
             <ChartContainer
               config={chartConfig}
               className="mx-auto h-[250px] w-[250px]"
@@ -272,7 +272,7 @@ export default function RevenueReport() {
         {/* Có thể thêm chart khác ở đây nếu muốn */}
       </div>
       {/* Bảng danh sách đơn hàng */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
+      <div className="shadow bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4">Danh sách đơn hàng</h3>
         <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">

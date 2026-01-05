@@ -3,7 +3,7 @@ const RoleRepository = require('../../Infrastructure/Repositories/RoleRepository
 function permissionRoute(module, action) {
     return async (req, res, next) => {
         try {
-            // Lấy thông tin role user từ authMiddlewarte trước đó
+            // Lấy thông tin role user từ authMiddleware trước đó
             const roleName = req.user?.role_name;
             if (!roleName) {
                 return res.status(403).json({ error: 'Vai trò người dùng không xác định' });

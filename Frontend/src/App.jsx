@@ -40,7 +40,6 @@ import ChannelPage from "./pages/channel/ChannelPage";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashBoard from "./pages/dashboard/DashBoard";
 import CheckoutPage from "./pages/checkout/CheckoutPage";
-
 import NavigateGuard from "./components/auth/NavigateGuard";
 function App() {
 

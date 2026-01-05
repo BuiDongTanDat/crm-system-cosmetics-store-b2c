@@ -10,6 +10,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { formatDate } from "@/utils/helper";
+import { data } from "react-router";
 
 const STATUS_LABELS = {
   AVAILABLE: "Còn hàng",
@@ -40,6 +42,7 @@ export default function ProductReport({ filters }) {
     setLoading(true);
     getProducts().then((res) => {
       let data = Array.isArray(res) ? res : res?.data || [];
+      console.log("Fetched products:", data);
       setProducts(data);
       setLoading(false);
     });
@@ -56,8 +59,8 @@ export default function ProductReport({ filters }) {
       (p) => p.status === "DISCONTINUED"
     ).length;
     const lastImport = products.reduce((max, p) => {
-      if (p.import_date && (!max || new Date(p.import_date) > new Date(max)))
-        return p.import_date;
+      if (p.created_at && (!max || new Date(p.created_at) > new Date(max)))
+        return p.created_at;
       return max;
     }, null);
 
@@ -155,9 +158,9 @@ export default function ProductReport({ filters }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Thống kê tổng quan sản phẩm */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Tổng số sản phẩm"
           value={stats.total}
@@ -178,15 +181,15 @@ export default function ProductReport({ filters }) {
         />
         <MetricCard
           title="Ngày nhập gần nhất"
-          value={stats.lastImport}
+          value={formatDate(stats.lastImport)}
           icon={BarChart3}
           color="yellow"
         />
       </div>
       {/* Pie chart trạng thái & Pie chart danh mục */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
         {/* Pie trạng thái */}
-        <div className="flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
+        <div className="shadow flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
             <div className="mb-4">
               <h3 className="text-base font-semibold">
@@ -284,7 +287,7 @@ export default function ProductReport({ filters }) {
           </div>
         </div>
         {/* Pie danh mục */}
-        <div className="flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
+        <div className="shadow flex flex-row items-stretch bg-white p-0 rounded-lg border border-gray-200">
           <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
             <div className="mb-4">
               <h3 className="text-base font-semibold">
@@ -383,7 +386,7 @@ export default function ProductReport({ filters }) {
         </div>
       </div>
       {/* Bảng sản phẩm chi tiết */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
+      <div className="shadow bg-white p-6 rounded-lg border border-gray-200 mt-4 overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4">Danh sách sản phẩm</h3>
         <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">
@@ -401,17 +404,14 @@ export default function ProductReport({ filters }) {
                 Tồn kho
               </th>
               <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                Ngày nhập
-              </th>
-              <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                Ngày xuất
+                Ngày tạo
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {stats.products.map((p, idx) => (
               <tr key={idx}>
-                <td className="px-2 py-2 text-left">{p.name}</td>
+                <td className="px-2 py-2 text-left line-clamp-2 max-w-sm">{p.name}</td>
                 <td className="px-2 py-2 text-left">{p.category}</td>
                 <td className="px-2 py-2 text-center">
                   <span
@@ -428,10 +428,7 @@ export default function ProductReport({ filters }) {
                 </td>
                 <td className="px-2 py-2 text-center">{p.inventory_qty}</td>
                 <td className="px-2 py-2 text-center">
-                  {p.import_date || "--"}
-                </td>
-                <td className="px-2 py-2 text-center">
-                  {p.export_date || "--"}
+                  {formatDate(p.created_at) || "--"}
                 </td>
               </tr>
             ))}
