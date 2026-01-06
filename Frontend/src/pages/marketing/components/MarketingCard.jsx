@@ -12,37 +12,6 @@ const formatPercent = (v) => {
     return `${percent.toFixed(1)}%`;
 };
 
-const KPI_LABELS = {
-    leads: 'Leads',
-    cpl: 'CPL',
-    reach: 'Tiếp cận',
-    revenue: 'Doanh thu',
-    open_rate: 'Open rate',
-    click_rate: 'Click rate',
-    roi: 'ROI',
-};
-
-const KPI_FORMATTER = (key, val, { formatCurrency }) => {
-    if (key === 'cpl' || key === 'revenue') return formatCurrency(val || 0);
-    if (key === 'open_rate' || key === 'click_rate' || key === 'roi') return formatPercent(val || 0);
-    const n = Number(val);
-    return Number.isNaN(n) ? String(val) : n.toLocaleString('vi-VN');
-};
-
-const getKPIObject = (expectedKPI) => {
-    if (!expectedKPI) return null;
-    if (typeof expectedKPI === 'object') return expectedKPI;
-    if (typeof expectedKPI === 'string') {
-        try {
-            const obj = JSON.parse(expectedKPI);
-            return obj && typeof obj === 'object' ? obj : null;
-        } catch {
-            return null;
-        }
-    }
-    return null;
-};
-
 export default function MarketingCard({ campaign, onView, onEdit, onDelete, getStatusBadge, getTypeBadge, extraActions }) {
     const [hoveredCard, setHoveredCard] = useState(false);
 
@@ -59,132 +28,105 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
         const end = e ? formatDate(e) : '';
         return start + (end ? ` - ${end}` : '');
     };
-    const safeReach = (perf) => {
-        if (!perf || perf.reach == null) return '—';
-        try { return Number(perf.reach).toLocaleString('vi-VN'); } catch { return String(perf.reach); }
-    };
+
+    const defaultBanner = "https://rubicmarketing.com/wp-content/uploads/2021/08/thiet-ke-banner-my-pham-1.jpg";
+    const bannerUrl = campaign?.image || campaign?.__raw?.image || campaign?.banner || defaultBanner;
 
     return (
         <div
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:scale-105 hover:shadow-md transition-all duration-150 animate-fade-in group relative"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-150 animate-fade-in group"
             onMouseEnter={() => setHoveredCard(true)}
             onMouseLeave={() => setHoveredCard(false)}
         >
-            {/* Tiêu đề và trạng thái */}
-            <div className="flex justify-between items-start mb-3">
-                <div className="flex-1 pr-2">
-                    <h3 className="font-semibold text-gray-900 text-lg mb-1 line-clamp-1">
-                        {campaign?.name || 'Untitled'}
-                    </h3>
-                    <div className="flex gap-2">
-                        <span className={getTypeBadge?.(campaign?.type)}>{campaign?.type || '-'}</span>
-                    </div>
-                </div>
-                {/* Status badge - top right corner */}
-                <div className="flex-shrink-0 ">
+            {/* Banner Image */}
+            <div className="relative h-40 overflow-hidden">
+                <img
+                    src={bannerUrl}
+                    alt={campaign?.name || 'Campaign banner'}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                        e.currentTarget.src = defaultBanner;
+                    }}
+                />
+                {/* Overlay gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                
+                {/* Status badge - overlay on image */}
+                <div className="absolute top-2 right-2">
                     <span className={getStatusBadge?.(campaign?.status)}>{campaign?.status || 'Draft'}</span>
+                </div>
+
+                {/* Type badge - overlay on image */}
+                <div className="absolute bottom-2 left-2">
+                    <span className={getTypeBadge?.(campaign?.type)}>{campaign?.type || '-'}</span>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="space-y-3">
-                {/* Budget */}
-                <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-success" />
-                    <div>
-                        <p className="text-xs text-gray-500">Ngân sách</p>
-                        <p className="text-sm font-medium">{safeBudget()}</p>
-                    </div>
-                </div>
+            <div className="p-4 flex flex-col">
+                {/* Tiêu đề */}
+                <h3 className="font-semibold text-gray-900 text-lg mb-3 line-clamp-2 min-h-[3.5rem]">
+                    {campaign?.name || 'Untitled'}
+                </h3>
 
-                {/* Thời gian */}
-                <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    <div>
-                        <p className="text-xs text-gray-500">Thời gian</p>
-                        <p className="text-sm font-medium">
-                            {safeDateRange()}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Target & Assignee */}
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-destructive" />
-                        <div>
-                            <p className="text-xs text-gray-500">Đối tượng</p>
-                            <p className="text-sm font-medium">{campaign?.targetAudience || '—'}</p>
+                {/* Thông tin chính - 2 cột */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                    {/* Budget */}
+                    <div className="flex items-start gap-2">
+                        <DollarSign className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                            <p className="text-xs text-gray-500">Ngân sách</p>
+                            <p className="text-sm font-semibold truncate">{safeBudget()}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white">
-                            {(campaign?.assignee?.[0] || '?').toUpperCase()}
-                        </span>
-                        <div>
-                            <p className="text-xs text-gray-500">Phụ trách</p>
-                            <p className="text-sm font-medium">{campaign?.assignee || '—'}</p>
+
+                    {/* Timeline */}
+                    <div className="flex items-start gap-2">
+                        <Calendar className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                            <p className="text-xs text-gray-500">Thời gian</p>
+                            <p className="text-xs font-medium line-clamp-2">{safeDateRange()}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Hiệu suất chiến dịch (chỉ hiện nếu có) */}
+                {/* Target Audience */}
+                <div className="flex items-start gap-2 mb-3">
+                    <Target className="w-4 h-4 text-rose-600 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-500">Đối tượng</p>
+                        <p className="text-sm font-medium line-clamp-1">{campaign?.targetAudience || '—'}</p>
+                    </div>
+                </div>
+
+                {/* Performance - luôn hiển thị nếu có */}
                 {campaign?.performance && (
-                    <div className="bg-gray-50 rounded p-2">
-                        <div className="flex items-center gap-2 mb-1">
-                            <TrendingUp className="w-4 h-4 text-green-600" />
-                            <span className="text-xs text-gray-600">Hiệu suất</span>
+                    <div className="bg-gray-50 rounded-lg p-2 border border-gray-100 mb-3">
+                        <div className="flex items-center gap-1 mb-1">
+                            <TrendingUp className="w-3 h-3 text-green-600" />
+                            <span className="text-xs font-medium text-gray-700">Hiệu suất</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                            <span>ROI: <strong>{campaign.performance?.roi != null ? `${campaign.performance.roi}%` : '—'}</strong></span>
-                            <span>Tiếp cận: <strong>{safeReach(campaign.performance)}</strong></span>
+                            <span className="text-gray-600">ROI: <strong className="text-gray-900">{campaign.performance?.roi != null ? `${campaign.performance.roi}%` : '—'}</strong></span>
+                            <span className="text-gray-600">Reach: <strong className="text-gray-900">{campaign.performance?.reach != null ? Number(campaign.performance.reach).toLocaleString('vi-VN') : '—'}</strong></span>
                         </div>
                     </div>
                 )}
 
-                <div className={`transition-opacity duration-200 ${hoveredCard ? 'opacity-0' : 'opacity-100'}`}>
-                    <p className="text-xs text-gray-500 mb-1">KPI kỳ vọng</p>
-                    {(() => {
-                        const kpiObj = getKPIObject(campaign?.expectedKPI);
-                        if (!kpiObj || Object.keys(kpiObj).length === 0) {
-                            return (
-                                <p className="text-sm text-gray-700 line-clamp-2">
-                                    {typeof campaign?.expectedKPI === 'string' ? campaign.expectedKPI : '—'}
-                                </p>
-                            );
-                        }
-                        return (
-                            <div className="flex flex-wrap gap-2">
-                                {Object.entries(kpiObj).map(([key, val]) => (
-                                    <span
-                                        key={key}
-                                        className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
-                                        title={`${key}: ${val}`}
-                                    >
-                                        {KPI_LABELS[key] || key}:{" "}
-                                        <strong>{KPI_FORMATTER(key, val, { formatCurrency })}</strong>
-                                    </span>
-                                ))}
-                            </div>
-                        );
-                    })()}
-                </div>
-            </div>
-
-            {/* Khu vực Action Buttons, hover là ẩn KPI */}
-            {hoveredCard && (
-                <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2  p-2  animate-slide-up z-10">
+                {/* Action Buttons - luôn hiển thị ở dưới */}
+                <div className="flex justify-center gap-2 mt-auto pt-2 border-t">
                     <PermissionGuard module="campaign" action="read">
-                        <Button variant="actionRead" size="icon" onClick={() => onView && onView(campaign)}>
-                            <Eye className="w-4 h-4" />
+                        <Button variant="actionRead" size="sm" onClick={() => onView && onView(campaign)} className="flex-1">
+                            <Eye className="w-4 h-4 mr-1" />
+                            Xem
                         </Button>
                     </PermissionGuard>
                     <PermissionGuard module="campaign" action="update">
-                        <Button variant="actionUpdate" size="icon" onClick={() => onEdit && onEdit(campaign)}>
-                            <Edit className="w-4 h-4" />
+                        <Button variant="actionUpdate" size="sm" onClick={() => onEdit && onEdit(campaign)} className="flex-1">
+                            <Edit className="w-4 h-4 mr-1" />
+                            Sửa
                         </Button>
                     </PermissionGuard>
-
                     <PermissionGuard module="campaign" action="delete">
                         <ConfirmDialog
                             title="Xác nhận xóa"
@@ -195,14 +137,14 @@ export default function MarketingCard({ campaign, onView, onEdit, onDelete, getS
                             cancelText="Hủy"
                             onConfirm={() => onDelete && onDelete(campaign.id)}
                         >
-                            <Button variant="actionDelete" size="icon">
-                                <Trash2 className="w-4 h-4" />
+                            <Button variant="actionDelete" size="sm" className="flex-1">
+                                <Trash2 className="w-4 h-4" /> Xóa
                             </Button>
                         </ConfirmDialog>
                     </PermissionGuard>
                     {extraActions && extraActions}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

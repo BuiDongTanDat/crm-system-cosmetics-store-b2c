@@ -9,7 +9,7 @@ import DropdownOptions from '@/components/common/DropdownOptions';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
-import { getAllleads, getPipelineMetrics } from '@/services/leads';
+import { getAllleads, getPipelineMetrics, getLeadDetailsById, getPipelineColumns } from '@/services/leads';
 
 // Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
@@ -31,7 +31,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
   const [leads, setLeads] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
+  const [modal, setModal] = useState({ open: false, mode: 'view', deal: null, loading: false });
   const [hoveredRow, setHoveredRow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -84,6 +84,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
     return () => { mounted = false; };
   }, []);
 
+  // Load leads from API
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -121,27 +122,249 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
     );
   };
 
-  const handleView = (deal) => setModal({ open: true, mode: 'view', deal });
-  const handleEdit = (deal) => setModal({ open: true, mode: 'edit', deal });
-  const handleCreate = () => setModal({ open: true, mode: 'edit', deal: null });
-  const closeModal = () => setModal({ open: false, mode: 'view', deal: null });
+  const handleView = async (lead) => {
+    setModal({ open: true, mode: 'view', deal: lead, loading: true });
+    
+    try {
+      const res = await getLeadDetailsById(lead.lead_id);
+      const detailData = res?.data?.data ?? res?.data ?? res;
+      
+      if (detailData) {
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
+        };
 
-  const handleSave = (lead) => {
-    if (lead.lead_id) {
-      setLeads((prev) =>
-        prev.map((d) => (d.lead_id === lead.lead_id ? { ...d, ...lead } : d))
-      );
-      setModal({ open: true, mode: 'view', deal: lead });
-      toast.success('Cập nhật lead thành công!');
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fb;
+        };
+
+        const enrichedDeal = {
+          id: detailData.lead_id,
+          title: detailData.deal_name || detailData.name || lead.deal_name,
+          name: detailData.name || lead.name,
+          email: detailData.email || lead.email,
+          phone: detailData.phone || lead.phone,
+          source: detailData.source || lead.source,
+          stage: normalizeStatus(detailData.status),
+          status: normalizeStatus(detailData.status),
+          createdDate: (detailData.created_at || lead.created_at || '').slice(0, 10),
+          lastActivity: (detailData.updated_at || detailData.created_at || lead.updated_at || '').slice(0, 10),
+          value: asNumber(detailData.predicted_value, lead.predicted_value || 0),
+          currency: detailData.predicted_value_currency || 'VND',
+          priority: detailData.priority || lead.priority || 'medium',
+          leadScore: asNumber(detailData.lead_score, 0),
+          conversionProb: detailData.conversion_prob ?? 0,
+          tags: Array.isArray(detailData.tags) ? detailData.tags : [],
+          productInterest: detailData.product_interest || '',
+          assignee: detailData.assignee_name || 'Chưa phân công',
+          assigneeId: detailData.assigned_to || null,
+          notes: detailData.notes || '',
+          aiReason: detailData.ai_reason || '',
+          predictedProb: detailData.predicted_prob ?? 0,
+          mlConversionProb: detailData.ml_conversion_prob ?? 0,
+          mlPredictedValue: asNumber(detailData.ml_predicted_value, 0),
+          mlLastScoredAt: detailData.ml_last_scored_at || null,
+          mlModelVersion: detailData.ml_model_version || null,
+          productInterests: detailData.product_interests || [],
+          interactions: detailData.interactions || [],
+          anonId: detailData.anon_id || null,
+          campaignId: detailData.campaign_id || null,
+        };
+
+        setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+      } else {
+        setModal({ open: true, mode: 'view', deal: lead, loading: false });
+      }
+    } catch (err) {
+      console.error('Failed to load lead details:', err);
+      setModal({ open: true, mode: 'view', deal: lead, loading: false });
+    }
+  };
+
+  const handleEdit = async (lead) => {
+    setModal({ open: true, mode: 'edit', deal: lead, loading: true });
+    
+    try {
+      const res = await getLeadDetailsById(lead.lead_id);
+      const detailData = res?.data?.data ?? res?.data ?? res;
+      
+      if (detailData) {
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
+        };
+
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fb;
+        };
+
+        const enrichedDeal = {
+          id: detailData.lead_id,
+          title: detailData.deal_name || detailData.name || lead.deal_name,
+          name: detailData.name || lead.name,
+          email: detailData.email || lead.email,
+          phone: detailData.phone || lead.phone,
+          source: detailData.source || lead.source,
+          stage: normalizeStatus(detailData.status),
+          status: normalizeStatus(detailData.status),
+          createdDate: (detailData.created_at || lead.created_at || '').slice(0, 10),
+          lastActivity: (detailData.updated_at || detailData.created_at || lead.updated_at || '').slice(0, 10),
+          value: asNumber(detailData.predicted_value, lead.predicted_value || 0),
+          currency: detailData.predicted_value_currency || 'VND',
+          priority: detailData.priority || lead.priority || 'medium',
+          leadScore: asNumber(detailData.lead_score, 0),
+          conversionProb: detailData.conversion_prob ?? 0,
+          tags: Array.isArray(detailData.tags) ? detailData.tags : [],
+          productInterest: detailData.product_interest || '',
+          assignee: detailData.assignee_name || 'Chưa phân công',
+          assigneeId: detailData.assigned_to || null,
+          notes: detailData.notes || '',
+          aiReason: detailData.ai_reason || '',
+          predictedProb: detailData.predicted_prob ?? 0,
+          mlConversionProb: detailData.ml_conversion_prob ?? 0,
+          mlPredictedValue: asNumber(detailData.ml_predicted_value, 0),
+          mlLastScoredAt: detailData.ml_last_scored_at || null,
+          mlModelVersion: detailData.ml_model_version || null,
+          productInterests: detailData.product_interests || [],
+          interactions: detailData.interactions || [],
+          anonId: detailData.anon_id || null,
+          campaignId: detailData.campaign_id || null,
+        };
+
+        setModal({ open: true, mode: 'edit', deal: enrichedDeal, loading: false });
+      } else {
+        setModal({ open: true, mode: 'edit', deal: lead, loading: false });
+      }
+    } catch (err) {
+      console.error('Failed to load lead details:', err);
+      setModal({ open: true, mode: 'edit', deal: lead, loading: false });
+    }
+  };
+
+  const handleCreate = () => setModal({ open: true, mode: 'edit', deal: null, loading: false });
+  const closeModal = () => setModal({ open: false, mode: 'view', deal: null, loading: false });
+
+  const handleSave = async (dealData) => {
+    if (dealData.id && !dealData.shouldRefresh) {
+      // Updated existing lead - refresh data and switch to view mode
+      try {
+        const res = await getLeadDetailsById(dealData.id);
+        const detailData = res?.data?.data ?? res?.data ?? res;
+        
+        if (detailData) {
+          const normalizeStatus = (s) => {
+            const v = (s || '').toLowerCase();
+            return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+              ? v
+              : 'new';
+          };
+
+          const asNumber = (x, fb = 0) => {
+            if (x === null || x === undefined) return fb;
+            const n = typeof x === 'string' ? parseFloat(x) : x;
+            return Number.isFinite(n) ? n : fb;
+          };
+
+          const enrichedDeal = {
+            lead_id: detailData.lead_id,
+            id: detailData.lead_id,
+            title: detailData.deal_name || detailData.name || dealData.title,
+            deal_name: detailData.deal_name || detailData.name,
+            name: detailData.name || dealData.name,
+            email: detailData.email || dealData.email,
+            phone: detailData.phone || dealData.phone,
+            source: detailData.source || dealData.source,
+            stage: normalizeStatus(detailData.status),
+            status: normalizeStatus(detailData.status),
+            created_at: detailData.created_at || dealData.createdDate,
+            createdDate: (detailData.created_at || dealData.createdDate || '').slice(0, 10),
+            updated_at: detailData.updated_at || detailData.created_at,
+            lastActivity: (detailData.updated_at || detailData.created_at || dealData.lastActivity || '').slice(0, 10),
+            predicted_value: asNumber(detailData.predicted_value, dealData.value || 0),
+            value: asNumber(detailData.predicted_value, dealData.value || 0),
+            currency: detailData.predicted_value_currency || 'VND',
+            priority: detailData.priority || dealData.priority || 'medium',
+            leadScore: asNumber(detailData.lead_score, dealData.leadScore || 0),
+            lead_score: asNumber(detailData.lead_score, 0),
+            conversionProb: detailData.conversion_prob ?? dealData.conversionProb ?? 0,
+            conversion_prob: detailData.conversion_prob ?? 0,
+            tags: Array.isArray(detailData.tags) ? detailData.tags : (dealData.tags || []),
+            productInterest: detailData.product_interest || dealData.productInterest,
+            product_interest: detailData.product_interest,
+            assignee: detailData.assignee_name || dealData.assignee || 'Chưa phân công',
+            assignee_name: detailData.assignee_name,
+            assigneeId: detailData.assigned_to || dealData.assigneeId || null,
+            assigned_to: detailData.assigned_to,
+            notes: detailData.notes || dealData.notes || '',
+            aiReason: detailData.ai_reason || dealData.aiReason || '',
+            ai_reason: detailData.ai_reason,
+            predictedProb: detailData.predicted_prob ?? dealData.predictedProb ?? 0,
+            mlConversionProb: detailData.ml_conversion_prob ?? dealData.mlConversionProb ?? 0,
+            ml_conversion_prob: detailData.ml_conversion_prob,
+            mlPredictedValue: asNumber(detailData.ml_predicted_value, dealData.mlPredictedValue || 0),
+            ml_predicted_value: asNumber(detailData.ml_predicted_value, 0),
+            mlLastScoredAt: detailData.ml_last_scored_at || dealData.mlLastScoredAt || null,
+            ml_last_scored_at: detailData.ml_last_scored_at,
+            mlModelVersion: detailData.ml_model_version || dealData.mlModelVersion || null,
+            ml_model_version: detailData.ml_model_version,
+            productInterests: detailData.product_interests || [],
+            product_interests: detailData.product_interests || [],
+            interactions: detailData.interactions || [],
+            anonId: detailData.anon_id || null,
+            anon_id: detailData.anon_id,
+            campaignId: detailData.campaign_id || null,
+            campaign_id: detailData.campaign_id,
+          };
+
+          // Update leads list in background
+          setLeads((prev) =>
+            prev.map((l) => (l.lead_id === dealData.id ? enrichedDeal : l))
+          );
+
+          // Switch to view mode with updated data
+          setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+        } else {
+          // Fallback
+          setLeads((prev) =>
+            prev.map((l) => (l.lead_id === dealData.id ? { ...l, ...dealData } : l))
+          );
+          setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+        }
+      } catch (err) {
+        console.error('Failed to refresh lead details:', err);
+        setLeads((prev) =>
+          prev.map((l) => (l.lead_id === dealData.id ? { ...l, ...dealData } : l))
+        );
+        setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+      }
+    } else if (dealData.shouldRefresh) {
+      // New lead created, refresh the list and close modal
+      closeModal();
+      try {
+        const data = await getAllleads();
+        setLeads(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Failed to refresh leads after creating:', err);
+      }
     } else {
+      // Fallback
       const newLead = {
-        ...lead,
+        ...dealData,
         lead_id: crypto.randomUUID?.() || Date.now().toString(),
         created_at: new Date().toISOString(),
       };
       setLeads((prev) => [newLead, ...prev]);
-      closeModal();
       toast.success('Thêm lead thành công!');
+      closeModal();
     }
   };
 
@@ -248,7 +471,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                      className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase"
                     >
                       {h}
                     </th>
@@ -374,16 +597,20 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         open={modal.open}
         onClose={closeModal}
         title={{
-          view: `Chi tiết lead - ${modal.deal?.deal_name || modal.deal?.name || ''}`,
+          view: `Chi tiết lead - ${modal.deal?.title || modal.deal?.deal_name || modal.deal?.name || ''}`,
           edit: modal.deal
-            ? `Chỉnh sửa lead - ${modal.deal.deal_name || modal.deal.name}`
+            ? `Chỉnh sửa lead - ${modal.deal.title || modal.deal.deal_name || modal.deal.name}`
             : 'Thêm lead mới',
         }}
         mode={modal.mode}
         FormComponent={DealForm}
         data={modal.deal}
+        loading={modal.loading}
         onSave={handleSave}
         onDelete={(id) => handleDelete(id)}
+        setMode={(newMode) => {
+          setModal(prev => ({ ...prev, mode: newMode }));
+        }}
         maxWidth="sm:max-w-3xl"
       />
     </div>

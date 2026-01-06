@@ -53,6 +53,9 @@ import { Input } from "@/components/ui/input";
 import AppDialog from "@/components/dialogs/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import TriggerPickerContent from "./components/pickers/TriggerPickerContent";
+import ActionPickerContent from "./components/pickers/ActionPickerContent";
+import { toast } from "sonner";
 
 const toTagsArray = (tags) => {
   if (Array.isArray(tags)) return tags;
@@ -155,6 +158,8 @@ const makeNodeId = () =>
   (typeof crypto !== "undefined" && crypto.randomUUID)
     ? crypto.randomUUID()
     : `node_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+
 export default function FlowBuilderPage() {
   const { id } = useParams(); // "new" | flow_id
   const navigate = useNavigate();
@@ -355,6 +360,7 @@ export default function FlowBuilderPage() {
               key: actionType, // giữ để lookup catalog
               icon: cat?.icon || getActionIcon(actionType),
               label: cat?.label || actionType || "Action",
+              description: cat?.description || a.description || "", // ưu tiên catalog, fallback về a.description
               content: a.content || config || {}, // Prioritize a.content, fallback to config, then empty object
               order_index: a.order_index ?? idx,
               delay_minutes: a.delay_minutes ?? 0,
@@ -367,8 +373,6 @@ export default function FlowBuilderPage() {
   // UI states
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
   const [showActionPicker, setShowActionPicker] = useState(false);
-  const [qTrigger, setQTrigger] = useState("");
-  const [qAction, setQAction] = useState("");
   const [selected, setSelected] = useState(null); // {type, key}
 
   const [activeId, setActiveId] = useState(null);
@@ -412,22 +416,6 @@ export default function FlowBuilderPage() {
     }
     setSaved(false);
   };
-
-  const filteredTriggerCatalog = useMemo(() => {
-    const q = qTrigger.trim().toLowerCase();
-    const src = eventCatalog;
-    return q
-      ? src.filter((i) => (i.label || "").toLowerCase().includes(q))
-      : src;
-  }, [qTrigger, eventCatalog]);
-
-  const filteredActionCatalog = useMemo(() => {
-    const q = qAction.trim().toLowerCase();
-    const src = actionCatalog;
-    return q
-      ? src.filter((i) => (i.label || "").toLowerCase().includes(q))
-      : src;
-  }, [qAction, actionCatalog]);
 
   const currentTrigger = useMemo(
     () =>
@@ -484,7 +472,6 @@ export default function FlowBuilderPage() {
     ]);
     setSelected({ type: "trigger", nodeId });
     setShowTriggerPicker(false);
-    setQTrigger("");
     setSaved(false);
   };
 
@@ -507,6 +494,7 @@ export default function FlowBuilderPage() {
       key: action_type,
       icon: item.icon,
       label: item.label,
+      description: item.description, // ✅ thêm description
       channel:
         item.default_channel ||
         (action_type === "send_email" ? "email" : undefined),
@@ -522,7 +510,6 @@ export default function FlowBuilderPage() {
     setActions((prev) => [...prev, base]);
     setSelected({ type: "action", nodeId });
     setShowActionPicker(false);
-    setQAction("");
     setSaved(false);
   };
 
@@ -582,13 +569,13 @@ export default function FlowBuilderPage() {
         tags: Array.isArray(automation?.tags) ? automation.tags : [],
       };
       if (!body.name) {
-        alert("Nhập tên automation trước khi tạo");
+        toast.error("Vui lòng nhập tên automation trước khi tạo");
         return;
       }
       const res = await createFlow(body);
       const newId = pickFlowId(res);
       if (!newId) {
-        alert("Không lấy được flow_id sau khi tạo");
+        toast.error("Không lấy được flow_id sau khi tạo");
         return;
       }
       setAutomation((prev) => ({
@@ -598,16 +585,17 @@ export default function FlowBuilderPage() {
       }));
       setActiveTab("setup");
       setSaved(false);
+      toast.success("Tạo flow thành công");
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Tạo flow thất bại");
+      toast.error(e?.message || "Tạo flow thất bại");
     }
   };
 
   // 2) Lưu thông tin chung (meta)
   const handleSaveInfo = async () => {
     if (!automation?.flow_id) {
-      alert("Chưa có flow_id — hãy tạo flow trước");
+      toast.error("Chưa có flow_id — hãy tạo flow trước");
       return;
     }
     try {
@@ -623,16 +611,17 @@ export default function FlowBuilderPage() {
       };
       await saveFlowEditor(automation.flow_id, payload);
       setSaved(true);
+      toast.success("Lưu thông tin thành công");
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Lưu thông tin chung thất bại");
+      toast.error(e?.message || "Lưu thông tin chung thất bại");
     }
   };
 
   // 3) Lưu tab thiết lập (triggers + actions)
   const handleSaveSetup = async () => {
     if (!automation?.flow_id) {
-      alert("Chưa có flow_id — hãy tạo flow trước");
+      toast.error("Chưa có flow_id — hãy tạo flow trước");
       return;
     }
     try {
@@ -660,25 +649,26 @@ export default function FlowBuilderPage() {
       setInitialServer({ triggers, actions });
 
       setSaved(true);
-      alert("Đã lưu thiết lập");
+      toast.success("Đã lưu thiết lập thành công");
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Lưu thiết lập thất bại");
+      toast.error(e?.message || "Lưu thiết lập thất bại");
     }
   };
 
   // 4) Gen AI cho action Email hiện chọn
   const handleGenEmailAI = async () => {
     if (!selected || selected.type !== "action") {
-      alert("Hãy chọn hành động Gửi Email");
+      toast.error("Hãy chọn hành động Gửi Email");
       return;
     }
     const act = actions.find((a) => a.key === selected.key);
     if (!act || act.key !== "send_email") {
-      alert("Chỉ hỗ trợ Gen AI cho hành động Gửi Email");
+      toast.error("Chỉ hỗ trợ Gen AI cho hành động Gửi Email");
       return;
     }
     try {
+      toast.loading("Đang tạo nội dung email...");
       const res = await generateEmailContent({
         input: {
           name: automation?.lead_name || "",
@@ -702,9 +692,10 @@ export default function FlowBuilderPage() {
         )
       );
       setSaved(false);
+      toast.success("Tạo nội dung email thành công");
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Gen AI thất bại");
+      toast.error(e?.message || "Gen AI thất bại");
     }
   };
 
@@ -714,86 +705,6 @@ export default function FlowBuilderPage() {
     { value: "DRAFT", label: "Bản nháp" },
     { value: "INACTIVE", label: "Ngưng hoạt động" },
   ];
-
-  // Picker dialog content for triggers
-  const TriggerPickerContent = (
-    <div className="p-2">
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <Input
-          type="text"
-          placeholder="Tìm kiếm chiến dịch..."
-          value={qTrigger}
-          onChange={(e) => setQTrigger(e.target.value)}
-          className="pl-9 pr-3 py-2 w-full"
-        />
-      </div>
-      <div className="max-h-96 overflow-auto pr-1">
-        {filteredTriggerCatalog.map((it) => (
-          <button
-            key={it.key}
-            onClick={() => addTrigger(it)}
-            className="cursor-pointer w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
-          >
-            <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
-            <div className="min-w-0 text-left">
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {it.label}
-              </div>
-              <div className="text-xs text-gray-500">
-                Kích hoạt khi điều kiện phù hợp
-              </div>
-            </div>
-          </button>
-        ))}
-        {filteredTriggerCatalog.length === 0 && (
-          <div className="text-center text-gray-400 py-6">
-            Không tìm thấy Trigger phù hợp
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // Picker dialog content for actions
-  const ActionPickerContent = (
-    <div className="p-2">
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <Input
-          type="text"
-          placeholder="Tìm kiếm chiến dịch..."
-          value={qAction}
-          onChange={(e) => setQAction(e.target.value)}
-          className="pl-9 pr-3 py-2 w-full"
-        />
-      </div>
-      <div className="max-h-96 overflow-auto pr-1">
-        {filteredActionCatalog.map((it) => (
-          <button
-            key={it.key}
-            onClick={() => addAction(it)}
-            className="cursor-pointer w-full flex items-start justify-start gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-left"
-          >
-            <it.icon className="w-5 h-5 mt-0.5 text-brand-600" />
-            <div className="min-w-0 text-left">
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {it.label}
-              </div>
-              <div className="text-xs text-gray-500">
-                Thực thi sau khi Trigger thoả
-              </div>
-            </div>
-          </button>
-        ))}
-        {filteredActionCatalog.length === 0 && (
-          <div className="text-center text-gray-400 py-6">
-            Không tìm thấy Hành động phù hợp
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen">
@@ -818,14 +729,17 @@ export default function FlowBuilderPage() {
             <div className="flex w-full gap-1.5 text-sm justify-end">
               <Badge
                 variant="status"
-                className={cn("w-28", saved ? "border-emerald-500" : "border-amber-500")}
+                className={cn(
+                  "min-w-fit whitespace-nowrap",
+                  saved ? "border-emerald-500" : "border-amber-500"
+                )}
               >
                 {saved ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                 )}
-                <span className={saved ? "text-emerald-700" : "text-amber-700"}>
+                <span className={cn("ml-1.5", saved ? "text-emerald-700" : "text-amber-700")}>
                   {saved ? "Đã lưu" : "Có thay đổi"}
                 </span>
               </Badge>
@@ -835,7 +749,7 @@ export default function FlowBuilderPage() {
               onClick={handleSaveSetup}
               disabled={!automation?.flow_id}
               title={!automation?.flow_id ? "Tạo flow trước" : "Lưu thiết lập"}
-              className="w-full lg:w-auto"
+              className="w-full lg:w-auto whitespace-nowrap"
             >
               <Save className="w-4 h-4 mr-2" />
               Lưu thiết lập
@@ -866,14 +780,14 @@ export default function FlowBuilderPage() {
       {/* Tab content */}
       <div className="py-6">
         {activeTab === "info" ? (
-          <div className="max-w-2xl mx-auto bg-white rounded-2xl border p-6 space-y-5">
+          <div className="animate-fade-in transitio duration-150 shadow-lg max-w-2xl mx-auto bg-white rounded-2xl border p-6 space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tên automation
               </label>
-              <input
+              <Input
                 type="text"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                variant="normal"
                 value={automation?.name || ""}
                 onChange={(e) => handleFieldChange("name", e.target.value)}
               />
@@ -882,9 +796,9 @@ export default function FlowBuilderPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Mô tả
               </label>
-              <input
+              <Input
                 type="text"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                variant="normal"
                 value={automation?.description || ""}
                 onChange={(e) =>
                   handleFieldChange("description", e.target.value)
@@ -896,9 +810,9 @@ export default function FlowBuilderPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Loại
                 </label>
-                <input
+                <Input
                   type="text"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  variant="normal"
                   value={automation?.type || ""}
                   onChange={(e) => handleFieldChange("type", e.target.value)}
                 />
@@ -921,9 +835,9 @@ export default function FlowBuilderPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tags
                 </label>
-                <input
+                <Input
                   type="text"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  variant="normal"
                   value={
                     Array.isArray(automation?.tags)
                       ? automation.tags.join(", ")
@@ -954,9 +868,9 @@ export default function FlowBuilderPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Người tạo
                 </label>
-                <input
+                <Input
                   type="text"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  variant="normal"
                   value={automation?.created_by || ""}
                   onChange={(e) =>
                     handleFieldChange("created_by", e.target.value)
@@ -993,7 +907,7 @@ export default function FlowBuilderPage() {
             <div className="lg:col-span-4 space-y-3 relative">
               <Section
                 title={
-                  <div className="flex items-center justify-between w-full">
+                  <div className=" flex items-center justify-between w-full">
                     <span className="font-bold text-gray-900 text-base md:text-lg">
                       Trigger
                     </span>
@@ -1031,6 +945,7 @@ export default function FlowBuilderPage() {
                         id={t.nodeId}
                         icon={t.icon}
                         label={t.label}
+                        description={t.description} // ✅ thêm mô tả
                         active={selected?.type === "trigger" && selected?.nodeId === t.nodeId}
                         onClick={() => setSelected({ type: "trigger", nodeId: t.nodeId })}
                         right={
@@ -1055,6 +970,7 @@ export default function FlowBuilderPage() {
                         <Block
                           label={triggers.find(t => t.nodeId === activeId)?.label}
                           icon={triggers.find(t => t.nodeId === activeId)?.icon}
+                          description={triggers.find(t => t.nodeId === activeId)?.description} // ✅ thêm mô tả
                           isDragging
                         />
                       </div>
@@ -1104,6 +1020,7 @@ export default function FlowBuilderPage() {
                         id={a.nodeId}
                         icon={a.icon}
                         label={a.label}
+                        description={a.description} // ✅ thêm mô tả
                         active={selected?.type === "action" && selected?.nodeId === a.nodeId}
                         onClick={() => setSelected({ type: "action", nodeId: a.nodeId })}
                         right={
@@ -1127,6 +1044,7 @@ export default function FlowBuilderPage() {
                         <Block
                           label={actions.find(a => a.nodeId === activeId)?.label}
                           icon={actions.find(a => a.nodeId === activeId)?.icon}
+                          description={actions.find(a => a.nodeId === activeId)?.description} // ✅ thêm mô tả
                           isDragging
                         />
                       </div>
@@ -1137,7 +1055,7 @@ export default function FlowBuilderPage() {
             </div>
 
             {/* Inspector */}
-            <div className="lg:col-span-8">
+            <div className=" animate-fade-in transition duration-150 lg:col-span-8">
               <InspectorPanel
                 selected={selected}
                 currentTrigger={currentTrigger}
@@ -1160,7 +1078,12 @@ export default function FlowBuilderPage() {
         onClose={() => setShowTriggerPicker(false)}
         title="Chọn Trigger"
         mode="view"
-        FormComponent={() => TriggerPickerContent}
+        FormComponent={() => (
+          <TriggerPickerContent
+            catalog={eventCatalog}
+            onSelect={addTrigger}
+          />
+        )}
         maxWidth="sm:max-w-md"
       />
 
@@ -1170,7 +1093,12 @@ export default function FlowBuilderPage() {
         onClose={() => setShowActionPicker(false)}
         title="Chọn hành động"
         mode="view"
-        FormComponent={() => ActionPickerContent}
+        FormComponent={() => (
+          <ActionPickerContent
+            catalog={actionCatalog}
+            onSelect={addAction}
+          />
+        )}
         maxWidth="sm:max-w-md"
       />
     </div>
@@ -1179,7 +1107,7 @@ export default function FlowBuilderPage() {
 
 // Section helper
 const Section = ({ title, subtitle, footer, children }) => (
-  <div className="bg-white rounded-2xl border p-4 space-y-3">
+  <div className="animate-fade-in transition duration-150 bg-white rounded-2xl border p-4 space-y-3 shadow-sm ">
     <div>
       <div className="font-semibold text-gray-900">{title}</div>
       {subtitle && <div className="text-xs text-gray-500">{subtitle}</div>}

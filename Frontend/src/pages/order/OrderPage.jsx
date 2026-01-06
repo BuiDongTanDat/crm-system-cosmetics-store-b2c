@@ -18,12 +18,14 @@ import { ChevronDown } from "lucide-react";
 import DropdownWithSearch from '@/components/common/DropdownWithSearch';
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
+import DateRangeButtonPicker from "@/components/common/DateRangeButtonPicker";
 
 export default function OrderPage() {
     const [orders, setOrders] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState("");
+    const [dateRange, setDateRange] = useState({ from: null, to: null });
     // Nhãn tiếng Việt cho payment methods
     const PAYMENT_LABELS = {
         credit_card: "Thẻ tín dụng",
@@ -119,14 +121,24 @@ export default function OrderPage() {
             (order.order_id || "").toString().toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = selectedStatus ? order.status === selectedStatus : true;
         const matchesCustomer = selectedCustomer ? (order.customer_id === selectedCustomer) : true;
-        return matchesSearch && matchesStatus && matchesCustomer;
+        
+        // Lọc theo khoảng ngày
+        let matchesDate = true;
+        if (dateRange?.from && dateRange?.to) {
+            const orderDate = new Date(order.order_date);
+            const filterStart = new Date(dateRange.from);
+            const filterEnd = new Date(dateRange.to);
+            matchesDate = orderDate >= filterStart && orderDate <= filterEnd;
+        }
+        
+        return matchesSearch && matchesStatus && matchesCustomer && matchesDate;
     });
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const ordersPerPage = 8;
 
-    useEffect(() => setCurrentPage(1), [searchTerm, selectedStatus, selectedCustomer]);
+    useEffect(() => setCurrentPage(1), [searchTerm, selectedStatus, selectedCustomer, dateRange]);
 
     const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ordersPerPage));
     const indexOfLast = currentPage * ordersPerPage;
@@ -381,7 +393,7 @@ export default function OrderPage() {
                                     className="pl-9 pr-3 py-2 w-full"
                                 />
                             </div>
-                            {/* Filter row: Trạng thái + Khách hàng */}
+                            {/* Filter row: Trạng thái + Khách hàng + Ngày */}
                             <div className="flex flex-row gap-2 w-full lg:w-auto">
                                 <DropdownOptions
                                     options={[
@@ -393,6 +405,7 @@ export default function OrderPage() {
                                     width="w-full flex-1 lg:w-auto "
                                     placeholder="Trạng thái"
                                 />
+                                
                                 <DropdownWithSearch
                                     items={[{ customer_id: '', full_name: 'Tất cả khách hàng' }, ...customers]}
                                     itemKey={(c) => c.customer_id || c.id}
@@ -410,6 +423,10 @@ export default function OrderPage() {
                                         <ChevronDown className="w-4 h-4 text-gray-400" />
                                     </div>
                                 </DropdownWithSearch>
+                                <DateRangeButtonPicker
+                                    value={dateRange}
+                                    onChange={setDateRange}
+                                />
                             </div>
                         </div>
                         <div className="flex gap-2 w-full lg:w-auto">

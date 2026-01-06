@@ -6,15 +6,11 @@ import ConfirmDialog from '@/components/dialogs/ConfirmDialog'
 import PermissionGuard from '@/components/auth/PermissionGuard'
 
 const ProductCard = ({ product, onView, onEdit, onDelete }) => {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <div
       className="bg-white border-gray-200 overflow-hidden rounded-sm
                 hover:scale-103 hover:shadow-md shadow-sm
                 transition-all duration-150 animate-fade-in relative"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {/* Image */}
       <div className="relative cursor-pointer" onClick={() => onView(product)}>
@@ -29,8 +25,8 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <div className="flex items-center justify-between ">
+      <div className="p-4 flex flex-col">
+        <div className="flex items-center justify-between mb-2">
           <p className="font-semibold text-gray-900 text-sm truncate">
             {product.name}
           </p>
@@ -46,67 +42,63 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
               : product.status?.toString().toUpperCase() === 'OUT_OF_STOCK'
                 ? 'Hết hàng'
                 : 'Đã ngừng'}
-
           </span>
         </div>
 
-        <p className="text-gray-600 text-[12px] mb-0 line-clamp-3">
+        <p className="text-gray-600 text-[12px] mb-3 line-clamp-3 min-h-[3rem]">
           Thương hiệu: {product.brand}<br />
           Mô tả: {product.short_description}
         </p>
 
-        <div className="relative mb-0 h-10">
-          {/* Rating và Giá - hiển thị bình thường */}
-          <div className={`flex justify-between items-end transition-opacity duration-150 ease-in-out ${hovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            <span className="flex items-center gap-1 text-yellow-500 text-sm font-medium">
-              <Star className="w-4 h-4 -mt-[1px]" />
-              {product.rating || 0}
-            </span>
+        {/* Rating và Giá */}
+        <div className="flex justify-between items-end mb-3">
+          <span className="flex items-center gap-1 text-yellow-500 text-sm font-medium">
+            <Star className="w-4 h-4 -mt-[1px]" />
+            {product.rating || 0}
+          </span>
 
-
-            {/* Giá bên phải */}
-            <div className="text-right">
-              {/* Giá cũ */}
-              {product.price_original && product.price_original > 0 && (
-                <div className="text-[13px] text-gray-400 line-through">
-                  {formatCurrency(product.price_original)}
-                </div>
-              )}
-              {/* Giá hiện tại */}
-              <div className="text-sm font-bold text-gray-900">
-                {formatCurrency(product.price_current)}
+          {/* Giá bên phải */}
+          <div className="text-right">
+            {/* Giá cũ */}
+            {product.price_original && product.price_original > 0 && (
+              <div className="text-[13px] text-gray-400 line-through">
+                {formatCurrency(product.price_original)}
               </div>
+            )}
+            {/* Giá hiện tại */}
+            <div className="text-sm font-bold text-gray-900">
+              {formatCurrency(product.price_current)}
             </div>
           </div>
+        </div>
 
-          {/* Action buttons - only visible for this hovered card */}
-          {hovered && (
-            <div className="justify-center flex gap-2 animate-slide-up duration-200 absolute inset-0 items-center">
-              <PermissionGuard module="product" action="read">
-                <Button variant="actionRead" size="icon" onClick={() => onView(product)}>
-                  <Eye className="w-4 h-4" />
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard module="product" action="update">
-                <Button variant="actionUpdate" size="icon" onClick={() => onEdit(product)}>
-                  <Edit className="w-4 h-4" />
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard module="product" action="delete">
-                <ConfirmDialog
-                  title="Xác nhận xóa"
-                  description={<>Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{product?.name}</span>?</>}
-                  confirmText="Xóa"
-                  cancelText="Hủy"
-                  onConfirm={() => onDelete?.(product?.product_id || product?.id)}
-                >
-                  <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </ConfirmDialog>
-              </PermissionGuard>
-            </div>
-          )}
+        {/* Action Buttons - luôn hiển thị ở dưới */}
+        <div className="flex justify-center gap-2 mt-auto pt-2 border-t">
+          <PermissionGuard module="product" action="read">
+            <Button variant="actionRead" size="sm" onClick={() => onView(product)} className="flex-1">
+              <Eye className="w-4 h-4 mr-1" />
+              Xem
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard module="product" action="update">
+            <Button variant="actionUpdate" size="sm" onClick={() => onEdit(product)} className="flex-1">
+              <Edit className="w-4 h-4 mr-1" />
+              Sửa
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard module="product" action="delete">
+            <ConfirmDialog
+              title="Xác nhận xóa"
+              description={<>Bạn có chắc chắn muốn xóa sản phẩm <span className="font-semibold text-black">{product?.name}</span>?</>}
+              confirmText="Xóa"
+              cancelText="Hủy"
+              onConfirm={() => onDelete?.(product?.product_id || product?.id)}
+            >
+              <Button variant="actionDelete" size="icon">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </ConfirmDialog>
+          </PermissionGuard>
         </div>
       </div>
     </div>

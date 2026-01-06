@@ -17,7 +17,7 @@ export default function InspectorPanel({
   const [showCreateCron, setShowCreateCron] = useState(false);
 
   return (
-    <div className="rounded-2xl border bg-white">
+    <div className="rounded-2xl border bg-white shadow-sm">
       <InspectorHeader
         selected={selected}
         currentTrigger={currentTrigger}

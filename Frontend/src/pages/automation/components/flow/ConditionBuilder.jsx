@@ -53,7 +53,11 @@ const parseMaybeNumber = (s) => {
   return Number.isFinite(n) ? n : null;
 };
 
-function TagInput({ value = [], onChange, placeholder = "Enter values, press Enter" }) {
+function TagInput({
+  value = [],
+  onChange,
+  placeholder = "Enter values, press Enter",
+}) {
   const [text, setText] = useState("");
 
   const add = (raw) => {
@@ -90,6 +94,7 @@ function TagInput({ value = [], onChange, placeholder = "Enter values, press Ent
       </div>
 
       <Input
+        variant="normal"
         value={text}
         placeholder={placeholder}
         onChange={(e) => setText(e.target.value)}
@@ -121,7 +126,8 @@ function ValueEditor({ field, op, value, onChange }) {
 
   // Use Autocomplete for fields with options but still allow manual entry
   // This is better than a plain Select for many automation scenarios
-  const shouldUseAutocomplete = !isArrayOp && (options.length > 0 || type === "text" || type === "number");
+  const shouldUseAutocomplete =
+    !isArrayOp && (options.length > 0 || type === "text" || type === "number");
 
   if (isArrayOp) {
     return (
@@ -175,6 +181,7 @@ function ValueEditor({ field, op, value, onChange }) {
 
   return (
     <Input
+    variant ="normal"
       type={type === "number" ? "number" : "text"}
       value={value ?? ""}
       onChange={(e) => {
@@ -192,7 +199,11 @@ function RuleRow({ rule, fields, onChange, onRemove }) {
 
   const ops = useMemo(() => {
     if (field?.ops?.length) return field.ops.map(normalizeOp);
-    const byType = DEFAULT_OPS_BY_TYPE[field?.type || "text"] || ["eq", "neq", "exists"];
+    const byType = DEFAULT_OPS_BY_TYPE[field?.type || "text"] || [
+      "eq",
+      "neq",
+      "exists",
+    ];
     return byType.map(normalizeOp);
   }, [field]);
 
@@ -314,7 +325,9 @@ export default function ConditionBuilder({
   };
 
   const updateRule = (idx, patch) => {
-    const next = (filters || []).map((r, i) => (i === idx ? { ...r, ...patch } : r));
+    const next = (filters || []).map((r, i) =>
+      i === idx ? { ...r, ...patch } : r
+    );
     emit(next);
   };
 
@@ -328,15 +341,22 @@ export default function ConditionBuilder({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-semibold">{title}</div>
-          {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
+          {subtitle && (
+            <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>
+          )}
         </div>
-        <Button type="button" variant="actionCreate" size="sm" onClick={addRule}>
+        <Button
+          type="button"
+          variant="actionCreate"
+          size="sm"
+          onClick={addRule}
+        >
           <Plus className="w-4 h-4 mr-1" />
           Add rule
         </Button>
       </div>
 
-      {(!filters || filters.length === 0) ? (
+      {!filters || filters.length === 0 ? (
         <div className="text-sm text-gray-500 bg-gray-50 border rounded-md p-3">
           Chưa có rule nào. Nhấn “Add rule”.
         </div>

@@ -6,6 +6,7 @@ import { addFlowToChannel } from "@/services/campaign";
 import { getFlow as listFlows } from "@/services/automation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import DropdownOptions from "@/components/common/DropdownOptions";
 
 export default function MapFlowDialog({ open, onClose, channelId, onSuccess }) {
     const [loading, setLoading] = useState(false);
@@ -62,21 +63,21 @@ export default function MapFlowDialog({ open, onClose, channelId, onSuccess }) {
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
                         <Label>Chọn Flow tự động hóa cho kênh này</Label>
-                        <select
-                            className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:ring-2 focus:ring-blue-500"
+                        <DropdownOptions
+                            options={availableFlows.map(f => ({
+                                value: f.id,
+                                label: f.name
+                            }))}
                             value={flowId}
-                            onChange={(e) => setFlowId(e.target.value)}
-                        >
-                            <option value="">-- Chọn flow --</option>
-                            {availableFlows.map(f => (
-                                <option key={f.id} value={f.id}>{f.name}</option>
-                            ))}
-                        </select>
+                            onChange={setFlowId}
+                            placeholder="-- Chọn flow --"
+                            disabled={loading}
+                        />
                     </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={handleClose}>Hủy</Button>
-                    <Button onClick={handleSubmit} disabled={loading}>
+                    <Button variant="actionCreate" onClick={handleSubmit} disabled={loading}>
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Gán Luồng
                     </Button>

@@ -4,6 +4,7 @@ import React from "react";
 export const Block = React.forwardRef(({
   icon: Icon,
   label,
+  description, // ✅ thêm prop mô tả
   active,
   onClick,
   right,
@@ -37,11 +38,16 @@ export const Block = React.forwardRef(({
       <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-brand-50 text-brand-600">
         <Icon className="w-5 h-5" />
       </div>
-      <div>
+      <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-gray-900 line-clamp-1">
           {label}
         </div>
-        <div className="text-[11px] text-gray-500 line-clamp-1">Hành động tự động</div>
+        {/* Hiển thị mô tả nếu có */}
+        {description && (
+          <div className="text-[13px] text-gray-500 line-clamp-1 mt-0.5">
+            {description}
+          </div>
+        )}
       </div>
     </div>
     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

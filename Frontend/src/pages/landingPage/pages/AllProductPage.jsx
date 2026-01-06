@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
   Star,
+  PhoneCall,
 } from "lucide-react";
 import { getProducts } from "@/services/products";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -13,7 +14,28 @@ import { Input } from "@/components/ui/input";
 import { getCategories } from "@/services/categories";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { toast } from "sonner";
-const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
+import { trackProductInterest } from "@/services/leads";
+
+// Helper function để tạo UUID v4 chuẩn
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Helper function để tạo hoặc lấy anon_id (UUID format)
+const getOrCreateAnonId = () => {
+  let anonId = localStorage.getItem("anon_id");
+  if (!anonId) {
+    anonId = generateUUID();
+    localStorage.setItem("anon_id", anonId);
+  }
+  return anonId;
+};
+
+const AllProductPage = ({ onContact, onOrder, onCartChange, onSubmitInterest }) => {
   // State
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +46,33 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [likedProducts, setLikedProducts] = useState([]);
   const [showLiked, setShowLiked] = useState(false);
+  // New filter states
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [sortCreated, setSortCreated] = useState("desc");
 
   const pageSize = 15; // 2 row x 8 sản phẩm
+
+  // Filter options
+  const PRICE_FILTER_OPTIONS = [
+    { value: "all", label: "Mệnh giá" },
+    { value: "<100k", label: "Dưới 100.000" },
+    { value: "100k-500k", label: "100.000 - 500.000" },
+    { value: "500k-1tr", label: "500.000 - 1.000.000" },
+    { value: ">1tr", label: "Trên 1.000.000" },
+  ];
+
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "Trạng thái" },
+    { value: "AVAILABLE", label: "Còn hàng" },
+    { value: "OUT_OF_STOCK", label: "Hết hàng" },
+    { value: "DISCONTINUED", label: "Đã ngừng" },
+  ];
+
+  const CREATED_SORT_OPTIONS = [
+    { value: "desc", label: "Sản phẩm mới nhất" },
+    { value: "asc", label: "Sản phẩm cũ nhất" },
+  ];
 
   // Fetch products
   const fetchProducts = async () => {
@@ -78,22 +125,43 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
   }, []);
 
   // Xử lý nút quan tâm
-  const handleToggleLike = (product) => {
+  const handleToggleLike = async (product) => {
     const id = product.product_id ?? product.id;
     let liked = [...likedProducts];
     const idx = liked.findIndex((p) => (p.product_id ?? p.id) === id);
+    
     if (idx > -1) {
+      // Bỏ quan tâm - chỉ xóa khỏi localStorage
       liked.splice(idx, 1);
+      setLikedProducts(liked);
+      localStorage.setItem("likedProducts", JSON.stringify(liked));
+      toast.success("Đã bỏ quan tâm sản phẩm.");
     } else {
+      // Thêm quan tâm - gọi API để track
       liked.push(product);
+      setLikedProducts(liked);
+      localStorage.setItem("likedProducts", JSON.stringify(liked));
+      
+      try {
+        const anonId = getOrCreateAnonId();
+        await trackProductInterest({
+          anon_id: anonId,
+          product_id: product.product_id,
+          product_name: product.name,
+          source: "inbound",
+          campaign_id: null,
+          meta: {
+            page: "all_products",
+            timestamp: new Date().toISOString(),
+          },
+        });
+        toast.success("Đã thêm sản phẩm vào danh sách quan tâm.");
+      } catch (err) {
+        console.error("Failed to track interest:", err);
+        // Vẫn thêm vào localStorage dù API fail
+        toast.success("Đã thêm sản phẩm vào danh sách quan tâm.");
+      }
     }
-    setLikedProducts(liked);
-    localStorage.setItem("likedProducts", JSON.stringify(liked));
-    toast.success(
-      idx > -1
-        ? "Đã bỏ quan tâm sản phẩm."
-        : "Đã thêm sản phẩm vào danh sách quan tâm."
-    );
   };
 
 
@@ -117,7 +185,7 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
   // Filtered products by search (tùy theo chế độ)
   const filteredAllProducts = useMemo(() => {
     const search = searchText.trim().toLowerCase();
-    return products.filter((p) => {
+    let result = products.filter((p) => {
       const matchesSearch =
         p.name?.toLowerCase().includes(search) ||
         p.description?.toLowerCase().includes(search);
@@ -125,13 +193,35 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
         !selectedCategory ||
         selectedCategory === "all" ||
         p.category?.toLowerCase() === selectedCategory.toLowerCase();
-      return matchesSearch && matchesCategory;
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      
+      // Lọc theo mệnh giá
+      let matchesPrice = true;
+      const price = Number(p.price_current) || 0;
+      if (priceFilter === "<100k") matchesPrice = price < 100000;
+      else if (priceFilter === "100k-500k")
+        matchesPrice = price >= 100000 && price <= 500000;
+      else if (priceFilter === "500k-1tr")
+        matchesPrice = price > 500000 && price <= 1000000;
+      else if (priceFilter === ">1tr") matchesPrice = price > 1000000;
+      
+      return matchesSearch && matchesCategory && matchesStatus && matchesPrice;
     });
-  }, [products, selectedCategory, searchText]);
+    
+    // Sắp xếp theo ngày tạo
+    result = result.slice().sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+      if (sortCreated === "asc") return dateA - dateB;
+      return dateB - dateA;
+    });
+    
+    return result;
+  }, [products, selectedCategory, searchText, statusFilter, priceFilter, sortCreated]);
 
   const filteredLikedProducts = useMemo(() => {
     const search = searchText.trim().toLowerCase();
-    return likedProducts.filter((p) => {
+    let result = likedProducts.filter((p) => {
       const matchesSearch =
         p.name?.toLowerCase().includes(search) ||
         p.description?.toLowerCase().includes(search);
@@ -139,9 +229,31 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
         !selectedCategory ||
         selectedCategory === "all" ||
         p.category?.toLowerCase() === selectedCategory.toLowerCase();
-      return matchesSearch && matchesCategory;
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      
+      // Lọc theo mệnh giá
+      let matchesPrice = true;
+      const price = Number(p.price_current) || 0;
+      if (priceFilter === "<100k") matchesPrice = price < 100000;
+      else if (priceFilter === "100k-500k")
+        matchesPrice = price >= 100000 && price <= 500000;
+      else if (priceFilter === "500k-1tr")
+        matchesPrice = price > 500000 && price <= 1000000;
+      else if (priceFilter === ">1tr") matchesPrice = price > 1000000;
+      
+      return matchesSearch && matchesCategory && matchesStatus && matchesPrice;
     });
-  }, [likedProducts, selectedCategory, searchText]);
+    
+    // Sắp xếp theo ngày tạo
+    result = result.slice().sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+      if (sortCreated === "asc") return dateA - dateB;
+      return dateB - dateA;
+    });
+    
+    return result;
+  }, [likedProducts, selectedCategory, searchText, statusFilter, priceFilter, sortCreated]);
 
   const total = showLiked
     ? filteredLikedProducts.length
@@ -157,7 +269,7 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
   // Reset page về 1 khi chuyển chế độ xem hoặc thay đổi filter/search
   useEffect(() => {
     setPage(1);
-  }, [showLiked, searchText, selectedCategory]);
+  }, [showLiked, searchText, selectedCategory, statusFilter, priceFilter, sortCreated]);
 
   const goTo = (p) => {
     const np = Math.max(1, Math.min(totalPages, p));
@@ -273,29 +385,64 @@ const AllProductPage = ({ onContact, onOrder, onCartChange }) => {
               </span>
             )}
           </Button>
+          
+          {/* Nút gửi yêu cầu quan tâm - chỉ hiển thị khi đang ở tab "Quan tâm" và có sản phẩm */}
+          {showLiked && likedProducts.length > 0 && (
+            <Button
+              variant="actionCreate"
+              className="flex items-center gap-2"
+              onClick={() => onSubmitInterest?.()}
+            >
+              <PhoneCall size={18} />
+              Gửi yêu cầu quan tâm
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Thanh search và filter luôn hiển thị */}
-      <div className="flex gap-2 items-center mt-6 mb-2">
-        <div className="relative items-center gap-2">
-          <Search className="absolute left-3 top-1.5 w-5 h-5 text-gray-400" />
-          <Input
-            variant="project"
-            type="text"
-            placeholder="Tìm kiếm sản phẩm..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className="w-[200px]"
+      <div className="flex flex-col gap-2 mt-6 mb-2">
+        <div className="flex gap-2 items-center">
+          <div className="relative items-center gap-2">
+            <Search className="absolute left-3 top-1.5 w-5 h-5 text-gray-400" />
+            <Input
+              variant="project"
+              type="text"
+              placeholder="Tìm kiếm sản phẩm..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-[200px]"
+            />
+          </div>
+          <DropdownOptions
+            options={categoryOptions}
+            value={selectedCategory}
+            onChange={(val) => setSelectedCategory(val)}
+            width="w-44"
+            placeholder="Danh mục"
+          />
+          <DropdownOptions
+            options={STATUS_FILTER_OPTIONS}
+            value={statusFilter}
+            onChange={(val) => setStatusFilter(val)}
+            width="w-36"
+            placeholder="Trạng thái"
+          />
+          <DropdownOptions
+            options={PRICE_FILTER_OPTIONS}
+            value={priceFilter}
+            onChange={(val) => setPriceFilter(val)}
+            width="w-50"
+            placeholder="Mệnh giá"
+          />
+          <DropdownOptions
+            options={CREATED_SORT_OPTIONS}
+            value={sortCreated}
+            onChange={(val) => setSortCreated(val)}
+            width="w-44"
+            placeholder="Sắp xếp theo ngày nhập"
           />
         </div>
-        <DropdownOptions
-          options={categoryOptions}
-          value={selectedCategory}
-          onChange={(val) => setSelectedCategory(val)}
-          width="w-49"
-          placeholder="Danh mục"
-        />
       </div>
 
       {/* Danh sách sản phẩm */}

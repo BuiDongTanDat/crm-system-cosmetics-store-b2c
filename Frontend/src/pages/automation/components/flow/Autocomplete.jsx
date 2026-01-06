@@ -47,6 +47,7 @@ export default function Autocomplete({
             <PopoverTrigger asChild>
                 <div className={cn("relative flex w-full items-center group", className)}>
                     <Input
+                        variant="normal"
                         ref={inputRef}
                         value={value}
                         onFocus={() => !open && setOpen(true)}
@@ -79,7 +80,8 @@ export default function Autocomplete({
             >
                 <div className="flex items-center border-b px-3 h-10 bg-gray-50/50">
                     <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
-                    <input
+                    <Input
+                        variant="normal"
                         className="flex h-full w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
                         placeholder="Tìm kiếm gợi ý..."
                         value={search}

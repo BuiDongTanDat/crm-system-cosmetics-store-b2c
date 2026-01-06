@@ -61,6 +61,7 @@ function SendEmailAction({ action, updateActionConfig, def, actionTypes, renderN
         </div>
         <div className="flex gap-2">
           <Input
+            variant="normal"
             value={aiContext}
             onChange={(e) => setAiContext(e.target.value)}
             placeholder="e.g. Viết mail chào mừng khách mới..."

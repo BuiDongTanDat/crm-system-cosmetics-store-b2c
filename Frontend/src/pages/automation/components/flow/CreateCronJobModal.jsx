@@ -4,8 +4,11 @@ import { createCronJob } from "@/services/AutomationCronJob";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { buildCronExpr, formatCron } from "./cronHelper";
+import DateButtonPicker from "@/components/common/DateButtonPicker";
+import DropdownOptions from "@/components/common/DropdownOptions";
 
-export default function CreateCronJobModal({ open, onClose, onCreated }) {
+//Form laf một Component riêng
+function CronJobForm({ onClose, onCreated }) {
     const [form, setForm] = useState({
         job_key: "",
         name: "",
@@ -14,17 +17,17 @@ export default function CreateCronJobModal({ open, onClose, onCreated }) {
         minute: "0",
         daysOfWeek: [],       // weekly
         timezone: "Asia/Ho_Chi_Minh",
+        startDate: null,      // for date picker
     });
 
-    const cronExpr = useMemo(
-        () => buildCronExpr(form),
-        [form]
-    );
+    const cronExpr = useMemo(() => buildCronExpr(form), [form]);
+    const preview = useMemo(() => formatCron(cronExpr), [cronExpr]);
 
-    const preview = useMemo(
-        () => formatCron(cronExpr),
-        [cronExpr]
-    );
+    const repeatOptions = [
+        { value: "daily", label: "Hàng ngày" },
+        { value: "weekly", label: "Hàng tuần" },
+        { value: "monthly", label: "Hàng tháng" },
+    ];
 
     const toggleDay = (d) => {
         setForm((f) => ({
@@ -35,106 +38,136 @@ export default function CreateCronJobModal({ open, onClose, onCreated }) {
         }));
     };
 
+    const handleHourChange = (e) => {
+        const val = parseInt(e.target.value) || 0;
+        setForm((prev) => ({ ...prev, hour: Math.min(23, Math.max(0, val)).toString() }));
+    };
+
+    const handleMinuteChange = (e) => {
+        const val = parseInt(e.target.value) || 0;
+        setForm((prev) => ({ ...prev, minute: Math.min(59, Math.max(0, val)).toString() }));
+    };
+
     const submit = async () => {
         if (!form.job_key || !form.name) {
             alert("Nhập job_key và tên cron job");
             return;
         }
 
-        await createCronJob({
-            job_key: form.job_key,
-            name: form.name,
-            cron_expr: cronExpr,
-            timezone: form.timezone,
-            event_type: "cron.daily",
-            enabled: true,
-        });
-
-        onCreated?.();
-        onClose?.();
+        try {
+            await createCronJob({
+                job_key: form.job_key,
+                name: form.name,
+                cron_expr: cronExpr,
+                timezone: form.timezone,
+                event_type: "cron.daily",
+                enabled: true,
+            });
+            onCreated?.();
+            onClose?.();
+        } catch (error) {
+            console.error("Lỗi khi tạo cron job:", error);
+        }
     };
 
+    return (
+        <div className="space-y-4 p-4">
+            <div className="space-y-1">
+                <label className="text-sm font-medium">Job Key</label>
+                <Input
+                    variant="normal"
+                    placeholder="vd: daily_inactive_customer"
+                    value={form.job_key}
+                    onChange={(e) => setForm({ ...form, job_key: e.target.value })}
+                />
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-sm font-medium">Tên lịch chạy</label>
+                <Input
+                    variant="normal"
+                    placeholder="Tên lịch chạy"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+            </div>
+
+            <div className="space-y-1">
+                <div className="text-sm font-medium">Lặp lại</div>
+                <DropdownOptions
+                    options={repeatOptions}
+                    value={form.type}
+                    onChange={(value) => setForm({ ...form, type: value })}
+                    placeholder="Chọn chu kỳ lặp lại"
+                />
+            </div>
+
+            <div className="space-y-1">
+                <div className="text-sm font-medium">Thời gian chạy</div>
+                <div className="flex gap-2 items-center">
+                    <Input
+                        variant="normal"
+                        type="number"
+                        min={0}
+                        max={23}
+                        placeholder="Giờ"
+                        value={form.hour}
+                        onChange={handleHourChange}
+                    />
+                    <span className="text-lg font-medium">:</span>
+                    <Input
+                        variant="normal"
+                        type="number"
+                        min={0}
+                        max={59}
+                        placeholder="Phút"
+                        value={form.minute}
+                        onChange={handleMinuteChange}
+                    />
+                </div>
+            </div>
+
+            {form.type === "weekly" && (
+                <div className="flex flex-wrap gap-2 w-full">
+                    {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                        <Button
+                            key={d}
+                            variant= {form.daysOfWeek.includes(d) ? "primary" : "outline"}
+                            onClick={() => toggleDay(d)}
+                            className={`px-2 py-1 border rounded text-sm flex-1 ${
+                                form.daysOfWeek.includes(d)
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white"
+                            }`}
+                        >
+                            {["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]}
+                        </Button>
+                    ))}
+                </div>
+            )}
+
+            <div className="text-sm bg-gray-50 border rounded p-2">
+                <strong>Sẽ chạy:</strong> {preview}
+            </div>
+
+            <Button variant="actionCreate" className="w-full" onClick={submit}>
+                Tạo cron job
+            </Button>
+        </div>
+    );
+}
+
+// Component modal chính
+export default function CreateCronJobModal({ open, onClose, onCreated }) {
     return (
         <AppDialog
             open={open}
             onClose={onClose}
             title="Tạo lịch chạy tự động"
-            FormComponent={() => (
-                <div className="space-y-4">
-                    <Input
-                        placeholder="job_key (vd: daily_inactive_customer)"
-                        value={form.job_key}
-                        onChange={(e) => setForm({ ...form, job_key: e.target.value })}
-                    />
-
-                    <Input
-                        placeholder="Tên lịch chạy"
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    />
-
-                    {/* Type */}
-                    <div className="space-y-1">
-                        <div className="text-sm font-medium">Lặp lại</div>
-                        <select
-                            className="w-full border rounded px-2 py-1"
-                            value={form.type}
-                            onChange={(e) => setForm({ ...form, type: e.target.value })}
-                        >
-                            <option value="daily">Hàng ngày</option>
-                            <option value="weekly">Hàng tuần</option>
-                            <option value="monthly">Hàng tháng</option>
-                        </select>
-                    </div>
-
-                    {/* Time */}
-                    <div className="flex gap-2">
-                        <Input
-                            type="number"
-                            min={0}
-                            max={23}
-                            value={form.hour}
-                            onChange={(e) => setForm({ ...form, hour: e.target.value })}
-                        />
-                        <span className="self-center">:</span>
-                        <Input
-                            type="number"
-                            min={0}
-                            max={59}
-                            value={form.minute}
-                            onChange={(e) => setForm({ ...form, minute: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Weekly */}
-                    {form.type === "weekly" && (
-                        <div className="flex flex-wrap gap-2">
-                            {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-                                <button
-                                    key={d}
-                                    type="button"
-                                    onClick={() => toggleDay(d)}
-                                    className={`px-2 py-1 border rounded text-sm ${form.daysOfWeek.includes(d)
-                                            ? "bg-blue-600 text-white"
-                                            : "bg-white"
-                                        }`}
-                                >
-                                    {["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Preview */}
-                    <div className="text-sm bg-gray-50 border rounded p-2">
-                        <strong>Sẽ chạy:</strong> {preview}
-                    </div>
-
-                    <Button className="w-full" onClick={submit}>
-                        Tạo cron job
-                    </Button>
-                </div>
-            )}
+            // Truyền trực tiếp Component, KHÔNG truyền () => ...
+            FormComponent={CronJobForm}
+            // AppDialog sẽ tự động truyền các props này vào CronJobForm
+            onCreated={onCreated}
         />
-    );
+  );
 }

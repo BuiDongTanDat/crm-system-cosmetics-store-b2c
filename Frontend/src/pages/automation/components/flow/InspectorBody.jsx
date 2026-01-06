@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 
 export default function InspectorBody({
@@ -215,18 +216,18 @@ export default function InspectorBody({
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold">Cron Jobs</div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 mt-1">
                   Chọn các <span className="font-mono">job_key</span> sẽ kích hoạt flow này (lọc theo{" "}
                   <span className="font-mono">trigger.job_key</span>).
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 className="px-3 py-1.5 text-xs rounded-md border bg-white hover:bg-gray-50"
                 onClick={() => setShowCreateCron?.(true)}
               >
                 Tạo Cron Job
-              </button>
+              </Button>
             </div>
 
             <CronJobMultiSelect

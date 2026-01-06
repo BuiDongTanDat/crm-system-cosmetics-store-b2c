@@ -14,7 +14,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
   const [isDragging, setIsDragging] = useState(false);
 
   const title = card?.title || 'Chiến dịch A Chiến dịch A Chiến dịch A';
-  const customer = card?.customer || 'Khách lẻ';
+  const customer = card?.name || 'Khách lẻ';
   const value = Number.isFinite(card?.value) ? card.value : 0;
   const currency = card?.predicted_value_currency || '';
   const assignee = card?.assignee || 'Chưa phân công';
@@ -27,7 +27,7 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
 
   return (
     <div
-      className={`group relative bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer hover:scale-101 active:scale-95 ${isDragging ? 'opacity-60 scale-95 rotate-1 shadow-2xl' : ''
+      className={`group relative bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer  active:scale-95 ${isDragging ? 'opacity-60 scale-95 rotate-1 shadow-2xl' : ''
         }`}
       draggable
       onDragStart={(e) => {

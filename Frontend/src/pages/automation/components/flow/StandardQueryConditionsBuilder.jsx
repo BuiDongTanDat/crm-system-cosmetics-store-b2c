@@ -156,6 +156,8 @@ export default function StandardQueryConditionsBuilder({ type, value, onChange }
                             ) : f.type === "tags" ? (
                                 <div className="space-y-2">
                                     <Input
+
+                                        variant="normal"
                                         className="h-9 text-sm bg-white border-gray-200 shadow-sm focus-visible:ring-brand-500"
                                         placeholder="tag1, tag2 (comma separated)"
                                         value={Array.isArray(val) ? val.join(", ") : val ?? ""}
@@ -176,6 +178,7 @@ export default function StandardQueryConditionsBuilder({ type, value, onChange }
                                 </div>
                             ) : (
                                 <Input
+                                    variant="normal"
                                     className="h-9 text-sm bg-white border-gray-200 shadow-sm focus-visible:ring-brand-500"
                                     type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
                                     placeholder={f.placeholder || "Trống..."}
@@ -188,7 +191,7 @@ export default function StandardQueryConditionsBuilder({ type, value, onChange }
                 })}
             </div>
 
-            <div className="text-[10px] text-gray-400 italic px-1">
+            <div className="text-[13px] text-gray-400 italic px-1">
                 * Để trống để bỏ qua lọc. Sử dụng {"{{ ... }}"} để lấy giá trị động từ hệ thống.
             </div>
         </div>

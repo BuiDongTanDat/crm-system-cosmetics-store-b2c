@@ -288,7 +288,7 @@ export default function StreamListPage() {
                       size="sm"
                       onClick={() => openSelectStreamDialog(campaign)}
                     >
-                      <TvMinimalPlay className="w-4 h-4" />
+                      <TvMinimalPlay className="w-4 h-4" /> Phát trực tiếp
                     </Button>
                   </PermissionGuard>
                 }

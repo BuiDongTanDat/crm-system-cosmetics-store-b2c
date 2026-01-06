@@ -8,6 +8,7 @@ import CountUp from 'react-countup';
 import OrderForm from '@/pages/order/components/OrderForm';
 import { formatCurrency } from '@/utils/helper';
 import { toast } from 'sonner';
+import Loading from '@/components/common/Loading';
 import {
   createOrder,
   updateOrder,
@@ -19,9 +20,12 @@ import {
   getPipelineColumns,
   updateLeadStatus as apiUpdateLeadStatus,
   getPipelineMetrics,
+  getLeadDetailsById,
 } from '@/services/leads';
+import { getProducts } from '@/services/products';
 import LeadsPage from '@/pages/deal/LeadsPage';
 import DropdownOptions from '@/components/common/DropdownOptions'; // added
+import { getRecommendedProducts } from '@/services/leads';
 
 // Map giữa status backend và id cột UI
 const BE2UI = {
@@ -44,12 +48,15 @@ export default function KanbanPage() {
   const [columns, setColumns] = useState([]);
   const [order, setOrder] = useState([]);
   const [summary, setSummary] = useState([]);
-  const [modal, setModal] = useState({ open: false, mode: 'view', deal: null });
+  const [modal, setModal] = useState({ open: false, mode: 'view', deal: null, loading: false });
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingBoard, setIsDraggingBoard] = useState(false);
   const [animatedColumns, setAnimatedColumns] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [orderModal, setOrderModal] = useState({ open: false, lead: null, preset: null });
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [products, setProducts] = useState([]); // Thêm state cho danh sách products
+  const [isLoading, setIsLoading] = useState(true); // loading state
 
   // Thêm state riêng cho metrics
   const [stats, setStats] = useState({
@@ -127,7 +134,13 @@ export default function KanbanPage() {
   // ---------- Load pipeline data ----------
   useEffect(() => {
     const load = async () => {
+      setIsLoading(true); // Bắt đầu loading
       try {
+        // Load products first
+        const productsRes = await getProducts();
+        const productsData = productsRes?.data?.data ?? productsRes?.data ?? productsRes ?? [];
+        setProducts(productsData);
+
         const colRes = await getPipelineColumns();
         const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
         const columnsObj = payload.columns ?? {};
@@ -148,15 +161,15 @@ export default function KanbanPage() {
 
         const toCard = (lead) => ({
           id: lead?.lead_id,
-          title: lead?.deal_name || 'Chiến dịch A',
-          customer: lead?.name || 'Khách lẻ',
+          title: lead?.deal_name || lead?.name || 'Chiến dịch A',
+          name: lead?.name || 'Khách lẻ',
           email: lead?.email || '',
           phone: lead?.phone || '',
           source: lead?.source || 'Inbound',
           stage: normalizeStatus(lead?.status),
           status: normalizeStatus(lead?.status),
           createdDate: (lead?.created_at || '').slice(0, 10),
-          lastActivity: (lead?.created_at || '').slice(0, 10),
+          lastActivity: (lead?.updated_at || lead?.created_at || '').slice(0, 10),
           value: asNumber(lead?.predicted_value, 0),
           currency: lead?.predicted_value_currency || 'VND',
           priority: lead?.priority || 'medium',
@@ -166,6 +179,13 @@ export default function KanbanPage() {
           productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
           assignee: lead?.assignee_name || 'Chưa phân công',
           assigneeId: lead?.assigned_to || null,
+          notes: lead?.notes || '',
+          aiReason: lead?.ai_reason || '',
+          predictedProb: lead?.predicted_prob ?? 0,
+          mlConversionProb: lead?.ml_conversion_prob ?? 0,
+          mlPredictedValue: asNumber(lead?.ml_predicted_value, 0),
+          mlLastScoredAt: lead?.ml_last_scored_at || null,
+          mlModelVersion: lead?.ml_model_version || null,
         });
 
         const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
@@ -209,6 +229,7 @@ export default function KanbanPage() {
         setTimeout(() => {
           setIsInitialLoad(false);
           setShouldAnimateStats(false);
+          setIsLoading(false); // Kết thúc loading
         }, 300);
       }
     };
@@ -350,22 +371,185 @@ export default function KanbanPage() {
 
 
   // ---------- Modal ----------
-  const handleCardView = (card) => setModal({ open: true, mode: 'view', deal: card });
-  const handleCardEdit = (card) => setModal({ open: true, mode: 'edit', deal: card });
-  const handleCreateDeal = () => setModal({ open: true, mode: 'edit', deal: null });
-  const closeModal = () => setModal({ open: false, mode: 'view', deal: null });
+  const handleCardView = async (card) => {
+    setModal({ open: true, mode: 'view', deal: card, loading: true });
+    
+    try {
+      const res = await getLeadDetailsById(card.id);
+      const detailData = res?.data?.data ?? res?.data ?? res;
+      
+      if (detailData) {
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
+        };
+
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fb;
+        };
+
+        const enrichedDeal = {
+          id: detailData.lead_id,
+          title: detailData.deal_name || detailData.name || card.title,
+          name: detailData.name || card.name,
+          email: detailData.email || card.email,
+          phone: detailData.phone || card.phone,
+          source: detailData.source || card.source,
+          stage: normalizeStatus(detailData.status),
+          status: normalizeStatus(detailData.status),
+          createdDate: (detailData.created_at || card.createdDate || '').slice(0, 10),
+          lastActivity: (detailData.updated_at || detailData.created_at || card.lastActivity || '').slice(0, 10),
+          value: asNumber(detailData.predicted_value, card.value || 0),
+          currency: detailData.predicted_value_currency || card.currency || 'VND',
+          priority: detailData.priority || card.priority || 'medium',
+          leadScore: asNumber(detailData.lead_score, card.leadScore || 0),
+          conversionProb: detailData.conversion_prob ?? card.conversionProb ?? 0,
+          tags: Array.isArray(detailData.tags) ? detailData.tags : (card.tags || []),
+          productInterest: detailData.product_interest || card.productInterest,
+          assignee: detailData.assignee_name || card.assignee || 'Chưa phân công',
+          assigneeId: detailData.assigned_to || card.assigneeId || null,
+          notes: detailData.notes || card.notes || '',
+          aiReason: detailData.ai_reason || card.aiReason || '',
+          predictedProb: detailData.predicted_prob ?? card.predictedProb ?? 0,
+          mlConversionProb: detailData.ml_conversion_prob ?? card.mlConversionProb ?? 0,
+          mlPredictedValue: asNumber(detailData.ml_predicted_value, card.mlPredictedValue || 0),
+          mlLastScoredAt: detailData.ml_last_scored_at || card.mlLastScoredAt || null,
+          mlModelVersion: detailData.ml_model_version || card.mlModelVersion || null,
+          productInterests: detailData.product_interests || [],
+          interactions: detailData.interactions || [],
+          anonId: detailData.anon_id || null,
+          campaignId: detailData.campaign_id || null,
+        };
+
+        setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+      } else {
+        setModal({ open: true, mode: 'view', deal: card, loading: false });
+      }
+    } catch (err) {
+      console.error('Failed to load lead details:', err);
+      setModal({ open: true, mode: 'view', deal: card, loading: false });
+    }
+  };
+
+  const handleCardEdit = async (card) => {
+    setModal({ open: true, mode: 'edit', deal: card, loading: true });
+    
+    try {
+      const res = await getLeadDetailsById(card.id);
+      const detailData = res?.data?.data ?? res?.data ?? res;
+      
+      if (detailData) {
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
+        };
+
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fb;
+        };
+
+        const enrichedDeal = {
+          id: detailData.lead_id,
+          title: detailData.deal_name || detailData.name || card.title,
+          name: detailData.name || card.name,
+          email: detailData.email || card.email,
+          phone: detailData.phone || card.phone,
+          source: detailData.source || card.source,
+          stage: normalizeStatus(detailData.status),
+          status: normalizeStatus(detailData.status),
+          createdDate: (detailData.created_at || card.createdDate || '').slice(0, 10),
+          lastActivity: (detailData.updated_at || detailData.created_at || card.lastActivity || '').slice(0, 10),
+          value: asNumber(detailData.predicted_value, card.value || 0),
+          currency: detailData.predicted_value_currency || card.currency || 'VND',
+          priority: detailData.priority || card.priority || 'medium',
+          leadScore: asNumber(detailData.lead_score, card.leadScore || 0),
+          conversionProb: detailData.conversion_prob ?? card.conversionProb ?? 0,
+          tags: Array.isArray(detailData.tags) ? detailData.tags : (card.tags || []),
+          productInterest: detailData.product_interest || card.productInterest,
+          assignee: detailData.assignee_name || card.assignee || 'Chưa phân công',
+          assigneeId: detailData.assigned_to || card.assigneeId || null,
+          notes: detailData.notes || card.notes || '',
+          aiReason: detailData.ai_reason || card.aiReason || '',
+          predictedProb: detailData.predicted_prob ?? card.predictedProb ?? 0,
+          mlConversionProb: detailData.ml_conversion_prob ?? card.mlConversionProb ?? 0,
+          mlPredictedValue: asNumber(detailData.ml_predicted_value, card.mlPredictedValue || 0),
+          mlLastScoredAt: detailData.ml_last_scored_at || card.mlLastScoredAt || null,
+          mlModelVersion: detailData.ml_model_version || card.mlModelVersion || null,
+          productInterests: detailData.product_interests || [],
+          interactions: detailData.interactions || [],
+          anonId: detailData.anon_id || null,
+          campaignId: detailData.campaign_id || null,
+        };
+
+        setModal({ open: true, mode: 'edit', deal: enrichedDeal, loading: false });
+      } else {
+        setModal({ open: true, mode: 'edit', deal: card, loading: false });
+      }
+    } catch (err) {
+      console.error('Failed to load lead details:', err);
+      setModal({ open: true, mode: 'edit', deal: card, loading: false });
+    }
+  };
+
+  const handleCreateDeal = () => setModal({ open: true, mode: 'edit', deal: null, loading: false });
+  const closeModal = () => setModal({ open: false, mode: 'view', deal: null, loading: false });
   // ---------- Order Form Handlers ----------
-  const openOrderForLead = (leadCard) => {
+  const openOrderForLead = async (leadCard) => {
     if (orderModal.open) return;
+    
+    try {
+      // Lấy chi tiết lead để có danh sách product_id quan tâm
+      const res = await getLeadDetailsById(leadCard.id || leadCard.lead_id);
+      const detailData = res?.data?.data ?? res?.data ?? res;
+      
+      // Lấy danh sách product_id từ productInterests
+      const productInterests = detailData?.product_interests || [];
+      const productIds = productInterests.map(pi => {
+        return String(pi.product_id || pi);
+      });
+      
+      console.log('Product IDs from lead details:', productIds);
+      console.log('Available products:', products);
+      
+      // Lọc sản phẩm từ danh sách products dựa trên productIds
+      const recommendedProducts = products
+        .filter(p => {
+          const pid = String(p.product_id || p.id);
+          return productIds.includes(pid);
+        })
+        .map(p => ({
+          product_id: p.product_id || p.id,
+          name: p.product_name || p.name,
+          price_current: Number(p.price_current || 0),
+          price_original: Number(p.price_original || 0),
+          discount_percent: Number(p.discount_percent || 0),
+          description: p.description || '',
+          category: p.category || '',
+          stock: p.stock || 0,
+        }));
+      
+      console.log('Recommended products for lead', leadCard.id, recommendedProducts);
+      setRecommendedProducts(recommendedProducts);
+    } catch (err) {
+      console.warn('Failed to load recommended products from lead details', err);
+      setRecommendedProducts([]);
+    }
+    
     setOrderModal({
       open: true,
       lead: leadCard,
       preset: {
-        // include lead_id so OrderForm validation accepts a lead-based order
         lead_id: leadCard.id || leadCard.lead_id || null,
-        // keep customer_name for display; include customer_id if available
         customer_id: leadCard.customer_id || null,
-        customer_name: leadCard.customer,
+        customer_name: leadCard.name,
         channel: (leadCard.source || 'inbound').toLowerCase(),
         notes: `Deal ${leadCard.title} — tạo từ pipeline`,
         status: 'pending',
@@ -373,7 +557,10 @@ export default function KanbanPage() {
     });
   };
 
-  const closeOrderModal = () => setOrderModal({ open: false, lead: null, preset: null });
+  const closeOrderModal = () => {
+    setOrderModal({ open: false, lead: null, preset: null });
+    setRecommendedProducts([]);
+  };
 
   const handleOrderSave = async (payload) => {
     if (payload.order_id) {
@@ -404,27 +591,153 @@ export default function KanbanPage() {
     toast.success('Đã gửi link xác nhận cho khách!');
     closeOrderModal();
   };
-  const handleSave = (dealData) => {
-    if (dealData.id) {
-      setCards((prev) =>
-        prev.map((c) => (c.id === dealData.id ? { ...c, ...dealData, stage: dealData.status || dealData.stage } : c))
-      );
-      toast.success('Cập nhật deal thành công!');
+  const handleSave = async (dealData) => {
+    if (dealData.id && !dealData.shouldRefresh) {
+      // Updated existing lead - refresh data and switch to view mode
+      try {
+        // Fetch updated lead details
+        const res = await getLeadDetailsById(dealData.id);
+        const detailData = res?.data?.data ?? res?.data ?? res;
+        
+        if (detailData) {
+          const normalizeStatus = (s) => {
+            const v = (s || '').toLowerCase();
+            return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+              ? v
+              : 'new';
+          };
+
+          const asNumber = (x, fb = 0) => {
+            if (x === null || x === undefined) return fb;
+            const n = typeof x === 'string' ? parseFloat(x) : x;
+            return Number.isFinite(n) ? n : fb;
+          };
+
+          const enrichedDeal = {
+            id: detailData.lead_id,
+            title: detailData.deal_name || detailData.name || dealData.title,
+            name: detailData.name || dealData.name,
+            email: detailData.email || dealData.email,
+            phone: detailData.phone || dealData.phone,
+            source: detailData.source || dealData.source,
+            stage: normalizeStatus(detailData.status),
+            status: normalizeStatus(detailData.status),
+            createdDate: (detailData.created_at || dealData.createdDate || '').slice(0, 10),
+            lastActivity: (detailData.updated_at || detailData.created_at || dealData.lastActivity || '').slice(0, 10),
+            value: asNumber(detailData.predicted_value, dealData.value || 0),
+            currency: detailData.predicted_value_currency || dealData.currency || 'VND',
+            priority: detailData.priority || dealData.priority || 'medium',
+            leadScore: asNumber(detailData.lead_score, dealData.leadScore || 0),
+            conversionProb: detailData.conversion_prob ?? dealData.conversionProb ?? 0,
+            tags: Array.isArray(detailData.tags) ? detailData.tags : (dealData.tags || []),
+            productInterest: detailData.product_interest || dealData.productInterest,
+            assignee: detailData.assignee_name || dealData.assignee || 'Chưa phân công',
+            assigneeId: detailData.assigned_to || dealData.assigneeId || null,
+            notes: detailData.notes || dealData.notes || '',
+            aiReason: detailData.ai_reason || dealData.aiReason || '',
+            predictedProb: detailData.predicted_prob ?? dealData.predictedProb ?? 0,
+            mlConversionProb: detailData.ml_conversion_prob ?? dealData.mlConversionProb ?? 0,
+            mlPredictedValue: asNumber(detailData.ml_predicted_value, dealData.mlPredictedValue || 0),
+            mlLastScoredAt: detailData.ml_last_scored_at || dealData.mlLastScoredAt || null,
+            mlModelVersion: detailData.ml_model_version || dealData.mlModelVersion || null,
+            productInterests: detailData.product_interests || [],
+            interactions: detailData.interactions || [],
+            anonId: detailData.anon_id || null,
+            campaignId: detailData.campaign_id || null,
+          };
+
+          // Update cards in background
+          setCards((prev) =>
+            prev.map((c) => (c.id === dealData.id ? { ...c, ...enrichedDeal, stage: enrichedDeal.status } : c))
+          );
+
+          // Đổi chế độ modal sang view với dữ liệu mới
+          setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+        } else {
+          // Fallback: update with form data and switch to view mode
+          setCards((prev) =>
+            prev.map((c) => (c.id === dealData.id ? { ...c, ...dealData, stage: dealData.status || dealData.stage } : c))
+          );
+          setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+        }
+      } catch (err) {
+        console.error('Failed to refresh lead details:', err);
+        // Fallback: update with form data and switch to view mode
+        setCards((prev) =>
+          prev.map((c) => (c.id === dealData.id ? { ...c, ...dealData, stage: dealData.status || dealData.stage } : c))
+        );
+        setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+      }
+    } else if (dealData.shouldRefresh) {
+      // New lead created with API, refresh the pipeline and close modal
+      closeModal();
+      try {
+        const colRes = await getPipelineColumns();
+        const payload = colRes?.data?.data ?? colRes?.data ?? colRes ?? {};
+        const columnsObj = payload.columns ?? {};
+
+        const normalizeStatus = (s) => {
+          const v = (s || '').toLowerCase();
+          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            ? v
+            : 'new';
+        };
+
+        const asNumber = (x, fb = 0) => {
+          if (x === null || x === undefined) return fb;
+          const n = typeof x === 'string' ? parseFloat(x) : x;
+          return Number.isFinite(n) ? n : fb;
+        };
+
+        const toCard = (lead) => ({
+          id: lead?.lead_id,
+          title: lead?.deal_name || lead?.name || 'Chiến dịch A',
+          name: lead?.name || 'Khách lẻ',
+          email: lead?.email || '',
+          phone: lead?.phone || '',
+          source: lead?.source || 'Inbound',
+          stage: normalizeStatus(lead?.status),
+          status: normalizeStatus(lead?.status),
+          createdDate: (lead?.created_at || '').slice(0, 10),
+          lastActivity: (lead?.updated_at || lead?.created_at || '').slice(0, 10),
+          value: asNumber(lead?.predicted_value, 0),
+          currency: lead?.predicted_value_currency || 'VND',
+          priority: lead?.priority || 'medium',
+          leadScore: asNumber(lead?.lead_score, 0),
+          conversionProb: lead?.conversion_prob ?? 0,
+          tags: Array.isArray(lead?.tags) ? lead.tags : [],
+          productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
+          assignee: lead?.assignee_name || 'Chưa phân công',
+          assigneeId: lead?.assigned_to || null,
+          notes: lead?.notes || '',
+          aiReason: lead?.ai_reason || '',
+          predictedProb: lead?.predicted_prob ?? 0,
+          mlConversionProb: lead?.ml_conversion_prob ?? 0,
+          mlPredictedValue: asNumber(lead?.ml_predicted_value, 0),
+          mlLastScoredAt: lead?.ml_last_scored_at || null,
+          mlModelVersion: lead?.ml_model_version || null,
+        });
+
+        const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
+        setCards(uiCards);
+      } catch (err) {
+        console.error('Failed to refresh pipeline after creating lead:', err);
+      }
     } else {
+      // Fallback: old client-side only creation (should not happen now)
       const newDeal = {
         ...dealData,
         id: Date.now().toString(),
         createdDate: new Date().toISOString().slice(0, 10),
         lastActivity: new Date().toISOString().slice(0, 10),
-        stage: dealData.status || 'new',
-        status: dealData.status || 'new',
+        stage: dealData.status || dealData.stage || 'new',
+        status: dealData.status || dealData.stage || 'new',
         value: dealData.value || 0,
       };
       setCards((prev) => [...prev, newDeal]);
       toast.success('Thêm deal thành công!');
+      closeModal();
     }
-    closeModal();
-
   };
 
   const handleCardDelete = (id) => {
@@ -498,15 +811,14 @@ export default function KanbanPage() {
 
       const toCard = (lead) => ({
         id: lead?.lead_id,
-        title: lead?.deal_name || 'Chiến dịch A',
-        customer: lead?.name || 'Khách lẻ',
+        title: lead?.deal_name || lead?.name || 'Chiến dịch A',
+        name: lead?.name || 'Khách lẻ',
         email: lead?.email || '',
         phone: lead?.phone || '',
         source: lead?.source || 'Inbound',
         stage: normalizeStatus(lead?.status),
         status: normalizeStatus(lead?.status),
         createdDate: (lead?.created_at || '').slice(0, 10),
-        // Nếu BE có `updated_at`/`moved_at` thì ưu tiên dùng, tránh mất "lastActivity"
         lastActivity: (lead?.updated_at || lead?.created_at || '').slice(0, 10),
         value: asNumber(lead?.predicted_value, 0),
         currency: lead?.predicted_value_currency || 'VND',
@@ -517,6 +829,13 @@ export default function KanbanPage() {
         productInterest: lead?.product_interest || 'Chưa chọn sản phẩm',
         assignee: lead?.assignee_name || 'Chưa phân công',
         assigneeId: lead?.assigned_to || null,
+        notes: lead?.notes || '',
+        aiReason: lead?.ai_reason || '',
+        predictedProb: lead?.predicted_prob ?? 0,
+        mlConversionProb: lead?.ml_conversion_prob ?? 0,
+        mlPredictedValue: asNumber(lead?.ml_predicted_value, 0),
+        mlLastScoredAt: lead?.ml_last_scored_at || null,
+        mlModelVersion: lead?.ml_model_version || null,
       });
 
       const uiCards = Object.values(columnsObj).flatMap((arr) => (arr || []).map(toCard));
@@ -537,6 +856,11 @@ export default function KanbanPage() {
 
 
   const handleDragStart = () => setIsDragging(true);
+
+  // Hiển thị Loading khi đang tải
+  if (isLoading) {
+    return <Loading text="Đang tải pipeline..." />;
+  }
 
   return (
     <div className="p-0 h-full flex flex-col overflow-hidden">
@@ -667,8 +991,12 @@ export default function KanbanPage() {
             mode={modal.mode}
             FormComponent={DealForm}
             data={modal.deal}
+            loading={modal.loading}
             onSave={handleSave}
             onDelete={handleCardDelete}
+            setMode={(newMode) => {
+              setModal(prev => ({ ...prev, mode: newMode }));
+            }}
             maxWidth="sm:max-w-3xl"
           />
           <AppDialog
@@ -683,6 +1011,9 @@ export default function KanbanPage() {
                 onSave={handleOrderSave}
                 onSaveDraft={handleOrderSaveDraft}
                 onSendToCustomer={handleSendToCustomer}
+                onCancel={closeOrderModal}
+                showRecommendations={true}
+                recommendations={recommendedProducts}
                 paymentLabels={{
                   credit_card: 'Thẻ',
                   paypal: 'PayPal',

@@ -1,4 +1,3 @@
-
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 const leadRepository = require('../../Infrastructure/Repositories/LeadRepository.js');

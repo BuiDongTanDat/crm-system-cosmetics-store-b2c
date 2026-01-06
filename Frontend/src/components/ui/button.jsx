@@ -59,6 +59,10 @@ const buttonVariants = cva(
         actionHoverPage:
           "hover:bg-accent/90 hover:shadow hover:text-accent-foreground dark:hover:bg-accent/50 active:scale-95 active:dark:hover:bg-accent/90 ",
         actionStar: "bg-yellow-100 text-yellow-600 border border-yellow-300 hover:bg-yellow-200 hover:text-yellow-700",
+      
+        actionApprove: "bg-green-600 text-white hover:bg-green-700",
+        actionWarning: "border-amber-500 text-amber-700 bg-amber-100 hover:bg-amber-200 hover:text-amber-800",
+
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",

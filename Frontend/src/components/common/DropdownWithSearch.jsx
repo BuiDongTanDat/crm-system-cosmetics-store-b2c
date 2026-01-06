@@ -67,7 +67,7 @@ export default function DropdownWithSearch({
           <DropdownMenuItem
             key={keyFor(it, idx)}
             onSelect={() => onSelect?.(it)}
-            className={className}
+            className={className }
           >
             {renderItem ? renderItem(it) : (it.label || it.name || it.full_name || it.customer_id || it.product_name || it.id)}
           </DropdownMenuItem>

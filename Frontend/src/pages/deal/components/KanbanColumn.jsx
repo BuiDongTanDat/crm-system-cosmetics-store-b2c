@@ -18,7 +18,7 @@ export default function KanbanColumn({
   isCardDragging = false, // new prop from parent: đang kéo card hay không
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showAll, setShowAll] = useState(false); // 👈 toggle hiển thị thêm
+  const [showAll, setShowAll] = useState(false); //  toggle hiển thị thêm
   const containerRef = useRef(null);
   const headerRef = useRef(null);
   const draggingState = useRef({ active: false, startX: 0, startScroll: 0, boardEl: null });
@@ -162,7 +162,7 @@ export default function KanbanColumn({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50  rounded-lg shadow-sm border border-gray-200">
+    <div className="flex flex-col h-full bg-gray-50  rounded-lg shadow-sm border border-gray-200 animate-fade-in transition duration-150">
       {/* Header */}
       <div
         ref={headerRef}
@@ -207,7 +207,7 @@ export default function KanbanColumn({
       {/* Cards Container */}
       <div
         ref={containerRef}
-        className={`flex-1 p-1 space-y-2 overflow-y-auto rounded-b-lg border ${isDragOver ? "bg-blue-50 border-2 border-blue-300 border-dashed" : "border-transparent"
+        className={`animate-fade-in transition duration-150 flex-1 p-1 space-y-2 overflow-y-auto rounded-b-lg border ${isDragOver ? "bg-blue-50 border-2 border-blue-300 border-dashed" : "border-transparent"
           }`}
         style={{
           height: "calc(100vh - 280px)",

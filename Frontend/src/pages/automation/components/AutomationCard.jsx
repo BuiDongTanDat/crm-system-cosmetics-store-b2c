@@ -1,131 +1,165 @@
-import { useState } from 'react';
-import { Play, Pause, Edit, Trash2, Eye, Tags, Users, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { triggerOptions, actionOptions } from '@/lib/data';
-import { formatDate } from '@/utils/helper';
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+import {
+  Play,
+  Pause,
+  Edit,
+  Trash2,
+  Eye,
+  Tags,
+  Users,
+  Clock,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { triggerOptions, actionOptions } from "@/lib/data";
+import { formatDate } from "@/utils/helper";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 
 export default function AutomationCard({
   automation,
   onView,
   onEdit,
   onDelete,
-  onStatusChange
+  onStatusChange,
 }) {
-  const [hovered, setHovered] = useState(false);
-
-
-  // Badge trạng thái giống listview
+  // Badge trạng thái
   const getStatusBadge = (status) => {
-    let color = 'bg-gray-100 text-gray-700';
-    let text = status ? status : 'UNDEFINED';
-    if (status === 'ACTIVE') {
-      color = 'bg-green-100 text-green-700';
-    } else if (status === 'DRAFT') {
-      color = 'bg-gray-100 text-gray-700';
-    } else if (status === 'INACTIVE') {
-      color = 'bg-red-100 text-red-700';
+    let color = "bg-gray-100 text-gray-700";
+    let text = status ? status : "UNDEFINED";
+    if (status === "ACTIVE") {
+      color = "bg-green-100 text-green-700";
+    } else if (status === "DRAFT") {
+      color = "bg-gray-100 text-gray-700";
+    } else if (status === "INACTIVE") {
+      color = "bg-red-100 text-red-700";
     }
     return (
-      <span className={`inline-block px-1 py-1 rounded-full w-[80px] text-center text-xs font-medium ${color}`}>
+      <span
+        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${color}`}
+      >
         {text}
       </span>
     );
   };
 
   return (
-    <div
-      className="bg-white rounded-lg border shadow-sm p-4 flex flex-col gap-2 transition-all duration-150 animate-fade-in relative
-        hover:scale-105 hover:shadow-md"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="font-bold text-lg">{automation.name}</div>
-          <div className="text-sm text-gray-500">{automation.description}</div>
-        </div>
-        <div>
+    <div className="animate-fade-in hover:shadow-lg bg-white rounded-lg border shadow-sm transition-shadow duration-200 flex flex-col h-full">
+      {/* Header */}
+      <div className="p-4 border-b">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-semibold text-base line-clamp-1 flex-1">
+            {automation.name}
+          </h3>
           {getStatusBadge(automation.status)}
         </div>
+        <p className="text-sm text-gray-600 line-clamp-2">
+          {automation.description || "Không có mô tả"}
+        </p>
       </div>
-      <div className="text-sm text-gray-600">
-        <div><strong>Tags:</strong> {(automation.tags || []).join(', ')}</div>
-        <div><strong>Người tạo:</strong> {automation.created_by}</div>
-        <div><strong>Tạo lúc:</strong> {automation.created_at ? formatDate(automation.created_at) : ''}</div>
-        <div><strong>Cập nhật lúc:</strong> {automation.updated_at ? formatDate(automation.updated_at) : ''}</div>
+
+      {/* Content */}
+      <div className="p-4 flex-1 space-y-3">
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span className="text-gray-600 truncate">{automation.created_by}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span className="text-gray-600 truncate">
+              {automation.created_at ? formatDate(automation.created_at) : "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div className="flex items-start gap-2">
+          <Tags className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+          <span className="text-xs text-gray-600 line-clamp-1">
+            {(automation.tags || []).length > 0
+              ? (automation.tags || []).join(", ")
+              : "Không có tag"}
+          </span>
+        </div>
+
+        {/* Triggers & Actions Summary */}
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">Triggers</div>
+            <div className="text-lg font-semibold text-blue-600">
+              {automation.triggers?.length || 0}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">Actions</div>
+            <div className="text-lg font-semibold text-green-600">
+              {automation.actions?.length || 0}
+            </div>
+          </div>
+        </div>
       </div>
-      {/* Triggers summary */}
-      <div className="mt-2">
-        <div className="font-semibold text-xs">Triggers:</div>
-        {automation.triggers?.length ? (
-          <ul className="list-disc ml-4 text-xs">
-            {automation.triggers.map((t, idx) => (
-              <li key={t.trigger_id || idx}>
-                {triggerOptions.find(opt => opt.value === t.event_type)?.label || t.event_type}
-                {t.conditions?.length ? ` (${t.conditions.map(c => c.field).join(', ')})` : ''}
-              </li>
-            ))}
-          </ul>
-        ) : <span className="text-gray-400 text-xs">Không có trigger</span>}
-      </div>
-      {/* Actions summary */}
-      <div className="mt-2">
-        <div className="font-semibold text-xs">Actions:</div>
-        {automation.actions?.length ? (
-          <ul className="list-disc ml-4 text-xs">
-            {automation.actions.map((a, idx) => (
-              <li key={a.action_id || idx}>
-                {actionOptions.find(opt => opt.value === a.action_type)?.label || a.action_type}
-                {a.channel ? ` (${a.channel})` : ''}
-              </li>
-            ))}
-          </ul>
-        ) : <span className="text-gray-400 text-xs">Không có action</span>}
-      </div>
-      {/* Actions */}
-      <div className="flex items-center justify-between mt-4 relative h-10">
-        {/* Action buttons - chỉ hiện khi hover */}
-        {hovered && (
-          <div className="flex items-center gap-2 absolute left-0 top-0 h-10 animate-slide-up duration-200">
-            <Button variant="actionRead" size="icon" onClick={() => onView(automation)}>
+
+      {/* Footer - Actions */}
+      <div className="p-3 border-t bg-gray-50 rounded-bl-md rounded-br-md">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: View/Edit/Delete buttons */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="actionRead"
+              size="icon"
+              onClick={() => onView(automation)}
+              className="h-8 w-8"
+            >
               <Eye className="w-4 h-4" />
             </Button>
-            <Button variant="actionUpdate" size="icon" onClick={() => onEdit(automation)}>
+            <Button
+              variant="actionUpdate"
+              size="icon"
+              onClick={() => onEdit(automation)}
+              className="h-8 w-8"
+            >
               <Edit className="w-4 h-4" />
             </Button>
             <ConfirmDialog
               title="Xác nhận xóa"
-              description={<>Bạn có chắc chắn muốn xóa automation <span className="font-semibold">{automation.name}</span>?</>}
+              description={
+                <>
+                  Bạn có chắc chắn muốn xóa automation{" "}
+                  <span className="font-semibold">{automation.name}</span>?
+                </>
+              }
               confirmText="Xóa"
               cancelText="Hủy"
               onConfirm={() => onDelete(automation.id)}
             >
-              <Button variant="actionDelete" size="icon" onClick={(e) => e.stopPropagation()}>
+              <Button variant="actionDelete" size="icon" className="h-8 w-8">
                 <Trash2 className="w-4 h-4" />
               </Button>
             </ConfirmDialog>
           </div>
-        )}
-        {/* Nút kích hoạt/tạm dừng luôn hiển thị */}
-        <div className="absolute right-0 top-0 h-10 flex items-center">
+
+          {/* Right: Activate/Pause button */}
           <Button
-            variant={automation.status === 'ACTIVE' ? 'actionUpdate' : 'actionCreate'}
+            variant={
+              automation.status === "ACTIVE" ? "actionUpdate" : "actionCreate"
+            }
             size="sm"
             onClick={() =>
-              onStatusChange(automation.id, automation.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+              onStatusChange(
+                automation.id,
+                automation.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
+              )
             }
-            className="flex items-center gap-1 px-3 py-1"
+            className="flex items-center gap-1.5 px-3 h-8"
           >
-            {automation.status === 'ACTIVE' ? (
+            {automation.status === "ACTIVE" ? (
               <>
-                <Pause className="w-4 h-4" />
-                <span className="font-medium">Tạm dừng</span>
+                <Pause className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Dừng</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
-                <span className="font-medium">Kích hoạt</span>
+                <Play className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Chạy</span>
               </>
             )}
           </Button>

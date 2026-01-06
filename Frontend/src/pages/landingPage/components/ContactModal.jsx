@@ -48,11 +48,22 @@ const ContactModal = ({ open, onClose, campaignName, campaignId = null, defaultN
                 email: form.email.trim(),
                 phone: form.phone.trim(),
                 source: "InBound",
-                tags: campaignName ? [campaignName] : [],
-                campaign_id: campaignId ?? null,
-                notes: form.notes?.trim() || "",
-                product_interest: form.productInterest?.trim() || "",
+                priority: "medium",
+                notes: form.notes?.trim() || null, // Changed from empty string to null
+                deal_name: form.productInterest?.trim() || `Lead từ ${campaignName || 'Landing Page'}`,
+                assigned_to: null,
+                status: "NEW",
             };
+
+            // Optional: add campaign tracking if needed
+            if (campaignId) {
+                payload.campaign_id = campaignId;
+            }
+            if (campaignName) {
+                payload.tags = [campaignName];
+            }
+
+            console.log('Sending payload:', payload); // Debug log
 
             await createLead(payload);
             alert("Cảm ơn bạn! Thông tin đã được ghi nhận.");
@@ -68,9 +79,9 @@ const ContactModal = ({ open, onClose, campaignName, campaignId = null, defaultN
 
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ">
             <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-            <div ref={ref} role="dialog" aria-modal className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
+            <div ref={ref} role="dialog" aria-modal className="fade-in-80 zoom-in-95 duration-300 relative w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between p-4 border-b">
                     <div>
                         <h3 className="text-lg font-semibold">Thông Tin Liên Hệ</h3>

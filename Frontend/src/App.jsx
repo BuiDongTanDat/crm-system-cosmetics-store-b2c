@@ -279,14 +279,6 @@ function App() {
 
                   {/* Others routes */}
                   <Route
-                    path="/settings"
-                    element={
-                      // <NavigateGuard module="setting">
-                        <SettingsPage />
-                      // </NavigateGuard>
-                    }
-                  />
-                  <Route
                     path="/flows"
                     element={
                       // <NavigateGuard module="automation">

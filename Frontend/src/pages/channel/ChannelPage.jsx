@@ -246,23 +246,23 @@ export default function ChannelPage() {
 					<div className="grid grid-cols-2 gap-3">
 						<div>
 							<label className="text-sm block">Sent</label>
-							<Input value={form.sent_count} onChange={e => setForm(f => ({ ...f, sent_count: Number(e.target.value) }))} />
+							<Input variant="normal" value={form.sent_count} onChange={e => setForm(f => ({ ...f, sent_count: Number(e.target.value) }))} />
 						</div>
 						<div>
 							<label className="text-sm block">Open %</label>
-							<Input value={form.open_rate} onChange={e => setForm(f => ({ ...f, open_rate: Number(e.target.value) }))} />
+							<Input variant="normal" value={form.open_rate} onChange={e => setForm(f => ({ ...f, open_rate: Number(e.target.value) }))} />
 						</div>
 						<div>
 							<label className="text-sm block">Click %</label>
-							<Input value={form.click_rate} onChange={e => setForm(f => ({ ...f, click_rate: Number(e.target.value) }))} />
+							<Input variant="normal" value={form.click_rate} onChange={e => setForm(f => ({ ...f, click_rate: Number(e.target.value) }))} />
 						</div>
 						<div>
 							<label className="text-sm block">Conversion</label>
-							<Input value={form.conversion} onChange={e => setForm(f => ({ ...f, conversion: Number(e.target.value) }))} />
+							<Input variant="normal" value={form.conversion} onChange={e => setForm(f => ({ ...f, conversion: Number(e.target.value) }))} />
 						</div>
 						<div>
 							<label className="text-sm block">Cost</label>
-							<Input value={form.cost} onChange={e => setForm(f => ({ ...f, cost: Number(e.target.value) }))} />
+							<Input variant="normal" value={form.cost} onChange={e => setForm(f => ({ ...f, cost: Number(e.target.value) }))} />
 						</div>
 						<div>
 							<label className="text-sm block">Frequency</label>
@@ -302,10 +302,10 @@ export default function ChannelPage() {
 		// make page occupy full viewport height and be flexible
 		<div className="flex flex-col min-h-screen">
 			<div className="pt-4 flex-1 min-h-0">
-				{/* container: left + right, responsive flex-col on small screens */}
+				{/*  responsive flex-col on small screens */}
 				<div className="flex flex-col sm:flex-row gap-2 px-0 min-h-0 flex-1">
 					{/* Left: channels column */}
-					<aside className="w-full sm:w-64 bg-white rounded-2xl border p-3 flex flex-col min-h-0 mb-2 sm:mb-0">
+					<aside className="self-start  shadow w-full sm:w-64 bg-white rounded-2xl border p-3 flex flex-col mb-2 sm:mb-0">
 						<div className="flex justify-between items-center mb-3">
 							<div className=" mb-2 text-sm font-medium text-gray-700">Danh sách kênh</div>
 							<Button onClick={openAddChannel}
@@ -316,10 +316,10 @@ export default function ChannelPage() {
 							</Button>
 						</div>
 
-						<div className="flex flex-col gap-2">
+						<div className="flex flex-col gap-2 flex-1 overflow-auto">
 							<div className="relative">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-								<Input placeholder="Tìm kênh..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+								<Input  placeholder="Tìm kênh..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
 							</div>
 
 							{filtered.map((ch) => {
@@ -354,7 +354,7 @@ export default function ChannelPage() {
 					</aside>
 
 					{/* Right: campaigns/main content */}
-					<main className="w-full flex-1 flex flex-col gap-2 h-full min-h-0 overflow-auto">
+					<main className="w-full flex-1 flex flex-col gap-4 h-full min-h-0 overflow-auto">
 						{/* Top: Channel info (no scroll) */}
 						<section className=" border p-4  bg-brand/10 backdrop-blur-lg rounded-md">
 							{selectedChannel ? (
@@ -379,10 +379,10 @@ export default function ChannelPage() {
 						</section>
 
 						{/* Bottom: Campaigns table (scrollable) */}
-						<section className="flex-1 bg-white rounded-2xl border overflow-auto min-h-0 ">
+						<section className="flex-1 bg-white rounded-2xl border overflow-auto min-h-0 shadow">
 							{selectedChannel ? (
 								<div className="overflow-x-auto min-h-0">
-									<table className="w-full min-w-[900px] ">
+									<table className="w-full min-w-[900px]">
 										<thead className="bg-gray-50">
 											<tr>
 												{['Chiến dịch', 'Ngân sách', 'Thời gian', 'Sent', 'Open %', 'Click %', 'Conversion', 'Cost', ''].map(h => (
@@ -398,7 +398,7 @@ export default function ChannelPage() {
 														key={cc.id}
 														onMouseEnter={() => setHoveredCampaign(cc.id)}
 														onMouseLeave={() => setHoveredCampaign(null)}
-														className="transition-colors"
+														className={`transition-colors hover:bg-gray-50`}
 													>
 														<td className="px-4 py-3 text-left">
 															<div className="text-xs font-medium">{camp.name}</div>
@@ -411,8 +411,7 @@ export default function ChannelPage() {
 														<td className="text-xs p-2 text-center">{cc.conversion || 0}</td>
 														<td className="text-xs p-2 text-center">{formatCurrency(cc.cost || 0)}</td>
 														<td className="text-xs p-2 text-center w-36">
-															{/* action buttons: chỉ hiện khi hover trên hàng này */}
-															<div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredCampaign === cc.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
+															<div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredCampaign === cc.id ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
 																<Button variant="actionUpdate" size="icon" onClick={() => openEditPerformance(cc)} >
 																	<Eye className="w-4 h-4" />
 																</Button>

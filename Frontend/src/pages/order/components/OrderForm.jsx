@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Edit, Save, Trash2, Plus, X } from "lucide-react";
+import { ChevronDown, Edit, Save, Trash2, Plus, X, Box } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
@@ -17,8 +17,11 @@ export default function OrderForm({
   onSave,
   onDelete,
   setMode,
+  onCancel,
   paymentLabels = {},
   statusLabels = {},
+  showRecommendations = false,
+  recommendations = [],
 }) {
   const today = new Date().toISOString();
 
@@ -47,11 +50,29 @@ export default function OrderForm({
   const initialSnapshotRef = useRef(null);
 
   // ===== Label -> Code helpers =====
-  const PAYMENT_METHODS = ["credit_card", "paypal", "bank_transfer", "cash_on_delivery"];
-  const ORDER_STATUSES = ["paid", "pending", "cancelled", "refunded", "failed", "processing", "shipped", "completed"];
+  const PAYMENT_METHODS = [
+    "credit_card",
+    "paypal",
+    "bank_transfer",
+    "cash_on_delivery",
+  ];
+  const ORDER_STATUSES = [
+    "paid",
+    "pending",
+    "cancelled",
+    "refunded",
+    "failed",
+    "processing",
+    "shipped",
+    "completed",
+  ];
 
-  const PAYMENT_LABEL_TO_CODE = Object.fromEntries(Object.entries(paymentLabels || {}).map(([k, v]) => [v, k]));
-  const STATUS_LABEL_TO_CODE = Object.fromEntries(Object.entries(statusLabels || {}).map(([k, v]) => [v, k]));
+  const PAYMENT_LABEL_TO_CODE = Object.fromEntries(
+    Object.entries(paymentLabels || {}).map(([k, v]) => [v, k])
+  );
+  const STATUS_LABEL_TO_CODE = Object.fromEntries(
+    Object.entries(statusLabels || {}).map(([k, v]) => [v, k])
+  );
 
   const normalizePaymentCode = (val) => PAYMENT_LABEL_TO_CODE[val] || val;
   const normalizeStatusCode = (val) => STATUS_LABEL_TO_CODE[val] || val;
@@ -65,9 +86,12 @@ export default function OrderForm({
       customer_id: data.customer_id || "",
       lead_id: data.lead_id || "",
       customer_name: data.customer_name || "",
-      order_date: data.order_date ? new Date(data.order_date).toISOString() : today,
+      order_date: data.order_date
+        ? new Date(data.order_date).toISOString()
+        : today,
       total_amount: data.total_amount || data.total || 0,
-      payment_method: normalizePaymentCode(data.payment_method) || "cash_on_delivery",
+      payment_method:
+        normalizePaymentCode(data.payment_method) || "cash_on_delivery",
       status: normalizeStatusCode(data.status) || "pending",
       channel: data.channel || "",
       ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell)
@@ -76,30 +100,42 @@ export default function OrderForm({
       notes: data.notes || "",
     };
 
-    const newDetails = Array.isArray(data.items) && data.items.length
-      ? data.items.map((it) => {
-        const quantity = Number(it.quantity ?? it.qty ?? 1);
-        const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
-        const subtotal = Number(it.subtotal ?? it.total_price ?? quantity * price);
-        let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
-        if (discount > 1) discount = discount / 100;
-        const original_price =
-          Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) ||
-          computeOriginalPrice(price, discount);
+    const newDetails =
+      Array.isArray(data.items) && data.items.length
+        ? data.items.map((it) => {
+            const quantity = Number(it.quantity ?? it.qty ?? 1);
+            const price = Number(
+              it.price ??
+                it.unit_price ??
+                it.price_unit ??
+                it.price_current ??
+                0
+            );
+            const subtotal = Number(
+              it.subtotal ?? it.total_price ?? quantity * price
+            );
+            let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
+            if (discount > 1) discount = discount / 100;
+            const original_price =
+              Number(
+                it.price_original ?? it.original_price ?? it.price_list ?? 0
+              ) || computeOriginalPrice(price, discount);
 
-        return {
-          order_detail_id:
-            it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          product_id: it.product_id || it.productId || "",
-          product_name: it.product_name || it.name || it.productName || "",
-          quantity,
-          price,
-          subtotal,
-          discount,
-          original_price,
-        };
-      })
-      : [];
+            return {
+              order_detail_id:
+                it.order_detail_id ||
+                it.id ||
+                `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              product_id: it.product_id || it.productId || "",
+              product_name: it.product_name || it.name || it.productName || "",
+              quantity,
+              price,
+              subtotal,
+              discount,
+              original_price,
+            };
+          })
+        : [];
 
     setForm((prev) => ({ ...prev, ...newForm }));
     setOrderDetails(newDetails);
@@ -192,17 +228,26 @@ export default function OrderForm({
     if (!products?.length) return;
     setOrderDetails((prev) =>
       prev.map((detail) => {
-        const found = products.find((p) => String(p.product_id || p.id) === String(detail.product_id));
+        const found = products.find(
+          (p) => String(p.product_id || p.id) === String(detail.product_id)
+        );
         if (!found) {
           return {
             ...detail,
             subtotal: Number(detail.quantity || 0) * Number(detail.price || 0),
           };
         }
-        const priceFromProd = Number(found.price_current ?? found.price ?? detail.price ?? 0);
-        let prodDiscount = Number(found.discount ?? found.discount_percent ?? detail.discount ?? 0) || 0;
+        const priceFromProd = Number(
+          found.price_current ?? found.price ?? detail.price ?? 0
+        );
+        let prodDiscount =
+          Number(
+            found.discount ?? found.discount_percent ?? detail.discount ?? 0
+          ) || 0;
         if (prodDiscount > 1) prodDiscount = prodDiscount / 100;
-        const original_price = Number(found.price_original ?? 0) || computeOriginalPrice(priceFromProd, prodDiscount);
+        const original_price =
+          Number(found.price_original ?? 0) ||
+          computeOriginalPrice(priceFromProd, prodDiscount);
 
         const quantity = Number(detail.quantity || 0);
         const price = Number(detail.price || priceFromProd);
@@ -211,8 +256,14 @@ export default function OrderForm({
           ...detail,
           product_name: detail.product_name || found.name || "",
           price,
-          discount: typeof detail.discount === "number" ? detail.discount : prodDiscount,
-          original_price: typeof detail.original_price === "number" ? detail.original_price : original_price,
+          discount:
+            typeof detail.discount === "number"
+              ? detail.discount
+              : prodDiscount,
+          original_price:
+            typeof detail.original_price === "number"
+              ? detail.original_price
+              : original_price,
           subtotal: quantity * price,
         };
       })
@@ -221,17 +272,19 @@ export default function OrderForm({
 
   // ===== Helpers =====
   const normalizeItems = (details) => {
-    return (details || [])
-      .map((d) => ({
-        product_id: String(d.product_id || ""),
-        quantity: Number(d.quantity || 0),
-        price: Number(d.price || 0),
-        original_price: Number(d.original_price || 0),
-        // discount chuẩn hoá về 0..1 và làm tròn để tránh lệch float
-        discount: Number((Number(d.discount || 0)).toFixed(6)),
-      }))
-      // sort để không phụ thuộc thứ tự
-      .sort((a, b) => a.product_id.localeCompare(b.product_id));
+    return (
+      (details || [])
+        .map((d) => ({
+          product_id: String(d.product_id || ""),
+          quantity: Number(d.quantity || 0),
+          price: Number(d.price || 0),
+          original_price: Number(d.original_price || 0),
+          // discount chuẩn hoá về 0..1 và làm tròn để tránh lệch float
+          discount: Number(Number(d.discount || 0).toFixed(6)),
+        }))
+        // sort để không phụ thuộc thứ tự
+        .sort((a, b) => a.product_id.localeCompare(b.product_id))
+    );
   };
 
   const isStatusOnlyChange = () => {
@@ -242,22 +295,29 @@ export default function OrderForm({
       order_id: form.order_id,
       customer_id: form.customer_id || "",
       lead_id: form.lead_id || "",
-      order_date: (form.order_date ? new Date(form.order_date).toISOString() : "").split("T")[0],
+      order_date: (form.order_date
+        ? new Date(form.order_date).toISOString()
+        : ""
+      ).split("T")[0],
       payment_method: form.payment_method,
       status: form.status,
       channel: form.channel || "",
       notes: form.notes || "",
     };
 
-    const statusChanged = String(currentComparableForm.status) !== String(snap.form.status);
+    const statusChanged =
+      String(currentComparableForm.status) !== String(snap.form.status);
     if (!statusChanged) return false;
 
     // So sánh các field còn lại (ngoại trừ status)
     const sameOtherFields =
-      String(currentComparableForm.customer_id) === String(snap.form.customer_id) &&
+      String(currentComparableForm.customer_id) ===
+        String(snap.form.customer_id) &&
       String(currentComparableForm.lead_id) === String(snap.form.lead_id) &&
-      String(currentComparableForm.order_date) === String(snap.form.order_date) &&
-      String(currentComparableForm.payment_method) === String(snap.form.payment_method) &&
+      String(currentComparableForm.order_date) ===
+        String(snap.form.order_date) &&
+      String(currentComparableForm.payment_method) ===
+        String(snap.form.payment_method) &&
       String(currentComparableForm.channel) === String(snap.form.channel) &&
       String(currentComparableForm.notes) === String(snap.form.notes);
 
@@ -265,7 +325,8 @@ export default function OrderForm({
 
     // items không đổi
     const currentItems = normalizeItems(orderDetails);
-    const sameItems = JSON.stringify(currentItems) === JSON.stringify(snap.items);
+    const sameItems =
+      JSON.stringify(currentItems) === JSON.stringify(snap.items);
 
     return sameItems;
   };
@@ -281,20 +342,26 @@ export default function OrderForm({
   const addOrderDetailWithProduct = (product) => {
     const pid = product.product_id ?? product.id ?? "";
     const price = Number(product.price_current ?? product.price ?? 0);
-    let prodDiscount = Number(product.discount ?? product.discount_percent ?? 0) || 0;
+    let prodDiscount =
+      Number(product.discount ?? product.discount_percent ?? 0) || 0;
     if (prodDiscount > 1) prodDiscount = prodDiscount / 100;
-    let original_price = Number(product.price_original ?? 0) || computeOriginalPrice(price, prodDiscount);
+    let original_price =
+      Number(product.price_original ?? 0) ||
+      computeOriginalPrice(price, prodDiscount);
 
     setOrderDetails((prev) => {
-      const idx = prev.findIndex((d) => String(d.product_id || "") === String(pid));
+      const idx = prev.findIndex(
+        (d) => String(d.product_id || "") === String(pid)
+      );
       if (idx !== -1) {
         const updated = prev.map((d, i) =>
           i === idx
             ? {
-              ...d,
-              quantity: Number(d.quantity || 0) + 1,
-              subtotal: (Number(d.quantity || 0) + 1) * Number(d.price || price),
-            }
+                ...d,
+                quantity: Number(d.quantity || 0) + 1,
+                subtotal:
+                  (Number(d.quantity || 0) + 1) * Number(d.price || price),
+              }
             : d
         );
         toast.info(`${product.name} đã có trong đơn, tăng số lượng lên 1`);
@@ -303,7 +370,9 @@ export default function OrderForm({
       return [
         ...prev,
         {
-          order_detail_id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          order_detail_id: `local-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 6)}`,
           product_id: pid,
           product_name: product.name ?? "",
           quantity: 1,
@@ -332,38 +401,54 @@ export default function OrderForm({
           const p = Number(value) || 0;
           updated.price = p;
           if (!updated.original_price) {
-            updated.original_price = computeOriginalPrice(p, updated.discount || 0);
+            updated.original_price = computeOriginalPrice(
+              p,
+              updated.discount || 0
+            );
           }
         } else if (field === "discount") {
           let d = Number(value) || 0;
           if (d > 1) d = d / 100;
           updated.discount = d;
           if (!updated.original_price) {
-            updated.original_price = computeOriginalPrice(updated.price || 0, d);
+            updated.original_price = computeOriginalPrice(
+              updated.price || 0,
+              d
+            );
           }
         } else if (field === "product_id") {
           updated.product_id = value;
-          const product = products.find((p) => String(p.product_id || p.id) === String(value));
+          const product = products.find(
+            (p) => String(p.product_id || p.id) === String(value)
+          );
           if (product) {
             updated.product_name = product.name || updated.product_name || "";
-            updated.price = Number(product.price_current ?? product.price ?? updated.price ?? 0);
-            let prodDiscount = Number(product.discount ?? product.discount_percent ?? 0) || 0;
+            updated.price = Number(
+              product.price_current ?? product.price ?? updated.price ?? 0
+            );
+            let prodDiscount =
+              Number(product.discount ?? product.discount_percent ?? 0) || 0;
             if (prodDiscount > 1) prodDiscount = prodDiscount / 100;
             updated.discount = prodDiscount;
             updated.original_price =
-              Number(product.price_original ?? 0) || computeOriginalPrice(updated.price, prodDiscount);
+              Number(product.price_original ?? 0) ||
+              computeOriginalPrice(updated.price, prodDiscount);
           }
         } else {
           updated[field] = value;
         }
 
-        updated.subtotal = Number(updated.quantity || 0) * Number(updated.price || 0);
+        updated.subtotal =
+          Number(updated.quantity || 0) * Number(updated.price || 0);
         return updated;
       })
     );
   };
 
-  const totalAmount = orderDetails.reduce((sum, d) => sum + (d.quantity || 0) * (d.price || 0), 0);
+  const totalAmount = orderDetails.reduce(
+    (sum, d) => sum + (d.quantity || 0) * (d.price || 0),
+    0
+  );
 
   // ===== Actions =====
   const handleCancel = () => {
@@ -375,9 +460,12 @@ export default function OrderForm({
         customer_id: data.customer_id || "",
         lead_id: data.lead_id || "",
         customer_name: data.customer_name || "",
-        order_date: data.order_date ? new Date(data.order_date).toISOString() : today,
+        order_date: data.order_date
+          ? new Date(data.order_date).toISOString()
+          : today,
         total_amount: data.total_amount || data.total || 0,
-        payment_method: normalizePaymentCode(data.payment_method) || "cash_on_delivery",
+        payment_method:
+          normalizePaymentCode(data.payment_method) || "cash_on_delivery",
         status: normalizeStatusCode(data.status) || "pending",
         channel: data.channel || "",
         ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell)
@@ -389,15 +477,21 @@ export default function OrderForm({
       setOrderDetails(
         data.items.map((it) => {
           const quantity = Number(it.quantity ?? it.qty ?? 1);
-          const price = Number(it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0);
+          const price = Number(
+            it.price ?? it.unit_price ?? it.price_unit ?? it.price_current ?? 0
+          );
           let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
           if (discount > 1) discount = discount / 100;
           let original_price =
-            Number(it.price_original ?? it.original_price ?? it.price_list ?? 0) || computeOriginalPrice(price, discount);
+            Number(
+              it.price_original ?? it.original_price ?? it.price_list ?? 0
+            ) || computeOriginalPrice(price, discount);
 
           return {
             order_detail_id:
-              it.order_detail_id || it.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              it.order_detail_id ||
+              it.id ||
+              `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             product_id: it.product_id || it.productId || "",
             product_name: it.product_name || it.name || "",
             quantity,
@@ -412,7 +506,13 @@ export default function OrderForm({
       // form mới
       setOrderDetails([]);
     }
-    setMode?.("view");
+
+    // Ưu tiên gọi onCancel nếu có (từ KanbanPage), nếu không có thì fallback về setMode
+    if (onCancel) {
+      onCancel();
+    } else {
+      setMode?.("view");
+    }
   };
 
   const handleSubmit = () => {
@@ -434,7 +534,9 @@ export default function OrderForm({
       ...(form.order_id ? { order_id: form.order_id } : {}),
       customer_id: form.customer_id || null, // luôn có key, null nếu chưa chọn
       lead_id: form.lead_id || null, // gửi lead_id nếu có
-      order_date: form.order_date ? new Date(form.order_date).toISOString() : new Date().toISOString(),
+      order_date: form.order_date
+        ? new Date(form.order_date).toISOString()
+        : new Date().toISOString(),
       status: form.status,
       payment_method: form.payment_method,
       channel: form.channel || "website",
@@ -444,7 +546,10 @@ export default function OrderForm({
       items: orderDetails.map((d) => {
         const unitPrice = Number(d.price || 0);
         const qty = Number(d.quantity || 0);
-        const orig = Number(d.original_price ?? d.price_original ?? d.originalPrice ?? 0) || unitPrice;
+        const orig =
+          Number(
+            d.original_price ?? d.price_original ?? d.originalPrice ?? 0
+          ) || unitPrice;
         return {
           product_id: d.product_id || null,
           product_name: d.product_name || null,
@@ -475,10 +580,14 @@ export default function OrderForm({
             <div className="flex gap-3">
               {/* Customer / Lead chooser */}
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Khách hàng</label>
+                <label className="block text-sm font-medium mb-1">
+                  Khách hàng
+                </label>
                 {mode === "view" ? (
                   <div className="text-sm w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
-                    {form.customer_id || form.lead_id ? (form.customer_name || form.customer_id || form.lead_id) : "-"}
+                    {form.customer_id || form.lead_id
+                      ? form.customer_name || form.customer_id || form.lead_id
+                      : "-"}
                   </div>
                 ) : (
                   <DropdownWithSearch
@@ -509,10 +618,17 @@ export default function OrderForm({
                           lead_id: p.id, // QUAN TRỌNG: set lead_id
                           customer_name: p.name || p.id,
                         }));
-                        toast.info("Bạn đang chọn Lead (qualified). Có thể tạo đơn với lead_id.");
+                        toast.info(
+                          "Bạn đang chọn Lead (qualified). Có thể tạo đơn với lead_id."
+                        );
                       }
                     }}
-                    placeholder={form.customer_name || form.customer_id || form.lead_id || "Chọn khách hàng"}
+                    placeholder={
+                      form.customer_name ||
+                      form.customer_id ||
+                      form.lead_id ||
+                      "Chọn khách hàng"
+                    }
                     searchPlaceholder="Tìm theo tên, email, số điện thoại..."
                     contentClassName="max-h-72 overflow-y-auto w-[520px] p-2"
                     renderItem={(p) => (
@@ -520,10 +636,15 @@ export default function OrderForm({
                         <div className="flex items-center justify-between">
                           <div className="font-medium truncate">{p.name}</div>
                           <span
-                            className={`text-[10px] px-2 py-[2px] rounded-full ${p.kind === "customer" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                              }`}
+                            className={`text-[10px] px-2 py-[2px] rounded-full ${
+                              p.kind === "customer"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
                           >
-                            {p.kind === "customer" ? "Customer" : "Lead (qualified)"}
+                            {p.kind === "customer"
+                              ? "Customer"
+                              : "Lead (qualified)"}
                           </span>
                         </div>
                         <div className="text-xs text-gray-600 mt-1 flex gap-3">
@@ -535,7 +656,10 @@ export default function OrderForm({
                   >
                     <div className="flex items-center justify-between w-full px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
                       <span className="text-sm truncate">
-                        {form.customer_name || form.customer_id || form.lead_id || "Chọn khách hàng"}
+                        {form.customer_name ||
+                          form.customer_id ||
+                          form.lead_id ||
+                          "Chọn khách hàng"}
                       </span>
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </div>
@@ -545,12 +669,16 @@ export default function OrderForm({
 
               {/* Order date */}
               <div className="w-56">
-                <label className="block text-sm font-medium mb-1">Ngày đặt hàng</label>
+                <label className="block text-sm font-medium mb-1">
+                  Ngày đặt hàng
+                </label>
                 <Input
                   disabled={mode === "view"}
                   type="date"
                   value={form.order_date ? form.order_date.split("T")[0] : ""}
-                  onChange={(e) => setForm((f) => ({ ...f, order_date: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, order_date: e.target.value }))
+                  }
                   variant="normal"
                 />
               </div>
@@ -559,26 +687,40 @@ export default function OrderForm({
             {/* Payment & Status */}
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Phương thức thanh toán</label>
+                <label className="block text-sm font-medium mb-1">
+                  Phương thức thanh toán
+                </label>
 
-                { /* REPLACED: use DropdownOptions */}
+                {/* REPLACED: use DropdownOptions */}
                 <DropdownOptions
-                  options={PAYMENT_METHODS.map((pm) => ({ value: pm, label: paymentLabels[pm] || pm }))}
+                  options={PAYMENT_METHODS.map((pm) => ({
+                    value: pm,
+                    label: paymentLabels[pm] || pm,
+                  }))}
                   value={form.payment_method}
-                  onChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
+                  onChange={(v) =>
+                    setForm((f) => ({ ...f, payment_method: v }))
+                  }
                   disabled={mode === "view"}
-                  placeholder={paymentLabels[form.payment_method] || form.payment_method}
+                  placeholder={
+                    paymentLabels[form.payment_method] || form.payment_method
+                  }
                   className=""
                   triggerClassName=""
                 />
               </div>
 
               <div className="w-56">
-                <label className="block text-sm font-medium mb-1">Trạng thái</label>
+                <label className="block text-sm font-medium mb-1">
+                  Trạng thái
+                </label>
 
-                { /* REPLACED: use DropdownOptions */}
+                {/* REPLACED: use DropdownOptions */}
                 <DropdownOptions
-                  options={ORDER_STATUSES.map((st) => ({ value: st, label: statusLabels[st] || st }))}
+                  options={ORDER_STATUSES.map((st) => ({
+                    value: st,
+                    label: statusLabels[st] || st,
+                  }))}
                   value={form.status}
                   onChange={(v) => setForm((f) => ({ ...f, status: v }))}
                   disabled={mode === "view"}
@@ -592,11 +734,15 @@ export default function OrderForm({
             {/* Channel + Cross-sell + Notes */}
             <div className="mt-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Kênh (channel)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Kênh (channel)
+                </label>
                 <Input
                   disabled={mode === "view"}
                   value={form.channel}
-                  onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, channel: e.target.value }))
+                  }
                   placeholder="website / phone / store ..."
                   variant="normal"
                 />
@@ -604,22 +750,33 @@ export default function OrderForm({
 
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Gợi ý cross-sell (ai_suggested_crosssell)</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Gợi ý cross-sell (ai_suggested_crosssell)
+                  </label>
                   <textarea
                     disabled={mode === "view"}
                     value={form.ai_suggested_crosssell}
-                    onChange={(e) => setForm((f) => ({ ...f, ai_suggested_crosssell: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        ai_suggested_crosssell: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                     placeholder="Nhập các đề xuất, cách nhau bằng dấu phẩy"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Ghi chú</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Ghi chú
+                  </label>
                   <textarea
                     disabled={mode === "view"}
                     value={form.notes}
-                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, notes: e.target.value }))
+                    }
                     className="w-full px-3 py-2 bg-white border focus:outline-none border-gray-300 rounded-lg focus:border-blue-500 disabled:bg-gray-50"
                     placeholder="Ghi chú đơn (ví dụ: Giao giờ hành chính, liên hệ trước 30 phút)"
                   />
@@ -636,7 +793,12 @@ export default function OrderForm({
                 <DropdownWithSearch
                   items={products}
                   itemKey={(p) => p.product_id ?? p.id}
-                  filterFn={(p, s) => (p.name || p.product_name || "").toString().toLowerCase().includes((s || "").toLowerCase())}
+                  filterFn={(p, s) =>
+                    (p.name || p.product_name || "")
+                      .toString()
+                      .toLowerCase()
+                      .includes((s || "").toLowerCase())
+                  }
                   onSelect={(p) => addOrderDetailWithProduct(p)}
                   searchPlaceholder="Tìm sản phẩm..."
                   contentClassName="w-96 max-w-full h-96 overflow-y-auto p-2"
@@ -645,20 +807,25 @@ export default function OrderForm({
                       <div className="flex justify-between items-center">
                         <span className="truncate">{product.name}</span>
                         <span className="text-xs text-gray-700">
-                          {product.price_current ? formatCurrency(product.price_current) : ""}
+                          {product.price_current
+                            ? formatCurrency(product.price_current)
+                            : ""}
                         </span>
                       </div>
                       <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
                         <div>
                           {product.discount_percent ?? product.discount ? (
                             <span className="text-amber-600 font-medium">
-                              Giảm {product.discount_percent ?? product.discount}%
+                              Giảm{" "}
+                              {product.discount_percent ?? product.discount}%
                             </span>
                           ) : null}
                         </div>
                         <div>
                           {product.price_original ? (
-                            <span className="line-through">{formatCurrency(product.price_original)}</span>
+                            <span className="line-through">
+                              {formatCurrency(product.price_original)}
+                            </span>
                           ) : null}
                         </div>
                       </div>
@@ -675,90 +842,142 @@ export default function OrderForm({
 
             <div className="space-y-3">
               {orderDetails.map((detail, index) => (
-                <div key={detail.order_detail_id} className="grid grid-cols-12 gap-3 items-end p-3 border rounded-lg">
+                <div
+                  key={detail.order_detail_id}
+                  className="grid grid-cols-12 gap-3 items-end p-3 border rounded-lg"
+                >
                   {/* Product */}
                   <div className="col-span-3">
-                    <label className="block text-sm font-medium mb-1">Sản phẩm</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Sản phẩm
+                    </label>
                     {mode === "view" ? (
                       <Input
                         value={detail.product_name}
                         disabled={true}
                         variant="normal"
-
                       />
                     ) : (
                       <Input
                         value={detail.product_name}
-                        onChange={(e) => updateOrderDetail(index, "product_name", e.target.value)}
+                        onChange={(e) =>
+                          updateOrderDetail(
+                            index,
+                            "product_name",
+                            e.target.value
+                          )
+                        }
                         placeholder="Nhập tên sản phẩm hoặc dùng 'Thêm sản phẩm' để chọn"
                         disabled={Boolean(detail.product_id)}
                         variant="normal"
-                        className={detail.product_id ? "bg-gray-50 cursor-not-allowed h-9" : ""}
+                        className={
+                          detail.product_id
+                            ? "bg-gray-50 cursor-not-allowed h-9"
+                            : ""
+                        }
                       />
                     )}
                   </div>
 
                   {/* Original price */}
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Giá gốc</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Giá gốc
+                    </label>
                     <Input
                       disabled={true}
                       variant="normal"
                       value={formatCurrency(Number(detail.original_price || 0))}
-                    >
-
-                    </Input>
+                    ></Input>
                   </div>
 
                   {/* Price */}
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Giá bán</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Giá bán
+                    </label>
                     <Input
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       type="number"
                       min="0"
                       value={Number(detail.price || 0)}
-                      onChange={(e) => updateOrderDetail(index, "price", parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateOrderDetail(
+                          index,
+                          "price",
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
                       variant="normal"
-                      className={mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : ""}
+                      className={
+                        mode === "view" || detail.product_id
+                          ? "bg-gray-50 cursor-not-allowed"
+                          : ""
+                      }
                     />
                   </div>
 
                   {/* Discount */}
                   <div className="col-span-1">
-                    <label className="block text-sm font-medium mb-1">CK (%)</label>
+                    <label className="block text-sm font-medium mb-1">
+                      CK (%)
+                    </label>
                     <Input
                       disabled={mode === "view" || Boolean(detail.product_id)}
                       type="number"
                       min="0"
                       max="100"
                       value={Math.round(Number(detail.discount || 0) * 100)}
-                      onChange={(e) => updateOrderDetail(index, "discount", parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateOrderDetail(
+                          index,
+                          "discount",
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
                       variant="normal"
-                      className={mode === "view" || detail.product_id ? "bg-gray-50 cursor-not-allowed" : ""}
+                      className={
+                        mode === "view" || detail.product_id
+                          ? "bg-gray-50 cursor-not-allowed"
+                          : ""
+                      }
                     />
                   </div>
 
                   {/* Quantity */}
                   <div className="col-span-1">
-                    <label className="block text-sm font-medium mb-1">Số lượng</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Số lượng
+                    </label>
                     <Input
                       disabled={mode === "view"}
                       type="number"
                       min="1"
                       value={Number(detail.quantity || 1)}
-                      onChange={(e) => updateOrderDetail(index, "quantity", parseInt(e.target.value) || 1)}
+                      onChange={(e) =>
+                        updateOrderDetail(
+                          index,
+                          "quantity",
+                          parseInt(e.target.value) || 1
+                        )
+                      }
                       variant="normal"
-                      className={mode === "view" ? "bg-gray-50 cursor-not-allowed" : ""}
+                      className={
+                        mode === "view" ? "bg-gray-50 cursor-not-allowed" : ""
+                      }
                     />
                   </div>
 
                   {/* Subtotal */}
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Thành tiền</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Thành tiền
+                    </label>
                     <Input
                       disabled
-                      value={formatCurrency((detail.quantity || 0) * (detail.price || 0))}
+                      value={formatCurrency(
+                        (detail.quantity || 0) * (detail.price || 0)
+                      )}
                       variant="normal"
                       className="bg-gray-50"
                     />
@@ -767,7 +986,13 @@ export default function OrderForm({
                   {/* Delete */}
                   <div className="col-span-1">
                     {(mode === "edit" || mode === "create") && (
-                      <Button type="button" variant="actionDelete" size="sm" onClick={() => removeOrderDetail(index)} className="w-full h-10">
+                      <Button
+                        type="button"
+                        variant="actionDelete"
+                        size="sm"
+                        onClick={() => removeOrderDetail(index)}
+                        className="w-full h-10"
+                      >
                         <X className="w-4 h-4" />
                       </Button>
                     )}
@@ -776,6 +1001,78 @@ export default function OrderForm({
               ))}
             </div>
           </div>
+
+          {/* Recommended Products Section - Only show when showRecommendations is true */}
+          {showRecommendations && recommendations?.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Box className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-semibold text-blue-900">
+                  Sản phẩm gợi ý cho khách hàng này
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {recommendations.map((product, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-white p-3 rounded-md border border-blue-100 hover:border-blue-300 cursor-pointer transition-colors"
+                    onClick={() => {
+                      // Add product to orderDetails (not form.items)
+                      addOrderDetailWithProduct({
+                        product_id: product.product_id,
+                        id: product.product_id,
+                        name: product.name,
+                        price_current: product.price_current,
+                        price_original: product.price_original,
+                        discount_percent: product.discount_percent,
+                      });
+                      toast.success(`Đã thêm ${product.name} vào đơn hàng`);
+                    }}
+                  >
+                    <div className="flex justify-between">
+                      <div className="flex flex-col items-start gap-2">
+                        <p className="text-sm font-medium text-gray-900 flex-1">
+                          {product.name}
+                        </p>
+                        {product.discount_percent > 0 && (
+                          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                            Giảm {product.discount_percent}%
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <div className="text-right ">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(product.price_current || 0)}
+                          </p>
+                          {product.price_original &&
+                            product.price_original > product.price_current && (
+                              <p className="text-xs text-gray-500 line-through">
+                                {formatCurrency(product.price_original)}
+                              </p>
+                            )}
+                        </div>
+                        {product.confidence_score && (
+                          <div className="text-right">
+                            <p className="text-xs text-blue-600 font-medium">
+                              {(product.confidence_score * 100).toFixed(0)}% phù
+                              hợp
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {product.reason && (
+                      <p className="text-xs text-gray-500 mt-2 italic">
+                        {product.reason}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -786,13 +1083,18 @@ export default function OrderForm({
             <div className="text-sm text-gray-500">
               <b>TỔNG TIỀN:</b>
             </div>
-            <div className="text-lg font-semibold">{formatCurrency(totalAmount)}</div>
+            <div className="text-lg font-semibold">
+              {formatCurrency(totalAmount)}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             {mode === "view" ? (
               <>
-                <Button variant="actionUpdate" onClick={() => setMode?.("edit")}>
+                <Button
+                  variant="actionUpdate"
+                  onClick={() => setMode?.("edit")}
+                >
                   <Edit className="w-4 h-4" />
                   Chỉnh sửa
                 </Button>
@@ -800,7 +1102,8 @@ export default function OrderForm({
                   title="Xác nhận xóa"
                   description={
                     <>
-                      Bạn có chắc chắn muốn xóa đơn <span className="font-semibold">#{data?.order_id}</span>?
+                      Bạn có chắc chắn muốn xóa đơn{" "}
+                      <span className="font-semibold">#{data?.order_id}</span>?
                     </>
                   }
                   confirmText="Xóa"
@@ -830,4 +1133,3 @@ export default function OrderForm({
     </div>
   );
 }
-

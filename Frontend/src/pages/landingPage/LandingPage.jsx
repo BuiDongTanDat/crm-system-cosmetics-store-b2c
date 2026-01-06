@@ -5,6 +5,7 @@ import { Menu, PhoneCall, ShoppingCart } from "lucide-react";
 import IntroPage from "./pages/IntroPage";
 import AllProductPage from "./pages/AllProductPage";
 import ContactModal from "./components/ContactModal";
+import InterestSubmitModal from "./components/InterestSubmitModal";
 import CartPage from "./pages/CartPage";
 import { Input } from "@/components/ui/input";
 
@@ -72,6 +73,7 @@ const Footer = () => (
 const LandingPage = () => {
   const [route, setRoute] = useState("intro");
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [interestSubmitModalOpen, setInterestSubmitModalOpen] = useState(false);
   const [contactPrefill, setContactPrefill] = useState({}); // notes, productInterest
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -80,6 +82,10 @@ const LandingPage = () => {
   const openContact = (prefill = {}) => {
     setContactPrefill(prefill);
     setContactModalOpen(true);
+  };
+
+  const openInterestSubmit = () => {
+    setInterestSubmitModalOpen(true);
   };
 
   // Detect scroll position
@@ -253,6 +259,7 @@ const LandingPage = () => {
           <AllProductPage
             onContact={(prefill) => openContact(prefill)}
             onCartChange={updateCartCount}
+            onSubmitInterest={openInterestSubmit}
           />
         )}
         {route === "like" && <LikePage />}
@@ -263,12 +270,18 @@ const LandingPage = () => {
 
       <Footer />
 
-      {/* Contact Modal */}
+      {/* Contact Modal - Tạo lead trực tiếp */}
       <ContactModal
         open={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         defaultNotes={contactPrefill.defaultNotes}
         defaultProductInterest={contactPrefill.defaultProductInterest}
+      />
+
+      {/* Interest Submit Modal - Tạo lead từ danh sách quan tâm */}
+      <InterestSubmitModal
+        open={interestSubmitModalOpen}
+        onClose={() => setInterestSubmitModalOpen(false)}
       />
     </div>
   );

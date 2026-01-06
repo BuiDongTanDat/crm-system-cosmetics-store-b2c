@@ -108,11 +108,6 @@ const searchablePages = [
     path: "/profile",
     keywords: ["cá nhân", "profile", "thông tin"],
   },
-  {
-    name: "Cài đặt",
-    path: "/settings",
-    keywords: ["cài đặt", "setting", "config"],
-  },
 ];
 
 export default function AppHeader() {

@@ -48,7 +48,7 @@ export default function AutomationPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [modal, setModal] = useState({ open: false, mode: 'view', automation: null });
   const [currentPage, setCurrentPage] = useState(1);
-  const automationsPerPage = 3;
+  const automationsPerPage = 4;
 
   const [viewMode, setViewMode] = useState('card');
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -218,6 +218,7 @@ export default function AutomationPage() {
                   placeholder="Tìm kiếm automation..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  variant="normal"
                   className="pl-9 pr-3 py-2 w-full"
                 />
               </div>
@@ -238,7 +239,7 @@ export default function AutomationPage() {
           </div>
         </div>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           <div className="bg-white p-4 rounded-lg border flex items-center gap-3">
             <Mail className="w-8 h-8 text-blue-500" />
             <div>
@@ -271,10 +272,10 @@ export default function AutomationPage() {
       </div>
 
       {/* Scrollable automations list */}
-      <div className="flex-1 overflow-auto pt-6 px-4">
+      <div className="flex-1 overflow-auto">
         {/* Automations view */}
         {viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
             {currentAutomations.map((automation) => (
               <AutomationCard
                 key={automation.id}
@@ -291,7 +292,8 @@ export default function AutomationPage() {
 
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="">
+            <div className="m-1 bg-white rounded-lg shadow-md overflow-hidden mb-6 ">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead className="bg-gray-50">
@@ -384,6 +386,7 @@ export default function AutomationPage() {
               </table>
             </div>
           </div>
+            </div>
         )}
 
         <AppPagination
