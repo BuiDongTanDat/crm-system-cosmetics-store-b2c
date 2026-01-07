@@ -110,3 +110,5 @@ Sau khi db healthy và backend đã chạy:
 * Kiểm tra ai-service/.env (RabbitMQ URL, key)
 * Mở http://localhost:8000/docs
 xem swagger.
+
+Repository: https://github.com/BuiDongTanDat/crm-system-cosmetics-store-b2c.git
