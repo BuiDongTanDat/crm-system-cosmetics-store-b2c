@@ -117,15 +117,25 @@ describe('AutomationService', () => {
 
     describe('buildDefaultCtx', () => {
         it('trả về ctx với lead, customer, order', async () => {
-            LeadRepository.findById.mockResolvedValue({ toJSON: () => ({ lead_id: 1 }) });
-            OrderRepo.findById = jest.fn().mockResolvedValue({ toJSON: () => ({ order_id: 2 }) });
-            customerRepository.findById = jest.fn().mockResolvedValue({ toJSON: () => ({ customer_id: 3 }) });
-            const ctx = await AutomationService.buildDefaultCtx({ lead_id: 1, order_id: 2, customer_id: 3 });
+            const mockLead = { lead_id: 1, toJSON: () => ({ lead_id: 1 }) };
+            const mockOrder = { order_id: 2, toJSON: () => ({ order_id: 2 }) };
+            const mockCustomer = { customer_id: 3, toJSON: () => ({ customer_id: 3 }) };
+
+            LeadRepository.findById.mockResolvedValue(mockLead);
+            OrderRepo.findById.mockResolvedValue(mockOrder);
+            customerRepository.findById.mockResolvedValue(mockCustomer);
+
+            const ctx = await AutomationService.buildDefaultCtx(
+                'lead.created',
+                { lead_id: 1, order_id: 2, customer_id: 3 }
+            );
+
             expect(ctx.lead.lead_id).toBe(1);
             expect(ctx.order.order_id).toBe(2);
             expect(ctx.customer.customer_id).toBe(3);
         });
     });
+
 
     describe('runEventFlows', () => {
         it('bỏ qua nếu không có flow', async () => {
@@ -163,9 +173,9 @@ describe('AutomationService', () => {
     describe('runDailyAutomation', () => {
         it('trả về ok khi chạy xong', async () => {
             flowsRepo.findAll = jest.fn().mockResolvedValue([]);
-            
+
             const res = await AutomationService.runDailyAutomation();
-            
+
             expect(res.ok).toBe(true);
         });
     });

@@ -116,11 +116,12 @@ describe('CustomerRepository', () => {
         it('trả về khách hàng theo tag', async () => {
             const mockCustomers = [{ tags: ['vip'] }];
             Customer.findAll.mockResolvedValue(mockCustomers);
-            Customer.sequelize = { Op: { contains: 'contains' } };
+            const containsSymbol = Symbol.for('contains');
+            Customer.sequelize = { Op: { contains: containsSymbol } };
 
             const result = await CustomerRepository.findByTag('vip');
 
-            expect(Customer.findAll).toHaveBeenCalledWith({ where: { tags: { contains: ['vip'] } } });
+            expect(Customer.findAll).toHaveBeenCalledWith({ where: { tags: { [containsSymbol]: ['vip'] } } });
             expect(result).toEqual(mockCustomers);
         });
     });
