@@ -112,3 +112,4 @@ Sau khi db healthy và backend đã chạy:
 xem swagger.
 
 Repository: https://github.com/BuiDongTanDat/crm-system-cosmetics-store-b2c.git
+Test update workflow
