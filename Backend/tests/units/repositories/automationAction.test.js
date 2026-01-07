@@ -45,7 +45,7 @@ describe('AutomationActionRepository', () => {
 
       expect(AutomationAction.findAll).toHaveBeenCalledWith({
         where: { trigger_id: 5 },
-        order: [['created_at', 'DESC']]
+        order: [['order_index', 'ASC'], ['created_at', 'ASC']]
       });
       expect(result).toEqual(mockActions);
     });
@@ -60,7 +60,7 @@ describe('AutomationActionRepository', () => {
 
       expect(AutomationAction.findAll).toHaveBeenCalledWith({
         where: { flow_id: 3 },
-        order: [['created_at', 'DESC']]
+        order: [['order_index', 'ASC'], ['created_at', 'ASC']]
       });
       expect(result).toEqual(mockActions);
     });
@@ -75,7 +75,7 @@ describe('AutomationActionRepository', () => {
       const call = AutomationAction.findAll.mock.calls[0][0];
       expect(call.limit).toBe(50);
       expect(call.offset).toBe(5);
-      expect(call.order).toEqual([['created_at', 'DESC']]);
+      expect(call.order).toEqual([['order_index', 'ASC'], ['created_at', 'ASC']]);
     });
 
     it('lọc theo status', async () => {

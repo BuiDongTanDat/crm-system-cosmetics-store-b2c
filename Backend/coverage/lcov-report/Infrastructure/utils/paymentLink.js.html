@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">17.5% </span>
+                <span class="strong">70% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/40</span>
+                <span class='fraction'>28/40</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">60% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>3/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">17.5% </span>
+                <span class="strong">70% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/40</span>
+                <span class='fraction'>28/40</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -105,29 +105,29 @@
 <a name='L40'></a><a href='#L40'>40</a>
 <a name='L41'></a><a href='#L41'>41</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -145,29 +145,29 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const crypto = require('crypto');
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function signPaymentLink({ order_id, exp }, secret) {</span></span>
-<span class="cstat-no" title="statement not covered" >  const msg = `${order_id}.${exp}`;</span>
-<span class="cstat-no" title="statement not covered" >  return crypto.createHmac('sha256', secret).update(msg).digest('hex');</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+function signPaymentLink({ order_id, exp }, secret) {
+  const msg = `${order_id}.${exp}`;
+  return crypto.createHmac('sha256', secret).update(msg).digest('hex');
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function buildPaymentUrl({ frontendUrl, order_id, exp, sig }) {</span></span>
-<span class="cstat-no" title="statement not covered" >  const u = new URL('/checkout', frontendUrl);</span>
-<span class="cstat-no" title="statement not covered" >  u.searchParams.set('order_id', order_id);</span>
-<span class="cstat-no" title="statement not covered" >  u.searchParams.set('exp', String(exp));</span>
-<span class="cstat-no" title="statement not covered" >  u.searchParams.set('sig', sig);</span>
-<span class="cstat-no" title="statement not covered" >  return u.toString();</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+function buildPaymentUrl({ frontendUrl, order_id, exp, sig }) {
+  const u = new URL('/checkout', frontendUrl);
+  u.searchParams.set('order_id', order_id);
+  u.searchParams.set('exp', String(exp));
+  u.searchParams.set('sig', sig);
+  return u.toString();
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function createPaymentLink(orderId, { ttlMinutes = 60 } = {}) {</span></span>
-<span class="cstat-no" title="statement not covered" >  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';</span>
-<span class="cstat-no" title="statement not covered" >  const secret = process.env.PAYMENT_LINK_SECRET || 'dev_secret';</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >  const exp = Math.floor(Date.now() / 1000) + ttlMinutes * 60;</span>
-<span class="cstat-no" title="statement not covered" >  const sig = signPaymentLink({ order_id: orderId, exp }, secret);</span>
-<span class="cstat-no" title="statement not covered" >  const url = buildPaymentUrl({ frontendUrl, order_id: orderId, exp, sig });</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >  return { url, exp, sig };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+function createPaymentLink(orderId, { ttlMinutes = 60 } = {}) {
+  const frontendUrl = process.env.FRONTEND_URL<span class="branch-0 cbranch-no" title="branch not covered" > || 'http://localhost:5173';</span>
+  const secret = process.env.PAYMENT_LINK_SECRET<span class="branch-0 cbranch-no" title="branch not covered" > || 'dev_secret';</span>
+&nbsp;
+  const exp = Math.floor(Date.now() / 1000) + ttlMinutes * 60;
+  const sig = signPaymentLink({ order_id: orderId, exp }, secret);
+  const url = buildPaymentUrl({ frontendUrl, order_id: orderId, exp, sig });
+&nbsp;
+  return { url, exp, sig };
+}
 &nbsp;
 <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function verifyPaymentLink(orderId, exp, sig) {</span></span>
 <span class="cstat-no" title="statement not covered" >  const secret = process.env.PAYMENT_LINK_SECRET || 'dev_secret';</span>
@@ -190,7 +190,7 @@ module.exports = { createPaymentLink, verifyPaymentLink };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-31T04:42:19.223Z
+                at 2026-01-07T12:37:38.250Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
