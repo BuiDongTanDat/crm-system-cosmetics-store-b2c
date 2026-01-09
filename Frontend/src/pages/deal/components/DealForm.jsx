@@ -377,41 +377,41 @@ export function DealForm({
             {(form.leadScore > 0 ||
               form.conversionProb > 0 ||
               form.aiReason) && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-blue-900">
-                  Đánh giá AI
-                </h4>
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-blue-900">
+                    Đánh giá AI
+                  </h4>
 
-                {/* Grid layout for metrics */}
-                <div className="grid grid-cols-2 gap-2">
-                  {form.leadScore > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-700 mb-1">Điểm Lead</p>
-                      <p className="text-lg font-bold text-blue-900">
-                        {form.leadScore}/100
-                      </p>
-                    </div>
-                  )}
+                  {/* Grid layout for metrics */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {form.leadScore > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-700 mb-1">Điểm Lead</p>
+                        <p className="text-lg font-bold text-blue-900">
+                          {form.leadScore}/100
+                        </p>
+                      </div>
+                    )}
 
-                  {form.conversionProb > 0 && (
+                    {form.conversionProb > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-700 mb-1">Xác suất chuyển đổi</p>
+                        <p className="text-lg font-bold text-blue-900">
+                          {(form.conversionProb * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Reason in separate box */}
+                  {form.aiReason && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-700 mb-1">Xác suất chuyển đổi</p>
-                      <p className="text-lg font-bold text-blue-900">
-                        {(form.conversionProb * 100).toFixed(1)}%
-                      </p>
+                      <p className="text-xs text-blue-700 mb-2 font-medium">Lý do đánh giá:</p>
+                      <p className="text-sm text-blue-900 italic leading-relaxed">{form.aiReason}</p>
                     </div>
                   )}
                 </div>
-
-                {/* Reason in separate box */}
-                {form.aiReason && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs text-blue-700 mb-2 font-medium">Lý do đánh giá:</p>
-                    <p className="text-sm text-blue-900 italic leading-relaxed">{form.aiReason}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
             {/* ML Model Predictions Section */}
             {(form.mlConversionProb > 0 || form.mlPredictedValue > 0 || form.mlModelVersion || form.mlLastScoredAt) && (
@@ -435,7 +435,7 @@ export function DealForm({
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                       <p className="text-xs text-purple-700 mb-1">Giá trị dự đoán (ML)</p>
                       <p className="text-lg font-bold text-purple-900">
-                        {formatCurrency(form.mlPredictedValue)}
+                        {formatCurrency(Math.round(form.mlPredictedValue))}
                       </p>
                     </div>
                   )}
@@ -536,9 +536,9 @@ export function DealForm({
                   Lịch sử tương tác ({form.interactions.length})
                 </h4>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto">
-                  
+
                   <div className="space-y-3">
-                    
+
                     {form.interactions.map((interaction) => {
                       const typeLabels = {
                         interested: 'Quan tâm',
@@ -547,7 +547,7 @@ export function DealForm({
                         email_opened: 'Mở email',
                         email_clicked: 'Click link email',
                       };
-                      
+
                       return (
                         <div key={interaction.interaction_id} className="flex gap-3  pl-0">
                           <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
@@ -591,7 +591,7 @@ export function DealForm({
                     Giá trị dự đoán:
                   </span>
                   <span className="text-lg font-semibold text-green-700">
-                    {formatCurrency(form.value)}
+                    {formatCurrency(Math.round(form.value))}
                   </span>
                 </div>
               </div>
@@ -629,16 +629,16 @@ export function DealForm({
             </>
           ) : (
             <>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleCancel}
                 disabled={isSubmitting}
               >
                 Hủy
               </Button>
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 variant="actionUpdate"
                 disabled={isSubmitting}
               >

@@ -12,6 +12,8 @@ import {
   Trash2,
   Edit,
   Send,
+  ExternalLink,
+  Eye,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
 import {
@@ -291,14 +293,24 @@ export default function MarketingDetail({
             e.currentTarget.style.display = "none";
           }}
         />
-        <a
-          href={banner}
-          target="_blank"
-          rel="noreferrer"
-          className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-md hover:bg-black/80 transition"
-        >
-          Xem ảnh
-        </a>
+        <div className="absolute bottom-2 right-2 flex gap-2">
+          <a
+            href={banner}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-md hover:bg-black/80 transition flex items-center gap-1"
+          >
+            <Eye className="w-3 h-3" /> Xem ảnh
+          </a>
+          <a
+            href={`/campaigns/${c.campaign_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-700 transition flex items-center gap-1 shadow-lg"
+          >
+            <ExternalLink className="w-3 h-3" /> Xem Landing Page
+          </a>
+        </div>
       </div>
 
       {/* Header */}
@@ -604,57 +616,80 @@ export default function MarketingDetail({
           </>
         )}
 
-        {/* Configuring / Running -> Run */}
+        {/* Configuring / Running / Paused -> Run/Pause */}
         {(localStatus === "Configuring" ||
           localStatus === "Running" ||
           localStatus === "Paused" ||
           localStatus === "Approved") && (
-          <PermissionGuard module="campaign" action="run">
-            {/* Chỉ hiện nút Chạy khi đã có kênh và gắn flow */}
-            {channels.length > 0 &&
-            channels.some(
-              (ch) => ch.flow_id || (ch.flows && ch.flows.length > 0)
-            ) ? (
-              <Button
-                className={`px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white ${
-                  localStatus === "Running"
-                    ? "bg-green-600"
-                    : "bg-indigo-600 hover:bg-indigo-700"
-                }`}
-                onClick={handleRun}
-                disabled={isProcessing || localStatus === "Running"}
-              >
-                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
-                {localStatus === "Running"
-                  ? "Đang chạy"
-                  : localStatus === "Paused"
-                  ? "Tiếp tục"
-                  : "Chạy Chiến Dịch"}
-              </Button>
-            ) : (
-              localStatus === "Running" && (
-                <Button
-                  className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-green-600"
-                  disabled
-                >
-                  Đang chạy
-                </Button>
-              )
-            )}
-          </PermissionGuard>
-        )}
+            <PermissionGuard module="campaign" action="run">
+              {/* Chỉ hiện nút Chạy khi đã có kênh và gắn flow */}
+              {channels.length > 0 &&
+                channels.some(
+                  (ch) => ch.flow_id || (ch.flows && ch.flows.length > 0)
+                ) ? (
+                localStatus === "Running" ? (
+                  <Button
+                    className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-amber-500 hover:bg-amber-600"
+                    onClick={async () => {
+                      try {
+                        setIsProcessing(true);
+                        setActionError("");
+                        const { ok, message } = await approveCampaign(c.campaign_id, {
+                          status: "paused",
+                        });
+                        if (!ok) throw new Error(message || "Lỗi khi tạm dừng");
+                        setSuccessMessage("Đã tạm dừng chiến dịch");
+                        setSuccessOpen(true);
+                        await reloadCampaignData();
+                      } catch (e) {
+                        setActionError(e.message);
+                      } finally {
+                        setIsProcessing(false);
+                      }
+                    }}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Tạm dừng
+                  </Button>
+                ) : (
+                  <Button
+                    className={`px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white ${"bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    onClick={handleRun}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {localStatus === "Paused"
+                      ? "Tiếp tục"
+                      : "Chạy Chiến Dịch"}
+                  </Button>
+                )
+              ) : (
+                // Case: Running but no valid channels (should verify if this happen)
+                localStatus === "Running" && (
+                  <Button
+                    className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-green-600"
+                    disabled
+                  >
+                    Đang chạy
+                  </Button>
+                )
+              )}
+            </PermissionGuard>
+          )}
 
         {(localStatus === "Draft" ||
           localStatus === "Rejected" ||
           localStatus === "Approved" ||
           localStatus === "Configuring") && (
-          <PermissionGuard module="campaign" action="update">
-            <Button variant="actionUpdate" onClick={() => onEdit?.(c)}>
-              <Edit className="w-4 h-4" />
-              Chỉnh sửa
-            </Button>
-          </PermissionGuard>
-        )}
+            <PermissionGuard module="campaign" action="update">
+              <Button variant="actionUpdate" onClick={() => onEdit?.(c)}>
+                <Edit className="w-4 h-4" />
+                Chỉnh sửa
+              </Button>
+            </PermissionGuard>
+          )}
 
         {localStatus !== "Running" && (
           <PermissionGuard module="campaign" action="delete">

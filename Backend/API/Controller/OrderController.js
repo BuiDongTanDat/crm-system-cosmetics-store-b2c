@@ -139,7 +139,13 @@ class OrderController {
       //   // bỏ qua nếu bạn chưa muốn ràng buộc
       // }
 
-      const updated = await OrderService.updateStatus(id, status);
+      const extraData = {
+        payment_method: req.body?.payment_method,
+        shipping_address: req.body?.shipping_address,
+        total_amount: req.body?.total_amount
+      };
+
+      const updated = await OrderService.updateStatus(id, status, extraData);
       return res.json(updated);
     } catch (err) {
       return next(err);
@@ -204,6 +210,15 @@ class OrderController {
       return res.json(orders);
     } catch (err) {
       return next(err);
+    }
+  }
+
+  async lookup(req, res, next) {
+    try {
+      const orders = await OrderService.lookup(req.body);
+      return res.json({ success: true, count: orders.length, data: orders });
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
     }
   }
 }

@@ -266,8 +266,14 @@ export const approveProposal = async (id) => {
 };
 
 export const getCampaignById = async (id) => {
-    const res = await request(`/campaign/${id}`, { method: 'GET' });
+    const res = await request(`/campaign/${id}`, { method: 'GET', isPublicRoute: true });
     if (!res.ok) throw new Error(res.error?.message || 'API error');
     return res.data;
+};
+
+export const getChannelStats = async () => {
+    const res = await request('/campaign/stats/channels', { method: 'GET' });
+    if (!res.ok) throw new Error(res.error?.message || 'API error');
+    return res.data || [];
 };
 

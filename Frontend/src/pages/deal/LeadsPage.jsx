@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Plus } from 'lucide-react';
+import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Plus, RefreshCw } from 'lucide-react';
 import CountUp from 'react-countup';
 import { Button } from '@/components/ui/button';
 import AppDialog from '@/components/dialogs/AppDialog';
@@ -9,7 +9,7 @@ import DropdownOptions from '@/components/common/DropdownOptions';
 import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
 import { toast } from 'sonner';
 import AppPagination from '@/components/pagination/AppPagination';
-import { getAllleads, getPipelineMetrics, getLeadDetailsById, getPipelineColumns } from '@/services/leads';
+import { getAllleads, getPipelineMetrics, getLeadDetailsById, getPipelineColumns, rescoreLead } from '@/services/leads';
 
 // Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
@@ -124,11 +124,11 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
 
   const handleView = async (lead) => {
     setModal({ open: true, mode: 'view', deal: lead, loading: true });
-    
+
     try {
       const res = await getLeadDetailsById(lead.lead_id);
       const detailData = res?.data?.data ?? res?.data ?? res;
-      
+
       if (detailData) {
         const normalizeStatus = (s) => {
           const v = (s || '').toLowerCase();
@@ -188,11 +188,11 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
 
   const handleEdit = async (lead) => {
     setModal({ open: true, mode: 'edit', deal: lead, loading: true });
-    
+
     try {
       const res = await getLeadDetailsById(lead.lead_id);
       const detailData = res?.data?.data ?? res?.data ?? res;
-      
+
       if (detailData) {
         const normalizeStatus = (s) => {
           const v = (s || '').toLowerCase();
@@ -259,7 +259,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
       try {
         const res = await getLeadDetailsById(dealData.id);
         const detailData = res?.data?.data ?? res?.data ?? res;
-        
+
         if (detailData) {
           const normalizeStatus = (s) => {
             const v = (s || '').toLowerCase();
@@ -372,6 +372,25 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
     setLeads((prev) => prev.filter((d) => d.lead_id !== lead_id));
     closeModal();
     toast.success('Xóa lead thành công!');
+  };
+
+  const handleRescore = async (lead) => {
+    try {
+      toast.info("Đang tính điểm lại...");
+      const res = await rescoreLead(lead.lead_id, { trigger: 'manual' });
+      if (res?.ok) {
+        toast.success("Rescore thành công! (Điểm mới: " + (res.data?.score || 'N/A') + ")");
+        // Refresh list or update specific item
+        // Just reloading all for simplicity or updating local state if complex
+        const updated = await getAllleads(); // Reload entire list to be safe
+        if (Array.isArray(updated)) setLeads(updated);
+      } else {
+        toast.error("Rescore thất bại: " + (res?.error?.message || "Lỗi không xác định"));
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Lỗi khi rescore: " + e.message);
+    }
   };
 
   const filtered = effectiveFilterStatus ? leads.filter((l) => l.status === effectiveFilterStatus) : leads;
@@ -517,7 +536,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.email}</td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.phone}</td>
                       <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">
-                        {formatCurrency(Number(lead.predicted_value || 0))}
+                        {formatCurrency(Math.round(Number(lead.predicted_value || 0)))}
                       </td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">
                         {lead.source || '-'}
@@ -543,6 +562,15 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                             className="h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="actionRead"
+                            size="icon"
+                            title="Tính lại điểm (Rescore)"
+                            onClick={() => handleRescore(lead)}
+                            className="h-8 w-8 text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                          >
+                            <RefreshCw className="w-4 h-4" />
                           </Button>
                           <ConfirmDialog
                             title="Xác nhận xóa"

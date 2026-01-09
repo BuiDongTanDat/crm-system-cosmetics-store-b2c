@@ -6,8 +6,9 @@ class OrderDetailRequestDTO {
 		this.quantity = Number(detail.quantity) || 0;
 		this.discount = Number(detail.discount) || 0;
 		this.price_original = Number(detail.price_original) || 0;
-		this.price_unit = Number(detail.unit_price ?? detail.price_unit) || 0;
-		this.subtotal = Number(detail.total_price ?? (this.quantity * this.price_unit)) || 0;
+		this.price_unit = Number(detail.price_unit ?? detail.unit_price) || 0;
+		this.image = detail.image || null;
+		this.subtotal = Number(detail.subtotal ?? detail.total_price ?? (this.quantity * this.price_unit)) || 0;
 	}
 }
 
@@ -21,6 +22,7 @@ class OrderRequestDTO {
 		this.payment_method = order.payment_method || null;
 		this.status = order.status || 'pending';
 		this.channel = order.channel || null;
+		this.shipping_address = order.shipping_address || null;
 		this.notes = order.notes || null;
 		this.items = Array.isArray(order.items)
 			? order.items.map(item => new OrderDetailRequestDTO(item))
@@ -38,8 +40,8 @@ class OrderDetailResponseDTO {
 		this.order_detail_id = detail.order_detail_id || null;
 		this.order_id = detail.order_id || null;
 		this.product_id = detail.product_id || null;
-		this.product_name = detail.product_name || null; // Đảm bảo ánh xạ product_name
-		this.image = detail.image || null;
+		this.product_name = detail.product_name || detail.Product?.name || null;
+		this.image = detail.image || detail.product_image || detail.Product?.image || null;
 		this.price_unit = Number(detail.price_unit) || 0;
 		this.price_original = Number(detail.price_original) || 0;
 		this.quantity = Number(detail.quantity) || 0;
@@ -63,7 +65,7 @@ class OrderResponseDTO {
 	constructor(order = {}, details = []) {
 		this.order_id = order.order_id || null;
 		this.customer_id = order.customer_id || null;
-		this.customer_name = order.customer_name || null; // Đảm bảo ánh xạ customer_name
+		this.customer_name = order.customer_name || order.customer?.full_name || order.lead?.name || null;
 		this.status = order.status || null;
 		this.order_date = order.order_date || null;
 
@@ -76,6 +78,7 @@ class OrderResponseDTO {
 		this.currency = order.currency || null;
 		this.payment_method = order.payment_method || null;
 		this.channel = order.channel || null;
+		this.shipping_address = order.shipping_address || null;
 		this.ai_suggested_crosssell = order.ai_suggested_crosssell || [];
 		this.notes = order.notes || null;
 		this.created_at = order.created_at || null;

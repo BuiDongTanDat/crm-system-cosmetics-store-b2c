@@ -54,13 +54,13 @@ const Footer = () => (
           }}
         >
           <Input
-          variant="normal"
+            variant="normal"
             type="email"
             required
             placeholder="Email của bạn"
             className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <Button type="submit" variant ="actionCreate" >Đăng ký</Button>
+          <Button type="submit" variant="actionCreate" >Đăng ký</Button>
         </form>
       </div>
     </div>
@@ -147,21 +147,19 @@ const LandingPage = () => {
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-gray-700">
             <button
               onClick={() => setRoute("intro")}
-              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${
-                route === "intro"
-                  ? "text-blue-600 underline underline-offset-10"
-                  : ""
-              }`}
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${route === "intro"
+                ? "text-blue-600 underline underline-offset-10"
+                : ""
+                }`}
             >
               GIỚI THIỆU
             </button>
             <button
               onClick={() => setRoute("products")}
-              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${
-                route === "products"
-                  ? "text-blue-600 underline underline-offset-10"
-                  : ""
-              }`}
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95  cursor-pointer ${route === "products"
+                ? "text-blue-600 underline underline-offset-10"
+                : ""
+                }`}
             >
               SẢN PHẨM
             </button>
@@ -170,6 +168,12 @@ const LandingPage = () => {
               className={`hover:text-blue-600 transition hover:scale-105 active:scale-95 cursor-pointer `}
             >
               LIÊN HỆ
+            </button>
+            <button
+              onClick={() => window.location.href = '/order-lookup'}
+              className={`hover:text-blue-600 transition hover:scale-105 active:scale-95 cursor-pointer `}
+            >
+              TRA CỨU ĐƠN HÀNG
             </button>
 
           </nav>
@@ -187,7 +191,7 @@ const LandingPage = () => {
 
           {/* Desktop Cart Button */}
           <Button
-            id = {"myCart"}
+            id={"myCart"}
             onClick={() => setRoute("cart")}
             variant="actionUpdate"
             className="hidden md:flex items-center gap-2"
@@ -223,6 +227,15 @@ const LandingPage = () => {
               data-active={route === "products"}
             >
               SẢN PHẨM
+            </Button>
+            <Button
+              variant="menuLanding"
+              onClick={() => {
+                window.location.href = '/order-lookup';
+                setMobileMenuOpen(false);
+              }}
+            >
+              TRA CỨU ĐƠN HÀNG
             </Button>
             <Button
               variant="menuLanding"

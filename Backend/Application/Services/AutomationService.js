@@ -339,6 +339,28 @@ class AutomationService {
     switch (route) {
       case 'flows': {
         const ctx = await this.buildDefaultCtx(eventName, triggerPayload);
+
+        // Auto-record interaction for engagement events
+        if (eventName.startsWith('engagement.')) {
+          try {
+            await this.add_interaction(this, {
+              content: {
+                type: eventName,
+                channel: triggerPayload?.channel || 'email',
+                properties: {
+                  mid: triggerPayload?.mid,
+                  url: triggerPayload?.url,
+                  ip: triggerPayload?.ip,
+                  ua: triggerPayload?.user_agent,
+                  template_key: triggerPayload?.template_key
+                }
+              }
+            }, ctx);
+          } catch (e) {
+            console.error('[Automation] Auto-record interaction failed:', e?.message || e);
+          }
+        }
+
         await this.runEventFlows(eventName, ctx);
         return;
       }
@@ -900,6 +922,20 @@ const ACTION_HANDLERS = Object.freeze({
       templateCtx.email.body_html = svc.render(cfg.body, templateCtx);
     }
 
+    // DIAGNOSTIC: Log email rendering details
+    console.log('[Automation] send_email diagnostic:', {
+      templateKey,
+      bodyHtmlLength: bodyHtml?.length || 0,
+      hasBody: !!bodyHtml,
+      isEmpty: !bodyHtml || String(bodyHtml).trim() === '',
+      to,
+      subject,
+      ctxKeys: Object.keys(templateCtx),
+      hasLead: !!templateCtx.lead,
+      hasCustomer: !!templateCtx.customer,
+      hasCampaign: !!templateCtx.campaign,
+    });
+
     const mid = randomUUID();
 
     bodyHtml = rewriteLinksForClickTracking({
@@ -909,6 +945,56 @@ const ACTION_HANDLERS = Object.freeze({
       templateKey,
       ctx: templateCtx,
     });
+
+    // Inject "Visit Website" Button (If Campaign Context)
+    const channelId =
+      ctx?.campaign_channel?.channel_id ||
+      ctx?.campaign_channel?.id ||
+      ctx?.trigger?.channel_id ||
+      ctx?.trigger?.channelId ||
+      null;
+
+    const campaignId =
+      ctx?.campaign?.campaign_id ||
+      ctx?.campaign?.id ||
+      null;
+
+    if (channelId && campaignId) {
+      const baseUrl = process.env.API_URL || 'http://localhost:5000';
+
+      // Resolve Dynamic CTA
+      const defaultLabel = 'Ghé thăm Website';
+      const defaultUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+      const rawCtaUrl = cfg.email?.cta?.url || cfg.cta_url || defaultUrl;
+      const rawCtaLabel = cfg.email?.cta?.label || cfg.cta_label || defaultLabel;
+
+      const renderCtx = { ...ctx, env: process.env };
+
+      const ctaLabel = rawCtaLabel ? svc.render(rawCtaLabel, renderCtx) : defaultLabel;
+      // Handle potential {{env.FRONTEND_URL}} in cta_url
+      const resolvedCtaUrl = svc.render(rawCtaUrl, renderCtx);
+
+      const targetUrl = encodeURIComponent(resolvedCtaUrl);
+      const trackClickUrl = `${baseUrl}/v1/track/click?channel_id=${channelId}&campaign_id=${campaignId}&to=${to}&mid=${mid}&url=${targetUrl}`;
+
+      const actionButton = `
+        <div style="margin-top: 20px; text-align: center;">
+          <a href="${trackClickUrl}" 
+             style="background-color: #2563EB; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+             ${ctaLabel}
+          </a>
+        </div>
+      `;
+
+      if (bodyHtml.includes('</body>')) {
+        bodyHtml = bodyHtml.replace('</body>', `${actionButton}</body>`);
+      } else if (bodyHtml.includes('</html>')) {
+        bodyHtml = bodyHtml.replace('</html>', `${actionButton}</html>`);
+      } else {
+        bodyHtml = `${bodyHtml}<br/>${actionButton}`;
+      }
+    }
 
     bodyHtml = injectOpenPixel({
       html: bodyHtml,
@@ -928,13 +1014,6 @@ const ACTION_HANDLERS = Object.freeze({
       from_email,
       reply_to,
     });
-
-    const channelId =
-      ctx?.campaign_channel?.channel_id ||
-      ctx?.campaign_channel?.id ||
-      ctx?.trigger?.channel_id ||
-      ctx?.trigger?.channelId ||
-      null;
 
     if (channelId) {
       try {
@@ -1095,7 +1174,7 @@ const ACTION_HANDLERS = Object.freeze({
 
     if (!next) return console.warn('[Automation] for_each: missing next_action');
 
-    const mode = cfg.mode || 'sequential';
+    const mode = cfg.mode || 'parallel';
 
     if (mode === 'distributed') {
       console.log(`[Automation] for_each (distributed): dispatching ${items.length} items to RabbitMQ`);

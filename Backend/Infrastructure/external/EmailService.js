@@ -72,7 +72,9 @@ class EmailService {
 
         try {
             if (!this.transporter) this.initTransporter();
-            await this.transporter.verify();
+            // Removed verify() per email for every send to improve performance. 
+            // sendMail will fail if connection is down anyway.
+            // await this.transporter.verify();
 
             const mailOptions = {
                 from: process.env.MAIL_FROM || '"MyShop" <no-reply@myshop.vn>',

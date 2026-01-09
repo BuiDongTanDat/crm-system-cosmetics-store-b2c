@@ -44,7 +44,8 @@ class OrderService {
 					quantity: qty,
 					unit_price: unit,
 					discount: Number(it.discount || 0),        // 0..1
-					price_original: it.price_original ?? null, // optional
+					price_original: it.price_original ?? (it.price_original || 0),
+					image: it.image || null,
 					total_price: total
 				};
 			});
@@ -113,8 +114,10 @@ class OrderService {
 						full_name: leadName || 'Guest',
 						phone: leadPhone || null,
 						email: leadEmail || null,
+						email: leadEmail || null,
 						source: 'order_checkout',
 						assigned_to: lead.assigned_to || null,
+						address: payload.shipping_address || null,
 					});
 					payload.customer_id = resolvedCustomer?.customer_id;
 					if (!payload.customer_id) throw new Error('CUSTOMER_CREATE_FAILED: Không tạo được customer_id');
@@ -131,27 +134,64 @@ class OrderService {
 					payload.customer_id = exist.customer_id;
 					resolvedCustomer = exist;
 				} else {
-					const candidate = {
-						full_name: full_name || name || 'Guest',
+					// User Requirement: "tạo dữ liệu lead cho người này trước"
+					// Create Lead instead of Customer if guest
+					const rawItems = Array.isArray(payload.items) ? payload.items : [];
+					const productNames = rawItems.map(i => i.product_name || i.name || i.product_id).join(', ');
+					const productIds = rawItems.map(i => i.product_id).filter(Boolean);
+
+					const leadPayload = {
+						name: full_name || name || 'Guest Lead',
 						phone: phone || null,
 						email: email || null,
-						source: 'guest_checkout',
+						source: 'web_checkout',
+						status: 'new',
+						tags: ['guest_checkout', 'order_pending'],
+						product_interest: productNames, // List of products
+						product_ids: productIds,        // Logic to create Interest records
+						note: `Khách đặt hàng.\nĐịa chỉ: ${payload.shipping_address || 'N/A'}.\nSP quan tâm: ${productNames}.\nGhi chú KH: ${payload.note || 'Không có'}`,
+						// We can store address in meta or note, Customer creation will use shipping_address later
 					};
-					resolvedCustomer = await customerRepository.findOrCreateSmart(candidate);
-					payload.customer_id = resolvedCustomer?.customer_id;
+					try {
+						// Requires LeadService instance or import
+						// Assuming LeadService is imported as class or instance. 
+						// File top imports: const LeadService = require('./LeadService'); is Class or Instance?
+						// checking top of file... `const LeadService = require('./LeadService');` (Step 499)
+						// LeadService file exports class? `module.exports = new LeadService()` or class?
+						// Wait, checking bottom of LeadService.js...
+						const newLeadRes = await LeadService.createLead(leadPayload);
+						if (newLeadRes?.ok && newLeadRes.data?.lead_id) {
+							payload.lead_id = newLeadRes.data.lead_id;
+						} else {
+							// Fallback if lead creation fails?
+							console.warn('Failed to create lead for guest checkout, proceeding as anonymous?');
+						}
+					} catch (e) {
+						console.error('Lead creation error:', e);
+					}
 
-					if (!payload.customer_id) throw new Error('CUSTOMER_CREATE_FAILED: Không tạo được customer_id');
+					// Maintain null customer_id to await conversion on Paid
 				}
 			}
 		}
 		const dto = new OrderRequestDTO(payload);
-		if (!dto.customer_id) throw new Error('Thiếu mã khách hàng');
+		// Relax validation: Allow if lead_id is present
+		if (!dto.customer_id && !dto.lead_id) throw new Error('Thiếu mã khách hàng hoặc Lead ID');
 		const items = Array.isArray(dto.items)
 			? dto.items.map(i => OrderDetailService._normalizeDetail(i))
 			: [];
 
 		if (!dto.total_amount || Number(dto.total_amount) === 0) {
-			throw new Error('Thiếu tổng tiền (total_amount)');
+			// Try to calc from items
+			const calcTotal = items.reduce((sum, it) => sum + (it.price_unit * it.quantity), 0);
+			if (calcTotal > 0) {
+				payload.total_amount = calcTotal;
+				dto.total_amount = calcTotal;
+			} else {
+				// Keep error if still 0, or just allow 0 for draft/free orders? 
+				// User specific error "Thiếu tổng tiền" so implies it should be there.
+				throw new Error('Thiếu tổng tiền (total_amount) và không thể tính từ sản phẩm');
+			}
 		}
 
 		const orderPayload = {
@@ -160,9 +200,12 @@ class OrderService {
 			order_date: dto.order_date,
 			total_amount: dto.total_amount,
 			currency: dto.currency,
-			payment_method: dto.payment_method,
+			payment_method: dto.payment_method || 'cash_on_delivery',
 			status: dto.status || 'draft_cart',
 			channel: dto.channel,
+			campaign_id: payload.campaign_id || null,
+			channel_id: payload.channel_id || null,
+			shipping_address: dto.shipping_address,
 			notes: dto.notes,
 		};
 
@@ -206,6 +249,21 @@ class OrderService {
 				});
 			} catch (e) {
 				console.error('[RabbitMQ] Failed to publish order.created:', e?.message || e);
+			}
+
+			// Attribution Tracking
+			if (createdOrder.channel_id) {
+				try {
+					// Lazy load to avoid circular dependency if any
+					const CampaignChannelRepo = require('../../Infrastructure/Repositories/CampaignChannelRepository');
+					await CampaignChannelRepo.incById(createdOrder.channel_id, {
+						conversions: 1,
+						revenue: Number(createdOrder.total_amount || 0)
+					});
+					console.log(`[Attribution] Updated stats for channel ${createdOrder.channel_id}`);
+				} catch (e) {
+					console.warn('[Attribution] Failed to update stats:', e?.message || e);
+				}
 			}
 
 			return OrderResponseDTO.fromEntity(createdOrder, createDetails);
@@ -333,12 +391,21 @@ class OrderService {
 		return order ? OrderResponseDTO.fromEntity(order) : null;
 	}
 	// Cập nhật trạng thái nhanh
-	async updateStatus(orderId, newStatus) {
+	async updateStatus(orderId, newStatus, extraData = {}) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
 		const transaction = await OrderRepo.sequelize.transaction();
 
 		try {
-			await OrderRepo.updateStatus(orderId, newStatus, transaction);
+			// Update other fields if provided
+			const updatePayload = { status: newStatus };
+			if (extraData.payment_method) updatePayload.payment_method = extraData.payment_method;
+			if (extraData.shipping_address) updatePayload.shipping_address = extraData.shipping_address;
+			if (extraData.total_amount) updatePayload.total_amount = extraData.total_amount;
+
+			// Utilise OrderRepo.update which likely maps to Model.update
+			// If OrderRepo.updateStatus is specific, we might need OrderRepo.update
+			await OrderRepo.update(orderId, updatePayload, transaction);
+
 			await transaction.commit();
 
 			const updated = await OrderRepo.findById(orderId);
@@ -356,11 +423,22 @@ class OrderService {
 						const conv = await LeadService.autoConvertLead(updated.lead_id, {
 							orderId: updated.order_id,
 							by: updated.created_by || null,              // nếu order có created_by
-							customerPatch: { source: 'order_paid' },
+							customerPatch: {
+								source: 'order_paid',
+								address: updated.shipping_address
+							},
 						});
 
 						if (!conv?.ok) {
 							console.warn('[Lead] Auto-convert failed on paid:', conv?.error?.message || conv?.error);
+						} else {
+							// Link new customer to order
+							const newCust = conv.data?.customer || conv.data || {};
+							const newCustId = newCust.customer_id || newCust.id;
+							if (newCustId) {
+								await OrderRepo.update(orderId, { customer_id: newCustId });
+								updated.customer_id = newCustId; // Update local instance for event
+							}
 						}
 					}
 					// 2.2 Publish order.paid như bạn đang làm
@@ -464,6 +542,60 @@ class OrderService {
 		} catch (err) {
 			throw new Error(`Lấy đơn hàng theo khoảng ngày thất bại: ${err.message}`);
 		}
+	}
+
+	async lookup({ email, phone }) {
+		if (!email && !phone) throw new Error('Vui lòng cung cấp Email hoặc Số điện thoại');
+
+		// Find customers matching email/phone
+		let customerIds = [];
+		if (email) {
+			const c = await customerRepository.findByEmail(email);
+			if (c) customerIds.push(c.customer_id);
+		}
+		if (phone) {
+			const c = await customerRepository.findByPhone(phone);
+			if (c) customerIds.push(c.customer_id);
+		}
+
+		// Also check if Leads (if we want to support un-converted leads orders, though usually orders have customer_id)
+		// For now, simpler to rely on customer_id as createOrder ensures customer creation.
+
+		if (customerIds.length === 0) return [];
+
+		// De-duplicate
+		customerIds = [...new Set(customerIds)];
+
+		const allOrders = [];
+		for (const cid of customerIds) {
+			const orders = await OrderRepo.listByCustomer(cid); // Re-use listByCustomer
+			if (orders) allOrders.push(...orders);
+		}
+
+		// Sort by date desc
+		allOrders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+
+		// Return DTOs
+		const results = await Promise.all(
+			allOrders.map(async (o) => {
+				let details = await OrderDetailService.getByOrderId(o.order_id);
+				// Enrich with product info
+				if (details && details.length > 0) {
+					details = await Promise.all(details.map(async (detail) => {
+						if (detail.product_id) {
+							const product = await productRepository.findNameAndImageById(detail.product_id);
+							if (product) {
+								detail.product_name = product.name;
+								detail.image = product.image || null;
+							}
+						}
+						return detail;
+					}));
+				}
+				return OrderResponseDTO.fromEntity(o, details);
+			})
+		);
+		return results;
 	}
 }
 

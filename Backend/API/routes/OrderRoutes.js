@@ -7,6 +7,7 @@ const permissionRoute = require('../Middleware/permissionMiddleware');
 // const protectedRoute = require('../Middleware/authMiddleware');
 const router = express.Router();
 router.get('/checkout/:id', OrderController.getOrderById);
+router.post('/lookup', OrderController.lookup);
 
 router.use(protectedRoute);
 
