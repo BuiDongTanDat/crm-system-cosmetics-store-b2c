@@ -1,4 +1,5 @@
 // Infrastructure/Repositories/LeadPredictionRepository.js
+const { Op } = require('sequelize');
 const LeadPrediction = require('../../Domain/Entities/LeadPrediction');
 
 class LeadPredictionRepository {

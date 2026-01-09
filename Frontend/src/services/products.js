@@ -2,10 +2,10 @@
 import { request, requestWithFormData } from '@/utils/api';
 
 // Lấy tất cả sản phẩm (Dùng cho trang public Landing Page nữa nên để isPublicRoute: true)
-export const getProducts = () => request('/products', { method: 'GET' , isPublicRoute: true});
+export const getProducts = () => request('/products', { method: 'GET', isPublicRoute: true });
 
 // Lấy sản phẩm theo id
-export const getProduct = (id) => request(`/products/${id}`, { method: 'GET' });
+export const getProduct = (id) => request(`/products/${id}`, { method: 'GET', isPublicRoute: true });
 
 // Tạo mới sản phẩm
 export const createProduct = (payload) => request('/products', { method: 'POST', body: payload });

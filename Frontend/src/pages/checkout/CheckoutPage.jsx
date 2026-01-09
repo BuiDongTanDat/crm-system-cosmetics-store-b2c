@@ -22,6 +22,7 @@ const STATUS_LABELS = {
   refunded: "Đã hoàn tiền",
   shipped: "Đã giao hàng",
   completed: "Hoàn tất",
+  draft_cart: "Giỏ hàng",
 };
 
 const PAYMENT_LABELS = {
@@ -34,7 +35,11 @@ const PAYMENT_LABELS = {
 const SHIPPING_COST = 0;
 const COUPON_DISCOUNT = 0;
 
+import { useNavigate, useLocation } from "react-router-dom";
+
 export default function CheckoutPage() {
+  const navigate = useNavigate();
+  const location = useLocation(); // Hook useLocation replaces global location if needed, but params usage below is fine
   const params = new URLSearchParams(location.search);
   const orderId = params.get("order_id");
 
@@ -47,6 +52,7 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [localItems, setLocalItems] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [address, setAddress] = useState(""); // State for address
   const [cardInfo, setCardInfo] = useState({
     name: "",
     number: "",
@@ -64,6 +70,8 @@ export default function CheckoutPage() {
       setOrder(res);
       setLocalItems(res?.items || []);
       setPaymentMethod(res?.payment_method || "credit_card");
+      if (res?.shipping_address) setAddress(res.shipping_address);
+      // Pre-fill address if available in customer/order
     } catch (error) {
       console.error("Lỗi khi lấy đơn hàng:", error);
       toast.error("Lỗi khi lấy đơn hàng");
@@ -123,6 +131,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!address || address.trim().length < 5) {
+      toast.error("Vui lòng nhập địa chỉ giao hàng hợp lệ");
+      return;
+    }
+
     if (paymentMethod === "credit_card") {
       if (
         !cardInfo.name ||
@@ -142,6 +155,7 @@ export default function CheckoutPage() {
         status: "paid",
         payment_method: paymentMethod,
         total_amount: totalPayable, // bật nếu backend cần
+        shipping_address: address,
         // currency: order.currency || "VND",
       });
 
@@ -150,6 +164,9 @@ export default function CheckoutPage() {
       toast.success(
         "Đặt hàng thành công. Vui lòng kiểm tra email để xem biên nhận/chi tiết đơn hàng."
       );
+      setTimeout(() => {
+        navigate('/landing');
+      }, 2000);
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
       toast.error(error?.message || "Thanh toán thất bại. Vui lòng thử lại.");
@@ -159,8 +176,24 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen ">
-      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-2 py-8 px-2">
+    <div className="flex flex-col min-h-screen bg-gray-50/50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 py-3">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/landing')}>
+            <img src="/images/logo/Logo.svg" alt="CChain" className="h-8 w-8" />
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500 bg-clip-text text-transparent">
+              CChain Beauty
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+            <span className="hidden sm:inline">Thanh toán an toàn</span>
+            <ShoppingCart size={18} />
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-4 py-8 px-4">
         {/* Cart */}
         <div className="flex-2 bg-white rounded-xl shadow p-6">
           <h2 className="text-2xl font-semibold mb-4 flex gap-2">
@@ -248,6 +281,7 @@ export default function CheckoutPage() {
                           <div className="flex items-center gap-2">
                             <img
                               src={item.image || "/default-product-image.png"}
+                              onError={(e) => { e.target.onerror = null; e.target.src = "/default-product-image.png"; }}
                               alt=""
                               className="w-10 h-10 rounded object-cover border flex-shrink-0"
                             />
@@ -339,10 +373,24 @@ export default function CheckoutPage() {
           )}
         </div>
 
+        <div className="bg-white rounded-xl shadow p-6 mb-2">
+          <h2 className="text-xl font-semibold mb-4">Thông tin giao hàng</h2>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">
+              Địa chỉ nhận hàng <span className="text-red-500">*</span>
+            </label>
+            <Input
+              variant="normal"
+              placeholder="Số nhà, đường, phường/xã..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+        </div>
+
         {/* Payment Info */}
         <div className=" bg-white rounded-xl shadow p-6 flex-1 flex-col">
           <h2 className="text-2xl font-semibold mb-4">Thông tin thanh toán</h2>
-
           <div className="mb-4">
             <div className="font-medium mb-2">Phương thức thanh toán</div>
             <div className="flex flex-col gap-2">

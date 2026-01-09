@@ -1,7 +1,24 @@
 import { Toaster, toast } from "sonner";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useSearchParams } from "react-router-dom";
 import { SidebarProvider } from "./context/SidebarContext";
+import { useEffect } from "react";
 
+function AttributionListener() {
+  const [params] = useSearchParams();
+  useEffect(() => {
+    const cid = params.get('campaign_id');
+    const chid = params.get('channel_id');
+    if (cid) {
+      sessionStorage.setItem('attr_campaign_id', cid);
+      console.log('[Attribution] Saved campaign_id:', cid);
+    }
+    if (chid) {
+      sessionStorage.setItem('attr_channel_id', chid);
+      console.log('[Attribution] Saved channel_id:', chid);
+    }
+  }, [params]);
+  return null;
+}
 
 // Layouts and Routes
 import Layout from "./components/layout/Layout";
@@ -29,6 +46,7 @@ import CategoryPage from "./pages/category/CategoryPage";
 import YoutubeStreamCam from "./pages/stream/YoutubeStreamCam";
 import YoutubeStreamVideo from "./pages/stream/YoutubeStreamVideo";
 import StreamListPage from "./pages/stream/StreamListPage";
+import CampaignLandingPage from "./pages/landingPage/CampaignLandingPage";
 
 // Auth pages
 import LoginPage from "./pages/auth/LoginPage";
@@ -41,6 +59,7 @@ import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashBoard from "./pages/dashboard/DashBoard";
 import CheckoutPage from "./pages/checkout/CheckoutPage";
 import NavigateGuard from "./components/auth/NavigateGuard";
+import OrderLookupPage from "./pages/order/OrderLookupPage";
 function App() {
 
   return (
@@ -64,6 +83,7 @@ function App() {
       <div className="relative z-10">
         <SidebarProvider>
           <BrowserRouter>
+            <AttributionListener />
             <Routes>
               {/*Checkout theo id order*/}
               <Route path="/checkout" element={<CheckoutPage />} />
@@ -80,19 +100,21 @@ function App() {
                   element={<ResetPasswordPage />}
                 />
 
-                
+
               </Route>
               {/* Chưa đăng nhập sẽ truy cập các trang public (Đăng nhập, Đăng ký ,...) */}
 
               {/* LandingPage */}
               <Route path="/landing" element={<LandingPage />} />
+              <Route path="/order-lookup" element={<OrderLookupPage />} />
+              <Route path="/campaigns/:id" element={<CampaignLandingPage />} />
 
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
                 {/* Nếu đăng nhập rồi thì mới render các component con */}
                 <Route element={<Layout />}>
 
-        
+
                   <Route
                     path="/auth/change-password"
                     element={<ChangePasswordPage />}
@@ -158,7 +180,7 @@ function App() {
                     path="/kanban"
                     element={
                       // <NavigateGuard module="deal">
-                        <KanbanPage />
+                      <KanbanPage />
                       // </NavigateGuard>
                     }
                   />
@@ -186,7 +208,7 @@ function App() {
                     path="/marketing"
                     element={
                       // <NavigateGuard module="marketing">
-                        <MarketingPage />
+                      <MarketingPage />
                       // </NavigateGuard>
                     }
                   />
@@ -194,7 +216,7 @@ function App() {
                     path="/channels"
                     element={
                       // <NavigateGuard module="channel">
-                        <ChannelPage />
+                      <ChannelPage />
                       // </NavigateGuard>
                     }
                   />
@@ -202,7 +224,7 @@ function App() {
                     path="/automations"
                     element={
                       // <NavigateGuard module="automation">
-                        <AutomationPage />
+                      <AutomationPage />
                       // </NavigateGuard>
                     }
                   />
@@ -210,7 +232,7 @@ function App() {
                     path="/automations/flow/new"
                     element={
                       // <NavigateGuard module="automation">
-                        <FlowEditorPage />
+                      <FlowEditorPage />
                       // </NavigateGuard>
                     }
                   />
@@ -218,7 +240,7 @@ function App() {
                     path="/automations/flow/:id"
                     element={
                       // <NavigateGuard module="automation">
-                        <FlowEditorPage />
+                      <FlowEditorPage />
                       // </NavigateGuard>
                     }
                   />
@@ -254,7 +276,7 @@ function App() {
                     path="/reports"
                     element={
                       // <NavigateGuard module="report">
-                        <ReportPage />
+                      <ReportPage />
                       // </NavigateGuard>
                     }
                   />
@@ -265,7 +287,7 @@ function App() {
                     element={
                       <NavigateGuard module="user">
                         <EmployeePage />
-                       </NavigateGuard>
+                      </NavigateGuard>
                     }
                   />
                   <Route
@@ -282,7 +304,7 @@ function App() {
                     path="/flows"
                     element={
                       // <NavigateGuard module="automation">
-                        <FlowEditorPage />
+                      <FlowEditorPage />
                       // </NavigateGuard>
                     }
                   />

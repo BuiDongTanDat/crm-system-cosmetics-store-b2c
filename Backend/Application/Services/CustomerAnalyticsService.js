@@ -136,8 +136,18 @@ class CustomerAnalyticsService {
         snapshot_date: date,
         avg_clv_12m: avg,
         max_clv_12m: max,
-        avg_lifetime_months: null,
-        avg_roi: null,
+        avg_lifetime_months: rows.length ? mean(rows.map(r => {
+          if (!r.first_purchase_at || !r.last_purchase_at) return 0;
+          const start = new Date(r.first_purchase_at);
+          const end = new Date(r.last_purchase_at);
+          const diffMs = end - start;
+          return Math.max(1, Math.round(diffMs / (30 * 24 * 3600 * 1000))); // approx months
+        })) : null,
+        avg_roi: rows.length ? mean(rows.map(r => {
+          const cac = toNumber(r.metadata?.acquisition_cost, 0);
+          if (cac <= 0) return 3.5; // fallback simulated ROI if no cost data
+          return toNumber(r.clv_12m) / cac;
+        })) : null,
       });
     } catch (err) {
       return fail(asAppError(err, { status: 500, code: 'CLV_SUMMARY_FAILED' }));

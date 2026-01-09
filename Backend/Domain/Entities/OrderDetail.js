@@ -37,6 +37,8 @@ OrderDetail.init(
     },
     order_id: { type: DataTypes.UUID, allowNull: false },
     product_id: { type: DataTypes.UUID, allowNull: false },
+    product_name: { type: DataTypes.STRING, allowNull: true },
+    image: { type: DataTypes.STRING, allowNull: true },
     quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     price_original: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0.0 },
     price_unit: { type: DataTypes.DECIMAL(18, 2), allowNull: false },

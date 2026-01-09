@@ -1,9 +1,10 @@
 // backend/src/Domain/Entities/CustomerAnalyticsSnapshot.js
 const { DataTypes, Model } = require('sequelize');
+const Customer = require('./Customer');
 const DataManager = require('../../Infrastructure/database/postgres');
 const sequelize = DataManager.getSequelize();
 
-class CustomerAnalyticsSnapshot extends Model {}
+class CustomerAnalyticsSnapshot extends Model { }
 
 CustomerAnalyticsSnapshot.init(
   {
@@ -58,6 +59,8 @@ CustomerAnalyticsSnapshot.init(
     churn_score: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
     segment_id: { type: DataTypes.SMALLINT, allowNull: true },
     segment_name: { type: DataTypes.STRING, allowNull: true },
+    clv_1m: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    clv_3m: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
     clv_6m: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
     clv_12m: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
 
@@ -86,5 +89,7 @@ CustomerAnalyticsSnapshot.init(
     ],
   }
 );
+
+CustomerAnalyticsSnapshot.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
 
 module.exports = CustomerAnalyticsSnapshot;

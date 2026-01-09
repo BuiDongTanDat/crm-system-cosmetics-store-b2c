@@ -37,6 +37,7 @@ export default function OrderForm({
     status: "pending",
     channel: "",
     ai_suggested_crosssell: "",
+    shipping_address: "",
     notes: "",
   });
 
@@ -97,44 +98,45 @@ export default function OrderForm({
       ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell)
         ? data.ai_suggested_crosssell.join(", ")
         : data.ai_suggested_crosssell || "",
+      shipping_address: data.shipping_address || "",
       notes: data.notes || "",
     };
 
     const newDetails =
       Array.isArray(data.items) && data.items.length
         ? data.items.map((it) => {
-            const quantity = Number(it.quantity ?? it.qty ?? 1);
-            const price = Number(
-              it.price ??
-                it.unit_price ??
-                it.price_unit ??
-                it.price_current ??
-                0
-            );
-            const subtotal = Number(
-              it.subtotal ?? it.total_price ?? quantity * price
-            );
-            let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
-            if (discount > 1) discount = discount / 100;
-            const original_price =
-              Number(
-                it.price_original ?? it.original_price ?? it.price_list ?? 0
-              ) || computeOriginalPrice(price, discount);
+          const quantity = Number(it.quantity ?? it.qty ?? 1);
+          const price = Number(
+            it.price ??
+            it.unit_price ??
+            it.price_unit ??
+            it.price_current ??
+            0
+          );
+          const subtotal = Number(
+            it.subtotal ?? it.total_price ?? quantity * price
+          );
+          let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
+          if (discount > 1) discount = discount / 100;
+          const original_price =
+            Number(
+              it.price_original ?? it.original_price ?? it.price_list ?? 0
+            ) || computeOriginalPrice(price, discount);
 
-            return {
-              order_detail_id:
-                it.order_detail_id ||
-                it.id ||
-                `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              product_id: it.product_id || it.productId || "",
-              product_name: it.product_name || it.name || it.productName || "",
-              quantity,
-              price,
-              subtotal,
-              discount,
-              original_price,
-            };
-          })
+          return {
+            order_detail_id:
+              it.order_detail_id ||
+              it.id ||
+              `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            product_id: it.product_id || it.productId || "",
+            product_name: it.product_name || it.name || it.productName || "",
+            quantity,
+            price,
+            subtotal,
+            discount,
+            original_price,
+          };
+        })
         : [];
 
     setForm((prev) => ({ ...prev, ...newForm }));
@@ -302,6 +304,7 @@ export default function OrderForm({
       payment_method: form.payment_method,
       status: form.status,
       channel: form.channel || "",
+      shipping_address: form.shipping_address || "",
       notes: form.notes || "",
     };
 
@@ -312,12 +315,12 @@ export default function OrderForm({
     // So sánh các field còn lại (ngoại trừ status)
     const sameOtherFields =
       String(currentComparableForm.customer_id) ===
-        String(snap.form.customer_id) &&
+      String(snap.form.customer_id) &&
       String(currentComparableForm.lead_id) === String(snap.form.lead_id) &&
       String(currentComparableForm.order_date) ===
-        String(snap.form.order_date) &&
+      String(snap.form.order_date) &&
       String(currentComparableForm.payment_method) ===
-        String(snap.form.payment_method) &&
+      String(snap.form.payment_method) &&
       String(currentComparableForm.channel) === String(snap.form.channel) &&
       String(currentComparableForm.notes) === String(snap.form.notes);
 
@@ -357,11 +360,11 @@ export default function OrderForm({
         const updated = prev.map((d, i) =>
           i === idx
             ? {
-                ...d,
-                quantity: Number(d.quantity || 0) + 1,
-                subtotal:
-                  (Number(d.quantity || 0) + 1) * Number(d.price || price),
-              }
+              ...d,
+              quantity: Number(d.quantity || 0) + 1,
+              subtotal:
+                (Number(d.quantity || 0) + 1) * Number(d.price || price),
+            }
             : d
         );
         toast.info(`${product.name} đã có trong đơn, tăng số lượng lên 1`);
@@ -540,6 +543,7 @@ export default function OrderForm({
       status: form.status,
       payment_method: form.payment_method,
       channel: form.channel || "website",
+      shipping_address: form.shipping_address || "",
       notes: form.notes || "",
       total_amount: totalAmount,
       currency: "VND",
@@ -636,11 +640,10 @@ export default function OrderForm({
                         <div className="flex items-center justify-between">
                           <div className="font-medium truncate">{p.name}</div>
                           <span
-                            className={`text-[10px] px-2 py-[2px] rounded-full ${
-                              p.kind === "customer"
+                            className={`text-[10px] px-2 py-[2px] rounded-full ${p.kind === "customer"
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-blue-100 text-blue-700"
-                            }`}
+                              }`}
                           >
                             {p.kind === "customer"
                               ? "Customer"
@@ -744,6 +747,21 @@ export default function OrderForm({
                     setForm((f) => ({ ...f, channel: e.target.value }))
                   }
                   placeholder="website / phone / store ..."
+                  variant="normal"
+                />
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-sm font-medium mb-1">
+                  Địa chỉ giao hàng
+                </label>
+                <Input
+                  disabled={mode === "view"}
+                  value={form.shipping_address}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, shipping_address: e.target.value }))
+                  }
+                  placeholder="Nhập địa chỉ giao hàng"
                   variant="normal"
                 />
               </div>

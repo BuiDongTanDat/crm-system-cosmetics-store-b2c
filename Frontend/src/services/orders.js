@@ -27,9 +27,12 @@ export const updateOrderStatus = (id, payload) => request(`/orders/${id}/status`
 export const deleteOrder = (id) => request(`/orders/${id}`, { method: 'DELETE' });
 
 export const getOrdersByDateRange = (from, to) => {
-    const query = new URLSearchParams({ from, to }).toString();
-    return request(`/orders/stat/by-date-range?${query}`, { method: 'GET' });
+  const query = new URLSearchParams({ from, to }).toString();
+  return request(`/orders/stat/by-date-range?${query}`, { method: 'GET' });
 }
 
 // Lấy đơn hàng theo id
-export const getOrderCheckout = (id) => request(`/orders/checkout/${id}`, { method: 'GET' , isPublicRoute: true });
+export const getOrderCheckout = (id) => request(`/orders/checkout/${id}`, { method: 'GET', isPublicRoute: true });
+
+// Tra cứu đơn hàng (Public)
+export const lookupOrder = (payload) => request(`/orders/lookup`, { method: 'POST', body: payload, isPublicRoute: true });

@@ -58,22 +58,20 @@ app.use('/auth', authRoutes);
 app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
 app.use('/stream', StreamingRoutes);
 app.use('/orders', OrderRoutes);
-app.use('/campaign', CampaignRoute)
+
+app.use(protectedRoute);
 app.use('/automation-event', automationCatalogRoutes);
 app.use('/automation', flowRoutes);
-app.use(protectedRoute);
-
+app.use('/products', productRoutes);
 app.use('/users', userRoutes);
 
 app.use('/leads', LeadRoutes);
 app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
 app.use('/categories', categoryRoutes);
-app.use('/products', productRoutes);
-app.use('/orders', OrderRoutes);
-app.use('/automation-event', automationCatalogRoutes);
+
 app.use('/customers', CustomerRoutes);
-app.use('/campaign', CampaignRoute)
+app.use('/campaign', CampaignRoute);
 app.use('/payment', paymentRoutes);// Diagnostics
 app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
 app.get('/', (_req, res) => res.send('CRM API is running successfully!'));

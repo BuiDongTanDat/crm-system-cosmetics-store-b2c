@@ -329,6 +329,8 @@ class CustomerAnalyticsSnapshotService {
             },
         };
 
+        if (horizon === '1m') patch.clv_1m = clvPred;
+        if (horizon === '3m') patch.clv_3m = clvPred;
         if (horizon === '6m') patch.clv_6m = clvPred;
         if (horizon === '12m') patch.clv_12m = clvPred;
 

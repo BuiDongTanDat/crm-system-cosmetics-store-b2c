@@ -223,6 +223,75 @@ async function seedAdminUser() {
 }
 
 // =========================
+// 1.5) MULTIPLE USERS WITH DIFFERENT ROLES
+// =========================
+async function seedMultipleUsers() {
+  console.log('[Seed] Seeding multiple users with different roles...');
+
+  const users = [
+    {
+      full_name: 'Nguyễn Văn Marketing',
+      email: 'marketing@example.com',
+      phone: '0901234568',
+      password: 'marketing123',
+      role_name: 'Marketing',
+      status: ENUMS.userStatus,
+    },
+    {
+      full_name: 'Trần Thị Sale',
+      email: 'sale@example.com',
+      phone: '0901234569',
+      password: 'sale123',
+      role_name: 'Sale',
+      status: ENUMS.userStatus,
+    },
+    {
+      full_name: 'Lê Văn Sale 2',
+      email: 'sale2@example.com',
+      phone: '0901234570',
+      password: 'sale123',
+      role_name: 'Sale',
+      status: ENUMS.userStatus,
+    },
+  ];
+
+  for (const userData of users) {
+    try {
+      const existed = await findUserByEmailInsensitive(userData.email);
+
+      if (!existed) {
+        await userService.createUser(userData);
+        console.log(`[Seed] Created user: ${userData.full_name} (${userData.role_name})`);
+      } else {
+        // Reset password for existing user
+        const bcrypt = getBcrypt();
+        const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+        const hash = await bcrypt.hash(userData.password, saltRounds);
+
+        const patch = {};
+        if (Object.prototype.hasOwnProperty.call(existed, 'password_hash') || existed.password_hash !== undefined) {
+          patch.password_hash = hash;
+        } else if (Object.prototype.hasOwnProperty.call(existed, 'passwordHash') || existed.passwordHash !== undefined) {
+          patch.passwordHash = hash;
+        } else {
+          patch.password = hash;
+        }
+
+        if (ENUMS.userStatus) patch.status = ENUMS.userStatus;
+
+        await existed.update(patch);
+        console.log(`[Seed] User existed, password reset: ${userData.full_name} (${userData.role_name})`);
+      }
+    } catch (err) {
+      console.warn(`[Seed] Skip user ${userData.email}:`, err.message);
+    }
+  }
+
+  console.log('[Seed] Multiple users seeded.');
+}
+
+
+// =========================
 // 2) CATEGORIES
 // =========================
 async function seedCategories() {
@@ -301,23 +370,203 @@ async function seedCustomers() {
     return [];
   }
 
-  console.log('[Seed] Creating customers...');
+  console.log('[Seed] Creating 20 customers...');
   const customers = [
     {
-      full_name: 'Nguyễn Quốc Mạnh',
-      email: 'customer1@example.com',
-      phone: '0901111111',
-      birthday: '2006-01-01',
-      tags: ['VIP', 'email_ok'],
+      full_name: 'Nguyễn Thị Hồng',
+      email: 'nguyenthihong@gmail.com',
+      phone: '0901234567',
+      birthday: '1995-03-15',
+      tags: ['VIP', 'email_ok', 'high_value'],
       customer_type: 'VIP',
       status: 'active',
       settings: { preferred_channel: 'email' },
     },
     {
-      full_name: 'Trần Minh Anh',
-      email: 'customer2@example.com',
-      phone: '0902222222',
-      birthday: '2006-02-02',
+      full_name: 'Trần Văn Minh',
+      email: 'tranvanminh@gmail.com',
+      phone: '0902345678',
+      birthday: '1998-07-22',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'zalo' },
+    },
+    {
+      full_name: 'Lê Thị Lan',
+      email: 'lethilan@gmail.com',
+      phone: '0903456789',
+      birthday: '2000-11-08',
+      tags: ['New', 'email_ok', 'student'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Phạm Quốc Anh',
+      email: 'phamquocanh@gmail.com',
+      phone: '0904567890',
+      birthday: '1992-05-30',
+      tags: ['VIP', 'email_ok', 'loyal'],
+      customer_type: 'VIP',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Hoàng Thị Mai',
+      email: 'hoangthimai@gmail.com',
+      phone: '0905678901',
+      birthday: '1997-09-12',
+      tags: ['Regular', 'email_ok', 'beauty_lover'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Vũ Văn Hùng',
+      email: 'vuvanhung@gmail.com',
+      phone: '0906789012',
+      birthday: '1990-02-18',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'zalo' },
+    },
+    {
+      full_name: 'Đỗ Thị Thảo',
+      email: 'dothithao@gmail.com',
+      phone: '0907890123',
+      birthday: '1999-12-25',
+      tags: ['VIP', 'email_ok', 'influencer'],
+      customer_type: 'VIP',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Bùi Văn Đức',
+      email: 'buivanduc@gmail.com',
+      phone: '0908901234',
+      birthday: '1994-06-14',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Ngô Thị Hương',
+      email: 'ngothihuong@gmail.com',
+      phone: '0909012345',
+      birthday: '1996-04-20',
+      tags: ['VIP', 'email_ok', 'premium'],
+      customer_type: 'VIP',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Đinh Văn Tùng',
+      email: 'dinhvantung@gmail.com',
+      phone: '0910123456',
+      birthday: '1993-08-05',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'zalo' },
+    },
+    {
+      full_name: 'Lý Thị Nga',
+      email: 'lythinga@gmail.com',
+      phone: '0911234567',
+      birthday: '2001-01-10',
+      tags: ['New', 'email_ok', 'gen_z'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Trịnh Văn Phong',
+      email: 'trinhvanphong@gmail.com',
+      phone: '0912345678',
+      birthday: '1991-10-28',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Phan Thị Linh',
+      email: 'phanthilinh@gmail.com',
+      phone: '0913456789',
+      birthday: '1998-03-17',
+      tags: ['VIP', 'email_ok', 'skincare_fan'],
+      customer_type: 'VIP',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Dương Văn Khoa',
+      email: 'duongvankhoa@gmail.com',
+      phone: '0914567890',
+      birthday: '1995-07-09',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'zalo' },
+    },
+    {
+      full_name: 'Võ Thị Tâm',
+      email: 'vothitam@gmail.com',
+      phone: '0915678901',
+      birthday: '1997-11-23',
+      tags: ['Regular', 'email_ok', 'makeup_lover'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Hồ Văn Long',
+      email: 'hovanlong@gmail.com',
+      phone: '0916789012',
+      birthday: '1992-09-03',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Mai Thị Xuân',
+      email: 'maithixuan@gmail.com',
+      phone: '0917890123',
+      birthday: '2000-05-19',
+      tags: ['New', 'email_ok', 'student'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Tô Văn Bình',
+      email: 'tovanbinh@gmail.com',
+      phone: '0918901234',
+      birthday: '1994-12-07',
+      tags: ['Regular', 'email_ok'],
+      customer_type: 'Regular',
+      status: 'active',
+      settings: { preferred_channel: 'zalo' },
+    },
+    {
+      full_name: 'Chu Thị Yến',
+      email: 'chuthiyen@gmail.com',
+      phone: '0919012345',
+      birthday: '1996-08-26',
+      tags: ['VIP', 'email_ok', 'loyal'],
+      customer_type: 'VIP',
+      status: 'active',
+      settings: { preferred_channel: 'email' },
+    },
+    {
+      full_name: 'Lưu Văn Hải',
+      email: 'luuvanhai@gmail.com',
+      phone: '0920123456',
+      birthday: '1993-02-14',
       tags: ['Regular', 'email_ok'],
       customer_type: 'Regular',
       status: 'active',
@@ -516,6 +765,10 @@ async function seedLeads(campaignId, customers = []) {
   const count = await safeCount(Lead);
   if (count > 0) {
     console.log('[Seed] Leads already exist, skip.');
+    try {
+      const all = await Lead.findAll?.();
+      return (Array.isArray(all) ? all : []).map(safeJson);
+    } catch { /* ignore */ }
     return [];
   }
 
@@ -529,30 +782,49 @@ async function seedLeads(campaignId, customers = []) {
     console.warn('[Seed] Cannot load products for leads:', e.message);
   }
 
-  console.log('[Seed] Creating leads...');
-  const statuses = ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'];
-  const priorities = ['low', 'medium', 'high', 'urgent'];
-  const sources = ['inbound', 'ads', 'referral', 'outbound'];
+  console.log('[Seed] Creating 20 leads...');
 
-  const leads = statuses.map((status, index) => {
+  const leadData = [
+    { name: 'Nguyễn Thị Phương', email: 'nguyenthiphuong@gmail.com', phone: '0921111111', status: 'new', priority: 'high', source: 'ads', score: 85, prob: 0.75 },
+    { name: 'Trần Văn Đạt', email: 'tranvandat@gmail.com', phone: '0922222222', status: 'contacted', priority: 'medium', source: 'inbound', score: 65, prob: 0.55 },
+    { name: 'Lê Thị Hà', email: 'lethiha@gmail.com', phone: '0923333333', status: 'qualified', priority: 'high', source: 'referral', score: 90, prob: 0.85 },
+    { name: 'Phạm Văn Tú', email: 'phamvantu@gmail.com', phone: '0924444444', status: 'nurturing', priority: 'medium', source: 'ads', score: 70, prob: 0.60 },
+    { name: 'Hoàng Thị Nhung', email: 'hoangthinhung@gmail.com', phone: '0925555555', status: 'converted', priority: 'urgent', source: 'inbound', score: 95, prob: 0.90 },
+    { name: 'Vũ Văn Sơn', email: 'vuvanson@gmail.com', phone: '0926666666', status: 'closed_lost', priority: 'low', source: 'outbound', score: 30, prob: 0.15 },
+    { name: 'Đỗ Thị Bích', email: 'dothibich@gmail.com', phone: '0927777777', status: 'new', priority: 'urgent', source: 'ads', score: 88, prob: 0.80 },
+    { name: 'Bùi Văn Cường', email: 'buivancuong@gmail.com', phone: '0928888888', status: 'contacted', priority: 'high', source: 'referral', score: 75, prob: 0.65 },
+    { name: 'Ngô Thị Diệu', email: 'ngothidieu@gmail.com', phone: '0929999999', status: 'qualified', priority: 'medium', source: 'inbound', score: 80, prob: 0.70 },
+    { name: 'Đinh Văn Hải', email: 'dinhvanhai@gmail.com', phone: '0930000000', status: 'nurturing', priority: 'low', source: 'ads', score: 55, prob: 0.45 },
+    { name: 'Lý Thị Kim', email: 'lythikim@gmail.com', phone: '0931111111', status: 'new', priority: 'medium', source: 'inbound', score: 60, prob: 0.50 },
+    { name: 'Trịnh Văn Lâm', email: 'trinhvanlam@gmail.com', phone: '0932222222', status: 'contacted', priority: 'high', source: 'referral', score: 82, prob: 0.72 },
+    { name: 'Phan Thị My', email: 'phanthimy@gmail.com', phone: '0933333333', status: 'qualified', priority: 'urgent', source: 'ads', score: 92, prob: 0.88 },
+    { name: 'Dương Văn Nam', email: 'duongvannam@gmail.com', phone: '0934444444', status: 'nurturing', priority: 'medium', source: 'outbound', score: 68, prob: 0.58 },
+    { name: 'Võ Thị Oanh', email: 'vothioanh@gmail.com', phone: '0935555555', status: 'converted', priority: 'high', source: 'inbound', score: 94, prob: 0.89 },
+    { name: 'Hồ Văn Phúc', email: 'hovanphuc@gmail.com', phone: '0936666666', status: 'new', priority: 'low', source: 'ads', score: 45, prob: 0.35 },
+    { name: 'Mai Thị Quỳnh', email: 'maithiquynh@gmail.com', phone: '0937777777', status: 'contacted', priority: 'medium', source: 'referral', score: 72, prob: 0.62 },
+    { name: 'Tô Văn Rồng', email: 'tovanrong@gmail.com', phone: '0938888888', status: 'qualified', priority: 'high', source: 'inbound', score: 86, prob: 0.76 },
+    { name: 'Chu Thị Sang', email: 'chuthisang@gmail.com', phone: '0939999999', status: 'nurturing', priority: 'medium', source: 'ads', score: 64, prob: 0.54 },
+    { name: 'Lưu Văn Tài', email: 'luuvantai@gmail.com', phone: '0940000000', status: 'closed_lost', priority: 'low', source: 'outbound', score: 25, prob: 0.12 },
+  ];
+
+  const leads = leadData.map((data, index) => {
     const p = products.length ? products[index % products.length] : null;
-    const src = sources[index % sources.length];
     const c = customers.length ? customers[index % customers.length] : null;
 
     return {
-      name: `Lead Mẫu ${index + 1}`,
-      email: `lead${index + 1}@example.com`,
-      phone: `09000000${String(index + 1).padStart(2, '0')}`,
-      source: normLeadSource(src),
-      tags: ['New Lead', normLeadSource(src)],
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      source: normLeadSource(data.source),
+      tags: ['Lead', data.status, data.source],
       campaign_id: campaignId,
       customer_id: c?.customer_id || c?.id || null,
-      status,
-      priority: priorities[index % priorities.length],
+      status: data.status,
+      priority: data.priority,
       product_interest: p ? p.name : null,
-      lead_score: Math.floor(Math.random() * 100),
-      conversion_prob: parseFloat((Math.random() * 0.8 + 0.1).toFixed(2)),
-      zalo_id: index % 2 === 0 ? `zalo_${index + 1}` : null,
+      lead_score: data.score,
+      conversion_prob: data.prob,
+      zalo_id: index % 3 === 0 ? `zalo_${index + 1}` : null,
     };
   });
 
@@ -594,46 +866,104 @@ async function seedOrders(customers = [], leads = []) {
     }
   } catch { /* ignore */ }
 
-  const c0 = customers?.[0] || null;
-  const l0 = leads?.[0] || null;
+  // Load products for order items
+  let products = [];
+  try {
+    products = await Product.findAll({
+      attributes: ['product_id', 'name', 'price_current', 'price_original'],
+      order: [['created_at', 'DESC']],
+      limit: 50,
+    });
+  } catch (e) {
+    console.warn('[Seed] Cannot load products for orders:', e.message);
+  }
 
-  console.log('[Seed] Creating orders...');
-  const orders = [
-    {
-      lead_id: l0?.lead_id || l0?.id || null,
-      customer_id: c0?.customer_id || c0?.id || null,
-      order_date: nowISO(),
-      total_amount: 1250000,
+  if (!products.length) {
+    console.warn('[Seed] No products available, cannot create orders with items.');
+    return [];
+  }
+
+  console.log('[Seed] Creating 30 orders with product items...');
+
+  const statuses = ['pending', 'paid', 'processing', 'shipped', 'completed'];
+  const paymentMethods = ['bank_transfer', 'cash_on_delivery', 'credit_card', 'paypal'];
+  const channels = ['web', 'mobile', 'zalo', 'facebook'];
+
+  const orders = [];
+  for (let i = 0; i < 30; i++) {
+    const customer = customers.length ? customers[i % customers.length] : null;
+    const lead = leads.length ? leads[i % leads.length] : null;
+
+    // Random 1-4 products per order
+    const numItems = Math.floor(Math.random() * 4) + 1;
+    const orderProducts = [];
+    let totalAmount = 0;
+
+    for (let j = 0; j < numItems; j++) {
+      const product = products[(i + j) % products.length];
+      const quantity = Math.floor(Math.random() * 3) + 1; // 1-3 items
+      const priceUnit = parseFloat(product.price_current || product.price_original || 100000);
+      const discount = Math.random() > 0.7 ? 0.1 : 0; // 30% chance of 10% discount
+
+      const lineTotal = priceUnit * quantity * (1 - discount);
+      totalAmount += lineTotal;
+
+      orderProducts.push({
+        product_id: product.product_id,
+        quantity,
+        price_unit: priceUnit,
+        price_original: parseFloat(product.price_original || priceUnit),
+        discount,
+      });
+    }
+
+    orders.push({
+      customer_id: customer?.customer_id || customer?.id || null,
+      lead_id: lead?.lead_id || lead?.id || null,
+      order_date: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000), // Random within last 30 days
+      total_amount: Math.round(totalAmount),
       currency: 'VND',
-      payment_method: 'bank_transfer',
-      status: ENUMS.orderStatusPending,
-      channel: 'web',
-      notes: 'Seed order pending',
-    },
-    {
-      lead_id: l0?.lead_id || l0?.id || null,
-      customer_id: c0?.customer_id || c0?.id || null,
-      order_date: nowISO(),
-      total_amount: 2450000,
-      currency: 'VND',
-      payment_method: 'momo',
-      status: ENUMS.orderStatusPaid,
-      channel: 'web',
-      notes: 'Seed order paid',
-    },
-  ];
+      payment_method: paymentMethods[i % paymentMethods.length],
+      status: statuses[i % statuses.length],
+      channel: channels[i % channels.length],
+      notes: `Seed order ${i + 1}`,
+      items: orderProducts,
+    });
+  }
 
   const out = [];
-  for (const o of orders) {
+  const OrderDetail = require('../../Domain/Entities/OrderDetail');
+
+  for (const orderData of orders) {
     try {
-      const created = await OrderRepo.create(o);
-      out.push(safeJson(created));
+      const { items, ...orderFields } = orderData;
+
+      // Create order first
+      const createdOrder = await OrderRepo.create(orderFields);
+      const orderId = createdOrder.order_id || createdOrder.id;
+
+      // Create order details
+      if (items && items.length > 0) {
+        for (const item of items) {
+          try {
+            await OrderDetail.create({
+              order_id: orderId,
+              ...item,
+            });
+          } catch (e) {
+            console.warn(`[Seed] Failed to create order detail for order ${orderId}:`, e.message);
+          }
+        }
+      }
+
+      out.push(safeJson(createdOrder));
+      console.log(`[Seed] Created order ${orderId} with ${items.length} items (${orderFields.status})`);
     } catch (e) {
       console.warn('[Seed] Create order failed:', e.message);
     }
   }
 
-  console.log(`[Seed] Created ${out.length} orders.`);
+  console.log(`[Seed] Created ${out.length} orders with product items.`);
   return out;
 }
 
@@ -1153,6 +1483,78 @@ async function seedEmailOpenedFlow() {
   return flowId;
 }
 
+async function seedEngagementLinkClickedFlow() {
+  const flowId = await ensureFlowId({
+    name: 'Engagement - Link Clicked',
+    description: 'Khi link tracking được click, gắn tag Interested + add_interaction.',
+    tags: ['engagement', 'email', 'clicked'],
+    enabled: true,
+    status: 'draft',
+  });
+  if (!flowId) return null;
+
+  const ok = await saveAndPublishFlow(flowId, {
+    isNewRecord: true,
+    flow_meta: {
+      name: 'Engagement - Link Clicked',
+      description: 'Khi link tracking được click, gắn tag Interested + add_interaction.',
+      tags: ['engagement', 'email', 'clicked'],
+    },
+    upserts: {
+      triggers: [{ trigger_id: null, event_type: 'engagement.link_clicked', is_active: true, conditions: {} }],
+      actions: [
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'tag_update',
+          channel: 'internal',
+          content: { op: 'add', tags: ['Interested', 'Link Clicked'] },
+          delay_minutes: 0,
+          order_index: 0,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'add_interaction',
+          channel: 'internal',
+          content: {
+            type: 'link_clicked',
+            source: '{{ trigger.source or "email" }}',
+            mid: '{{ trigger.mid or "" }}',
+            url: '{{ trigger.url or "" }}',
+            template_key: '{{ trigger.template_key or "" }}',
+            flow_id: '{{ trigger.flow_id or "" }}',
+            order_id: '{{ trigger.order_id or "" }}',
+            at: '{{ trigger.at or "" }}',
+          },
+          delay_minutes: 0,
+          order_index: 1,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'log',
+          channel: 'internal',
+          content: {
+            level: 'info',
+            message:
+              'Link clicked mid={{ trigger.mid or "" }} url={{ trigger.url or "" }} lead={{ trigger.lead_id or "" }}',
+          },
+          delay_minutes: 0,
+          order_index: 2,
+          status: 'pending',
+        },
+      ],
+    },
+    deletes: { trigger_ids: [], action_ids: [] },
+  });
+
+  if (ok) console.log('[Seed][Automation] Engagement link clicked flow published.');
+  return flowId;
+}
+
 // =========================
 // MAIN SEED (campaign-centric order)
 // =========================
@@ -1167,6 +1569,9 @@ async function seedDatabase() {
 
   // 2) Admin user: idempotent (tồn tại thì reset password)
   await seedAdminUser();
+
+  // 2.5) Multiple users with different roles
+  await seedMultipleUsers();
 
   // 3) Master data
   await seedCategories();
@@ -1196,7 +1601,9 @@ async function seedDatabase() {
   await seedBirthdayCronFlow();
   await seedOrderCreatedConfirmFlow();
   await seedOrderPaidReceiptFlow();
+  await seedOrderPaidReceiptFlow();
   await seedEmailOpenedFlow();
+  await seedEngagementLinkClickedFlow();
 
   // Flow mapped cho channel email
   const campaignEmailBlastFlowId = await seedCampaignChannelEmailBlastFlow();

@@ -51,3 +51,29 @@ export const getCustomersByDateRange = (from, to) => {
     const query = new URLSearchParams({ from, to }).toString();
     return request(`/customers/stat/by-date-range?${query}`, { method: 'GET' });
 }
+
+export const rebuildCustomerSnapshot = (id, params = {}, body = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/customers/${id}/snapshot/rebuild?${qs}`, {
+        method: "POST",
+        body
+    });
+};
+
+export const getCFMSummary = (snapshot_date) => request(`/customers/analytics/cfm/summary?snapshot_date=${snapshot_date || ''}`, { method: 'GET' });
+export const getCFMList = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/customers/analytics/cfm/list?${qs}`, { method: 'GET' });
+};
+
+export const getChurnSummary = (snapshot_date) => request(`/customers/analytics/churn/summary?snapshot_date=${snapshot_date || ''}`, { method: 'GET' });
+export const getChurnList = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/customers/analytics/churn/list?${qs}`, { method: 'GET' });
+};
+
+export const getCLVSummary = (snapshot_date) => request(`/customers/analytics/clv/summary?snapshot_date=${snapshot_date || ''}`, { method: 'GET' });
+export const getCLVList = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/customers/analytics/clv/list?${qs}`, { method: 'GET' });
+};
