@@ -3,11 +3,75 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/utils/helper";
 import { toast } from "sonner";
-import { Box, BoxIcon, Minus, Plus, ShoppingCart, ShoppingCartIcon, X } from "lucide-react";
-
+import { BoxIcon, Minus, Plus, ShoppingCart, ShoppingCartIcon, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createOrder } from "@/services/orders";
+import OrderSubmitModal from "../components/OrderSubmitModal";
 
 export default function CartPage({ onCartChange }) {
   const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const navigate = useNavigate();
+
+  // Load cart from localStorage
+  useEffect(() => {
+    const data = localStorage.getItem("cart");
+    setCartItems(data ? JSON.parse(data) : []);
+  }, []);
+
+  // Triggered when user clicks "Đặt hàng"
+  const handleCheckoutClick = () => {
+    if (cartItems.length === 0) return;
+    setShowOrderModal(true);
+  };
+
+  const handleOrderSubmit = async (guestInfo) => {
+    setLoading(true);
+    try {
+      // Use getDiscountedPrice to handle different price fields structure
+      const subtotal = cartItems.reduce((sum, item) => sum + getDiscountedPrice(item) * item.quantity, 0);
+
+      const payload = {
+        // Contact Info for Lead/Customer creation
+        full_name: guestInfo.full_name,
+        phone: guestInfo.phone,
+        email: guestInfo.email,
+        note: guestInfo.note,
+        // Address not collected here, will be on Checkout Page
+        shipping_address: "",
+
+        items: cartItems.map(i => ({
+          product_id: i.product_id,
+          quantity: i.quantity,
+          unit_price: getDiscountedPrice(i),
+          price_original: i.price_original || i.price_unit || 0,
+          discount: getDiscountPercent(i) / 100, // Convert % to decimal factor
+          total_price: getDiscountedPrice(i) * i.quantity,
+          product_name: i.product_name || i.name,
+          image: i.image
+        })),
+        total_amount: subtotal,
+        status: 'draft_cart',
+        channel: 'web_checkout',
+        // Attribution from Storage
+        campaign_id: sessionStorage.getItem('attr_campaign_id') || null,
+        channel_id: sessionStorage.getItem('attr_channel_id') || null,
+      };
+
+      const res = await createOrder(payload);
+      if (res && res.order_id) {
+        toast.success("Đã tạo đơn hàng!");
+        setShowOrderModal(false);
+        navigate('/checkout?order_id=' + res.order_id);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Lỗi khi tạo đơn hàng: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load cart from localStorage
   useEffect(() => {
@@ -88,7 +152,7 @@ export default function CartPage({ onCartChange }) {
           </h2>
           {cartItems.length === 0 ? (
             <div className="flex flex-col text-center py-12 text-gray-500">
-                <BoxIcon className="mx-auto w-10 h-10" />
+              <BoxIcon className="mx-auto w-10 h-10" />
               Giỏ hàng trống
             </div>
           ) : (
@@ -170,6 +234,7 @@ export default function CartPage({ onCartChange }) {
                   </tbody>
                 </table>
               </div>
+
               {/* Tổng kết */}
               <div className="flex flex-col gap-1 items-end text-sm">
                 <div className="border-t w-full my-2"></div>
@@ -180,15 +245,23 @@ export default function CartPage({ onCartChange }) {
                 <Button
                   variant="actionCreate"
                   className="mt-4 px-6 py-3"
-                    onClick={() => toast.success("Chức năng thanh toán sẽ được cập nhật sau!")}
+                  onClick={handleCheckoutClick}
+                  disabled={loading}
                 >
-                  <ShoppingCartIcon />Đặt hàng
+                  <ShoppingCartIcon />
+                  Đặt hàng
                 </Button>
               </div>
             </>
           )}
         </div>
       </div>
+      <OrderSubmitModal
+        open={showOrderModal}
+        onClose={() => setShowOrderModal(false)}
+        onSubmit={handleOrderSubmit}
+        isSubmitting={loading}
+      />
     </div>
   );
 }

@@ -5,8 +5,9 @@ async function protectedRoute(req, res, next) {
     // Lấy access token
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
-    if (!token) {
-        return res.status(401).json({ error: 'Token không tồn tại' });
+
+    if (!token || token === 'undefined' || token === 'null') {
+        return res.status(401).json({ error: 'Token không tồn tại hoặc không hợp lệ' });
     }
 
     let decodeUser;

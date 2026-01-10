@@ -23,7 +23,7 @@ module.exports = {
     try {
       return jwt.verify(token, ACCESS_SECRET);
     } catch (err) {
-      console.error('Lỗi xác minh access token:', err);
+      // Bỏ console.error để tránh tràn ngập log server khi token hết hạn hoặc không hợp lệ
       throw new Error('Token không hợp lệ hoặc đã hết hạn');
     }
   },

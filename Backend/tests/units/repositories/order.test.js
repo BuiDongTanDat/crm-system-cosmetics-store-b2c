@@ -266,8 +266,8 @@ describe('OrderRepository', () => {
             const from = '2025-01-01';
             const to = '2025-12-31';
             const mockOrders = [
-                { order_id: 1, order_date: '2024-06-15' },
-                { order_id: 2, order_date: '2024-09-20' }
+                { order_id: 1, order_date: '2025-06-15' },
+                { order_id: 2, order_date: '2025-09-20' }
             ];
             const betweenSymbol = Symbol.for('between');
             const Op = { between: betweenSymbol };
@@ -280,7 +280,7 @@ describe('OrderRepository', () => {
             expect(Order.findAll).toHaveBeenCalledWith({
                 where: {
                     order_date: {
-                        [betweenSymbol]: [from, to]
+                        [betweenSymbol]: [new Date(from), new Date(to)]
                     }
                 }
             });
@@ -290,7 +290,7 @@ describe('OrderRepository', () => {
         it('trả về mảng rỗng nếu không có orders', async () => {
             Order.findAll.mockResolvedValue([]);
 
-            const result = await OrderRepository.getOrdersByDateRange('2024-01-01', '2024-01-02');
+            const result = await OrderRepository.getOrdersByDateRange('2026-01-01', '2026-01-02');
 
             expect(result).toEqual([]);
         });

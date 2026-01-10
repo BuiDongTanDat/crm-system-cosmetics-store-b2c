@@ -3,6 +3,8 @@ import { request } from '@/utils/api';
 
 //  Lấy tất cả category
 export const getCategories = () => request('/categories', { method: 'GET' });
+//  Lấy tất cả category để show bên landing page
+export const getCategoriesForShow = () => request('/categories/public', { method: 'GET', isPublicRoute: true });
 // Lấy category theo id
 export const getCategory = (id) => request(`/categories/${id}`, { method: 'GET' });
 // Tạo mới category 

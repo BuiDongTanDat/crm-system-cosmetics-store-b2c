@@ -179,18 +179,18 @@ export function MarketingForm({
       genders: Array.isArray(tf.gender)
         ? tf.gender
         : tf.gender
-        ? [String(tf.gender)]
-        : [],
+          ? [String(tf.gender)]
+          : [],
       locations: Array.isArray(tf.locations)
         ? tf.locations
         : tf.locations
-        ? [String(tf.locations)]
-        : [],
+          ? [String(tf.locations)]
+          : [],
       interests: Array.isArray(tf.interests)
         ? tf.interests
         : tf.interests
-        ? [String(tf.interests)]
-        : [],
+          ? [String(tf.interests)]
+          : [],
       note: tf.note || "",
     };
   };
@@ -309,7 +309,7 @@ export function MarketingForm({
         try {
           const parsed = JSON.parse(data.expectedKPI);
           setKpi((prev) => ({ ...prev, ...parsed }));
-        } catch (e) {}
+        } catch (e) { }
       }
     } else {
       setKpi({
@@ -360,7 +360,7 @@ export function MarketingForm({
       onClose?.();
       return;
     }
-    
+
     // Nếu đang edit, reset form về dữ liệu ban đầu và chuyển về view
     const tfUI = normalizeTargetFilterFromData(data.target_filter);
     setForm({
@@ -500,13 +500,13 @@ export function MarketingForm({
         campaign = await created(finalPayload);
         toast.success("Tạo campaign thành công!");
       }
-      
+
       // Đảm bảo campaign có đầy đủ dữ liệu trước khi gọi callback
       console.log("[MarketingForm] Campaign saved:", campaign);
-      
+
       // Gọi callback cập nhật lại danh sách ngoài giao diện
       if (onAfterSave) await onAfterSave();
-      
+
       // Truyền dữ liệu campaign đầy đủ cho onSave
       if (typeof onSave === "function") {
         // Đảm bảo trả về object có đầy đủ thông tin
@@ -517,7 +517,7 @@ export function MarketingForm({
         };
         onSave(fullCampaign);
       }
-      
+
       setMode?.("view");
     } catch (err) {
       console.error("Lưu campaign lỗi:", err);
@@ -671,9 +671,9 @@ export function MarketingForm({
           <TabsList
             className={
               mode === "view" ||
-              !["approved", "configuring", "running"].includes(
-                String(form.status || "").toLowerCase()
-              )
+                !["approved", "configuring", "running"].includes(
+                  String(form.status || "").toLowerCase()
+                )
                 ? "hidden"
                 : "grid w-full grid-cols-2 mb-4"
             }
@@ -797,6 +797,156 @@ export function MarketingForm({
                     }
                     disabled={mode === "view"}
                     width="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Target Filter Section */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-semibold mb-3 text-gray-700">
+                  Bộ lọc đối tượng mục tiêu (Target Filter)
+                </h4>
+
+                {/* Age Range */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-2">
+                    Độ tuổi
+                  </label>
+                  <div className="flex gap-3 items-center">
+                    <div className="flex-1">
+                      <Input
+                        variant="normal"
+                        disabled={mode === "view"}
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={form.targetFilter.ageMin}
+                        onChange={handleTFChange("ageMin")}
+                        placeholder="Từ (tuổi)"
+                      />
+                    </div>
+                    <span className="text-gray-500">—</span>
+                    <div className="flex-1">
+                      <Input
+                        variant="normal"
+                        disabled={mode === "view"}
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={form.targetFilter.ageMax}
+                        onChange={handleTFChange("ageMax")}
+                        placeholder="Đến (tuổi)"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-2">
+                    Giới tính
+                  </label>
+                  <div className="flex gap-4">
+                    {["Male", "Female", "Other"].map((gender) => (
+                      <label
+                        key={gender}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={mode === "view"}
+                          checked={form.targetFilter.genders.includes(gender)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setForm((prev) => ({
+                              ...prev,
+                              targetFilter: {
+                                ...prev.targetFilter,
+                                genders: checked
+                                  ? [...prev.targetFilter.genders, gender]
+                                  : prev.targetFilter.genders.filter(
+                                    (g) => g !== gender
+                                  ),
+                              },
+                            }));
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {gender === "Male"
+                            ? "Nam"
+                            : gender === "Female"
+                              ? "Nữ"
+                              : "Khác"}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Locations */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-2">
+                    Địa điểm (phân cách bằng dấu phẩy)
+                  </label>
+                  <Input
+                    variant="normal"
+                    disabled={mode === "view"}
+                    value={form.targetFilter.locations.join(", ")}
+                    onChange={handleTFArrayChange("locations")}
+                    placeholder="VD: Hà Nội, TP.HCM, Đà Nẵng"
+                  />
+                  {form.targetFilter.locations.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {form.targetFilter.locations.map((loc, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded"
+                        >
+                          {loc}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Interests */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-2">
+                    Sở thích (phân cách bằng dấu phẩy)
+                  </label>
+                  <Input
+                    variant="normal"
+                    disabled={mode === "view"}
+                    value={form.targetFilter.interests.join(", ")}
+                    onChange={handleTFArrayChange("interests")}
+                    placeholder="VD: Làm đẹp, Thời trang, Chăm sóc da"
+                  />
+                  {form.targetFilter.interests.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {form.targetFilter.interests.map((interest, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Target Filter Note */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Ghi chú bộ lọc
+                  </label>
+                  <Input
+                    variant="normal"
+                    disabled={mode === "view"}
+                    value={form.targetFilter.note}
+                    onChange={handleTFChange("note")}
+                    placeholder="Ghi chú thêm về đối tượng mục tiêu"
                   />
                 </div>
               </div>
@@ -979,8 +1129,8 @@ export function MarketingForm({
                             <span className="text-xs text-gray-700">
                               {product.price_current
                                 ? `${Number(
-                                    product.price_current
-                                  ).toLocaleString()} VNĐ`
+                                  product.price_current
+                                ).toLocaleString()} VNĐ`
                                 : ""}
                             </span>
                           </div>
@@ -1069,8 +1219,8 @@ export function MarketingForm({
                               <span className="font-semibold text-green-600">
                                 {p.price_current
                                   ? `${Number(
-                                      p.price_current
-                                    ).toLocaleString()} VNĐ`
+                                    p.price_current
+                                  ).toLocaleString()} VNĐ`
                                   : "Chưa có"}
                               </span>
                             </span>
@@ -1138,8 +1288,8 @@ export function MarketingForm({
                       type={type}
                       step={
                         key === "openRate" ||
-                        key === "clickRate" ||
-                        key === "roi"
+                          key === "clickRate" ||
+                          key === "roi"
                           ? "0.1"
                           : undefined
                       }
@@ -1223,7 +1373,7 @@ export function MarketingForm({
                       {!ch.flow_id && (
                         <PermissionGuard module="campaign" action="update">
                           <Button
-                            
+
                             variant="actionWarning"
                             onClick={() => {
                               setSelectedChannelId(ch.channel_id || ch.id);
@@ -1235,11 +1385,10 @@ export function MarketingForm({
                         </PermissionGuard>
                       )}
                       <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          ch.status === "active" || ch.status === "configuring"
+                        className={`px-2 py-1 rounded text-xs font-medium ${ch.status === "active" || ch.status === "configuring"
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-600"
-                        }`}
+                          }`}
                       >
                         {ch.status}
                       </span>

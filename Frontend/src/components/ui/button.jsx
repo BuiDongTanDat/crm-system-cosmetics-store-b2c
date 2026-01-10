@@ -62,7 +62,7 @@ const buttonVariants = cva(
       
         actionApprove: "bg-green-600 text-white hover:bg-green-700",
         actionWarning: "border-amber-500 text-amber-700 bg-amber-100 hover:bg-amber-200 hover:text-amber-800",
-
+        actionShowMore: "bg-white-100 text-gray-700 border hover:bg-gray-200 hover:text-black",
       },
       size: {
         default: "h-9 p-2 has-[>svg]:px-2.5",

@@ -23,6 +23,7 @@ const CHANNEL_TYPES = [
   { value: "Facebook", label: "Facebook" },
   { value: "TikTok", label: "TikTok" },
   { value: "Google Ads", label: "Google Ads" },
+  { value: "Livestream", label: "Youtube live" },
 ];
 
 export default function AddChannelDialog({

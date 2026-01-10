@@ -81,7 +81,7 @@ class OrderRepository {
 		return await this.Order.findAll({
 			where: {
 				order_date: {
-					[Op.between]: [from, to],
+					[Op.between]: [new Date(from), new Date(to)],
 				},
 			},
 		});

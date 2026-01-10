@@ -154,7 +154,24 @@ class CampaignService {
       if (!campaign) {
         return fail(new AppError('Chiến dịch không tồn tại', { status: 404, code: 'NOT_FOUND' }));
       }
-      return ok(campaign);
+
+      const campaignData = campaign.toJSON?.() || campaign;
+
+      // Enrich products if they exist
+      if (Array.isArray(campaignData.products) && campaignData.products.length > 0) {
+        const productIds = campaignData.products.map(p => p.product_id).filter(Boolean);
+        if (productIds.length > 0) {
+          const products = await ProductRepository.findByIds(productIds);
+          const productMap = new Map(products.map(p => [p.product_id || p.id, p]));
+
+          campaignData.products = campaignData.products.map(p => {
+            const detail = productMap.get(p.product_id) || {};
+            return { ...p, ...detail };
+          });
+        }
+      }
+
+      return ok(campaignData);
     } catch (err) {
       return fail(asAppError(err));
     }
@@ -675,6 +692,15 @@ class CampaignService {
     } catch (err) {
       console.error('getRunningWithProducts error:', err);
       return fail(asAppError(err, { status: 500, code: 'GET_RUNNING_CAMPAIGNS_FAILED' }));
+    }
+  }
+
+  static async getChannelStats() {
+    try {
+      const stats = await CampaignChannelRepository.getChannelStats();
+      return ok(stats);
+    } catch (err) {
+      return fail(asAppError(err, { status: 500, code: 'GET_CHANNEL_STATS_FAILED' }));
     }
   }
 }

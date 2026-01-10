@@ -281,7 +281,7 @@ export default function AppHeader() {
                       <button
                         key={index}
                         onClick={() => handleSelectPage(page.path)}
-                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                        className="cursor-pointer w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                       >
                         <Search className="w-4 h-4 text-gray-400" />
                         <div>

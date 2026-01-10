@@ -47,6 +47,7 @@ export const getAll = async (params = {}) => {
         totalPages: data.totalPages ?? 1,
     };
 };
+
 export const getRunningCampaigns = async (params = {}) => {
     // build query string (lọc null/undefined/chuỗi rỗng)
     const qs = new URLSearchParams(
@@ -266,8 +267,21 @@ export const approveProposal = async (id) => {
 };
 
 export const getCampaignById = async (id) => {
-    const res = await request(`/campaign/${id}`, { method: 'GET' });
+    const res = await request(`/campaign/${id}`, { method: 'GET', isPublicRoute: true });
     if (!res.ok) throw new Error(res.error?.message || 'API error');
     return res.data;
 };
 
+export const getChannelStats = async () => {
+    const res = await request('/campaign/stats/channels', { method: 'GET' });
+    if (!res.ok) throw new Error(res.error?.message || 'API error');
+    return res.data || [];
+};
+
+
+// Lấy chi tiết chiến dịch công khai
+export const getPublicCampaignById = async (id) => {
+    const res = await request(`/campaign/public/${id}`, { method: 'GET', isPublicRoute: true });
+    if (!res.ok) throw new Error(res.error?.message || 'API error');
+    return res.data;
+}

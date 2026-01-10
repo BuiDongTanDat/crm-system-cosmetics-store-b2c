@@ -1,37 +1,85 @@
-import React, { useEffect, useState } from 'react';
-import { Target, Eye, Edit, Trash2, DollarSign, TrendingUp, Users, Plus } from 'lucide-react';
-import CountUp from 'react-countup';
-import { Button } from '@/components/ui/button';
-import AppDialog from '@/components/dialogs/AppDialog';
-import DealForm from '@/pages/deal/components/DealForm';
-import { formatCurrency, getPriorityColor, getPriorityLabel, formatDate } from '@/utils/helper';
-import DropdownOptions from '@/components/common/DropdownOptions';
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
-import { toast } from 'sonner';
-import AppPagination from '@/components/pagination/AppPagination';
-import { getAllleads, getPipelineMetrics, getLeadDetailsById, getPipelineColumns } from '@/services/leads';
+import React, { useEffect, useState } from "react";
+import {
+  Target,
+  Eye,
+  Edit,
+  Trash2,
+  DollarSign,
+  TrendingUp,
+  Users,
+  Plus,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import CountUp from "react-countup";
+import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/dialogs/AppDialog";
+import DealForm from "@/pages/deal/components/DealForm";
+import {
+  formatCurrency,
+  getPriorityColor,
+  getPriorityLabel,
+  formatDate,
+} from "@/utils/helper";
+import DropdownOptions from "@/components/common/DropdownOptions";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+import { toast } from "sonner";
+import AppPagination from "@/components/pagination/AppPagination";
+import {
+  getAllleads,
+  getPipelineMetrics,
+  getLeadDetailsById,
+  getPipelineColumns,
+  rescoreLead,
+} from "@/services/leads";
 
 // Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
   new: { label: "NEW", bg: "bg-blue-100", text: "text-blue-700" },
-  contacted: { label: "CONTACTED", bg: "bg-yellow-100", text: "text-yellow-700" },
-  qualified: { label: "QUALIFIED", bg: "bg-purple-100", text: "text-purple-700" },
-  nurturing: { label: "NURTURING", bg: "bg-orange-100", text: "text-orange-700" },
+  contacted: {
+    label: "CONTACTED",
+    bg: "bg-yellow-100",
+    text: "text-yellow-700",
+  },
+  qualified: {
+    label: "QUALIFIED",
+    bg: "bg-purple-100",
+    text: "text-purple-700",
+  },
+  nurturing: {
+    label: "NURTURING",
+    bg: "bg-orange-100",
+    text: "text-orange-700",
+  },
   converted: { label: "CONVERTED", bg: "bg-green-100", text: "text-green-700" },
   closed_lost: { label: "CLOSED_LOST", bg: "bg-red-100", text: "text-red-700" },
 };
 
 const FILTER_OPTIONS = [
-  { value: '', label: 'Tất cả trạng thái' },
-  ...Object.entries(STATUS_META).map(([value, v]) => ({ value, label: v.label })),
+  { value: "", label: "Tất cả trạng thái" },
+  ...Object.entries(STATUS_META).map(([value, v]) => ({
+    value,
+    label: v.label,
+  })),
 ];
 
-export default function LeadsPage({ showHeader = true, externalFilterStatus, onFilterChange }) {
-
+export default function LeadsPage({
+  showHeader = true,
+  externalFilterStatus,
+  onFilterChange,
+  externalSearchQuery,
+  onSearchChange,
+}) {
   const [leads, setLeads] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [modal, setModal] = useState({ open: false, mode: 'view', deal: null, loading: false });
+  const [modal, setModal] = useState({
+    open: false,
+    mode: "view",
+    deal: null,
+    loading: false,
+  });
   const [hoveredRow, setHoveredRow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,10 +97,22 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
 
   // controlled vs uncontrolled filter
   const isControlledFilter = externalFilterStatus !== undefined;
-  const effectiveFilterStatus = isControlledFilter ? externalFilterStatus : filterStatus;
+  const effectiveFilterStatus = isControlledFilter
+    ? externalFilterStatus
+    : filterStatus;
   const handleFilterChange = (v) => {
     if (onFilterChange) onFilterChange(v);
     if (!isControlledFilter) setFilterStatus(v);
+  };
+
+  // controlled vs uncontrolled search
+  const isControlledSearch = externalSearchQuery !== undefined;
+  const effectiveSearchQuery = isControlledSearch
+    ? externalSearchQuery
+    : searchQuery;
+  const handleSearchChange = (v) => {
+    if (onSearchChange) onSearchChange(v);
+    if (!isControlledSearch) setSearchQuery(v);
   };
 
   useEffect(() => {
@@ -78,10 +138,12 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           setShouldAnimateStats(false);
         }, 600);
       } catch (e) {
-        console.error('Load metrics failed', e);
+        console.error("Load metrics failed", e);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Load leads from API
@@ -96,23 +158,32 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         setError(null);
       } catch (e) {
         if (Array.isArray(e?.data)) setLeads(e.data);
-        else setError(e?.message || 'Không thể tải danh sách leads');
+        else setError(e?.message || "Không thể tải danh sách leads");
       } finally {
         mounted && setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Reset page khi đổi filter (use effectiveFilterStatus)
-  useEffect(() => setCurrentPage(1), [effectiveFilterStatus, leads.length]);
+  // Reset page khi đổi filter hoặc search
+  useEffect(
+    () => setCurrentPage(1),
+    [effectiveFilterStatus, effectiveSearchQuery, leads.length]
+  );
 
   // normalize status key to lowercase when resolving meta
   const getStatusBadge = (status) => {
     const key = (status || "").toString().toLowerCase();
     const meta = STATUS_META[key];
     if (!meta)
-      return <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 text-xs">-</span>;
+      return (
+        <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 text-xs">
+          -
+        </span>
+      );
     return (
       <span
         className={`px-2 py-1 text-xs font-medium rounded-full w-[90px] text-center inline-block ${meta.bg} ${meta.text}`}
@@ -123,23 +194,30 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
   };
 
   const handleView = async (lead) => {
-    setModal({ open: true, mode: 'view', deal: lead, loading: true });
-    
+    setModal({ open: true, mode: "view", deal: lead, loading: true });
+
     try {
       const res = await getLeadDetailsById(lead.lead_id);
       const detailData = res?.data?.data ?? res?.data ?? res;
-      
+
       if (detailData) {
         const normalizeStatus = (s) => {
-          const v = (s || '').toLowerCase();
-          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+          const v = (s || "").toLowerCase();
+          return [
+            "new",
+            "contacted",
+            "qualified",
+            "nurturing",
+            "converted",
+            "closed_lost",
+          ].includes(v)
             ? v
-            : 'new';
+            : "new";
         };
 
         const asNumber = (x, fb = 0) => {
           if (x === null || x === undefined) return fb;
-          const n = typeof x === 'string' ? parseFloat(x) : x;
+          const n = typeof x === "string" ? parseFloat(x) : x;
           return Number.isFinite(n) ? n : fb;
         };
 
@@ -152,19 +230,30 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           source: detailData.source || lead.source,
           stage: normalizeStatus(detailData.status),
           status: normalizeStatus(detailData.status),
-          createdDate: (detailData.created_at || lead.created_at || '').slice(0, 10),
-          lastActivity: (detailData.updated_at || detailData.created_at || lead.updated_at || '').slice(0, 10),
-          value: asNumber(detailData.predicted_value, lead.predicted_value || 0),
-          currency: detailData.predicted_value_currency || 'VND',
-          priority: detailData.priority || lead.priority || 'medium',
+          createdDate: (detailData.created_at || lead.created_at || "").slice(
+            0,
+            10
+          ),
+          lastActivity: (
+            detailData.updated_at ||
+            detailData.created_at ||
+            lead.updated_at ||
+            ""
+          ).slice(0, 10),
+          value: asNumber(
+            detailData.predicted_value,
+            lead.predicted_value || 0
+          ),
+          currency: detailData.predicted_value_currency || "VND",
+          priority: detailData.priority || lead.priority || "medium",
           leadScore: asNumber(detailData.lead_score, 0),
           conversionProb: detailData.conversion_prob ?? 0,
           tags: Array.isArray(detailData.tags) ? detailData.tags : [],
-          productInterest: detailData.product_interest || '',
-          assignee: detailData.assignee_name || 'Chưa phân công',
+          productInterest: detailData.product_interest || "",
+          assignee: detailData.assignee_name || "Chưa phân công",
           assigneeId: detailData.assigned_to || null,
-          notes: detailData.notes || '',
-          aiReason: detailData.ai_reason || '',
+          notes: detailData.notes || "",
+          aiReason: detailData.ai_reason || "",
           predictedProb: detailData.predicted_prob ?? 0,
           mlConversionProb: detailData.ml_conversion_prob ?? 0,
           mlPredictedValue: asNumber(detailData.ml_predicted_value, 0),
@@ -176,34 +265,46 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           campaignId: detailData.campaign_id || null,
         };
 
-        setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+        setModal({
+          open: true,
+          mode: "view",
+          deal: enrichedDeal,
+          loading: false,
+        });
       } else {
-        setModal({ open: true, mode: 'view', deal: lead, loading: false });
+        setModal({ open: true, mode: "view", deal: lead, loading: false });
       }
     } catch (err) {
-      console.error('Failed to load lead details:', err);
-      setModal({ open: true, mode: 'view', deal: lead, loading: false });
+      console.error("Failed to load lead details:", err);
+      setModal({ open: true, mode: "view", deal: lead, loading: false });
     }
   };
 
   const handleEdit = async (lead) => {
-    setModal({ open: true, mode: 'edit', deal: lead, loading: true });
-    
+    setModal({ open: true, mode: "edit", deal: lead, loading: true });
+
     try {
       const res = await getLeadDetailsById(lead.lead_id);
       const detailData = res?.data?.data ?? res?.data ?? res;
-      
+
       if (detailData) {
         const normalizeStatus = (s) => {
-          const v = (s || '').toLowerCase();
-          return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+          const v = (s || "").toLowerCase();
+          return [
+            "new",
+            "contacted",
+            "qualified",
+            "nurturing",
+            "converted",
+            "closed_lost",
+          ].includes(v)
             ? v
-            : 'new';
+            : "new";
         };
 
         const asNumber = (x, fb = 0) => {
           if (x === null || x === undefined) return fb;
-          const n = typeof x === 'string' ? parseFloat(x) : x;
+          const n = typeof x === "string" ? parseFloat(x) : x;
           return Number.isFinite(n) ? n : fb;
         };
 
@@ -216,19 +317,30 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           source: detailData.source || lead.source,
           stage: normalizeStatus(detailData.status),
           status: normalizeStatus(detailData.status),
-          createdDate: (detailData.created_at || lead.created_at || '').slice(0, 10),
-          lastActivity: (detailData.updated_at || detailData.created_at || lead.updated_at || '').slice(0, 10),
-          value: asNumber(detailData.predicted_value, lead.predicted_value || 0),
-          currency: detailData.predicted_value_currency || 'VND',
-          priority: detailData.priority || lead.priority || 'medium',
+          createdDate: (detailData.created_at || lead.created_at || "").slice(
+            0,
+            10
+          ),
+          lastActivity: (
+            detailData.updated_at ||
+            detailData.created_at ||
+            lead.updated_at ||
+            ""
+          ).slice(0, 10),
+          value: asNumber(
+            detailData.predicted_value,
+            lead.predicted_value || 0
+          ),
+          currency: detailData.predicted_value_currency || "VND",
+          priority: detailData.priority || lead.priority || "medium",
           leadScore: asNumber(detailData.lead_score, 0),
           conversionProb: detailData.conversion_prob ?? 0,
           tags: Array.isArray(detailData.tags) ? detailData.tags : [],
-          productInterest: detailData.product_interest || '',
-          assignee: detailData.assignee_name || 'Chưa phân công',
+          productInterest: detailData.product_interest || "",
+          assignee: detailData.assignee_name || "Chưa phân công",
           assigneeId: detailData.assigned_to || null,
-          notes: detailData.notes || '',
-          aiReason: detailData.ai_reason || '',
+          notes: detailData.notes || "",
+          aiReason: detailData.ai_reason || "",
           predictedProb: detailData.predicted_prob ?? 0,
           mlConversionProb: detailData.ml_conversion_prob ?? 0,
           mlPredictedValue: asNumber(detailData.ml_predicted_value, 0),
@@ -240,18 +352,25 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           campaignId: detailData.campaign_id || null,
         };
 
-        setModal({ open: true, mode: 'edit', deal: enrichedDeal, loading: false });
+        setModal({
+          open: true,
+          mode: "edit",
+          deal: enrichedDeal,
+          loading: false,
+        });
       } else {
-        setModal({ open: true, mode: 'edit', deal: lead, loading: false });
+        setModal({ open: true, mode: "edit", deal: lead, loading: false });
       }
     } catch (err) {
-      console.error('Failed to load lead details:', err);
-      setModal({ open: true, mode: 'edit', deal: lead, loading: false });
+      console.error("Failed to load lead details:", err);
+      setModal({ open: true, mode: "edit", deal: lead, loading: false });
     }
   };
 
-  const handleCreate = () => setModal({ open: true, mode: 'edit', deal: null, loading: false });
-  const closeModal = () => setModal({ open: false, mode: 'view', deal: null, loading: false });
+  const handleCreate = () =>
+    setModal({ open: true, mode: "edit", deal: null, loading: false });
+  const closeModal = () =>
+    setModal({ open: false, mode: "view", deal: null, loading: false });
 
   const handleSave = async (dealData) => {
     if (dealData.id && !dealData.shouldRefresh) {
@@ -259,18 +378,25 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
       try {
         const res = await getLeadDetailsById(dealData.id);
         const detailData = res?.data?.data ?? res?.data ?? res;
-        
+
         if (detailData) {
           const normalizeStatus = (s) => {
-            const v = (s || '').toLowerCase();
-            return ['new', 'contacted', 'qualified', 'nurturing', 'converted', 'closed_lost'].includes(v)
+            const v = (s || "").toLowerCase();
+            return [
+              "new",
+              "contacted",
+              "qualified",
+              "nurturing",
+              "converted",
+              "closed_lost",
+            ].includes(v)
               ? v
-              : 'new';
+              : "new";
           };
 
           const asNumber = (x, fb = 0) => {
             if (x === null || x === undefined) return fb;
-            const n = typeof x === 'string' ? parseFloat(x) : x;
+            const n = typeof x === "string" ? parseFloat(x) : x;
             return Number.isFinite(n) ? n : fb;
           };
 
@@ -286,35 +412,59 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
             stage: normalizeStatus(detailData.status),
             status: normalizeStatus(detailData.status),
             created_at: detailData.created_at || dealData.createdDate,
-            createdDate: (detailData.created_at || dealData.createdDate || '').slice(0, 10),
+            createdDate: (
+              detailData.created_at ||
+              dealData.createdDate ||
+              ""
+            ).slice(0, 10),
             updated_at: detailData.updated_at || detailData.created_at,
-            lastActivity: (detailData.updated_at || detailData.created_at || dealData.lastActivity || '').slice(0, 10),
-            predicted_value: asNumber(detailData.predicted_value, dealData.value || 0),
+            lastActivity: (
+              detailData.updated_at ||
+              detailData.created_at ||
+              dealData.lastActivity ||
+              ""
+            ).slice(0, 10),
+            predicted_value: asNumber(
+              detailData.predicted_value,
+              dealData.value || 0
+            ),
             value: asNumber(detailData.predicted_value, dealData.value || 0),
-            currency: detailData.predicted_value_currency || 'VND',
-            priority: detailData.priority || dealData.priority || 'medium',
+            currency: detailData.predicted_value_currency || "VND",
+            priority: detailData.priority || dealData.priority || "medium",
             leadScore: asNumber(detailData.lead_score, dealData.leadScore || 0),
             lead_score: asNumber(detailData.lead_score, 0),
-            conversionProb: detailData.conversion_prob ?? dealData.conversionProb ?? 0,
+            conversionProb:
+              detailData.conversion_prob ?? dealData.conversionProb ?? 0,
             conversion_prob: detailData.conversion_prob ?? 0,
-            tags: Array.isArray(detailData.tags) ? detailData.tags : (dealData.tags || []),
-            productInterest: detailData.product_interest || dealData.productInterest,
+            tags: Array.isArray(detailData.tags)
+              ? detailData.tags
+              : dealData.tags || [],
+            productInterest:
+              detailData.product_interest || dealData.productInterest,
             product_interest: detailData.product_interest,
-            assignee: detailData.assignee_name || dealData.assignee || 'Chưa phân công',
+            assignee:
+              detailData.assignee_name || dealData.assignee || "Chưa phân công",
             assignee_name: detailData.assignee_name,
             assigneeId: detailData.assigned_to || dealData.assigneeId || null,
             assigned_to: detailData.assigned_to,
-            notes: detailData.notes || dealData.notes || '',
-            aiReason: detailData.ai_reason || dealData.aiReason || '',
+            notes: detailData.notes || dealData.notes || "",
+            aiReason: detailData.ai_reason || dealData.aiReason || "",
             ai_reason: detailData.ai_reason,
-            predictedProb: detailData.predicted_prob ?? dealData.predictedProb ?? 0,
-            mlConversionProb: detailData.ml_conversion_prob ?? dealData.mlConversionProb ?? 0,
+            predictedProb:
+              detailData.predicted_prob ?? dealData.predictedProb ?? 0,
+            mlConversionProb:
+              detailData.ml_conversion_prob ?? dealData.mlConversionProb ?? 0,
             ml_conversion_prob: detailData.ml_conversion_prob,
-            mlPredictedValue: asNumber(detailData.ml_predicted_value, dealData.mlPredictedValue || 0),
+            mlPredictedValue: asNumber(
+              detailData.ml_predicted_value,
+              dealData.mlPredictedValue || 0
+            ),
             ml_predicted_value: asNumber(detailData.ml_predicted_value, 0),
-            mlLastScoredAt: detailData.ml_last_scored_at || dealData.mlLastScoredAt || null,
+            mlLastScoredAt:
+              detailData.ml_last_scored_at || dealData.mlLastScoredAt || null,
             ml_last_scored_at: detailData.ml_last_scored_at,
-            mlModelVersion: detailData.ml_model_version || dealData.mlModelVersion || null,
+            mlModelVersion:
+              detailData.ml_model_version || dealData.mlModelVersion || null,
             ml_model_version: detailData.ml_model_version,
             productInterests: detailData.product_interests || [],
             product_interests: detailData.product_interests || [],
@@ -331,20 +481,34 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
           );
 
           // Switch to view mode with updated data
-          setModal({ open: true, mode: 'view', deal: enrichedDeal, loading: false });
+          setModal({
+            open: true,
+            mode: "view",
+            deal: enrichedDeal,
+            loading: false,
+          });
         } else {
           // Fallback
           setLeads((prev) =>
-            prev.map((l) => (l.lead_id === dealData.id ? { ...l, ...dealData } : l))
+            prev.map((l) =>
+              l.lead_id === dealData.id ? { ...l, ...dealData } : l
+            )
           );
-          setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+          setModal({
+            open: true,
+            mode: "view",
+            deal: dealData,
+            loading: false,
+          });
         }
       } catch (err) {
-        console.error('Failed to refresh lead details:', err);
+        console.error("Failed to refresh lead details:", err);
         setLeads((prev) =>
-          prev.map((l) => (l.lead_id === dealData.id ? { ...l, ...dealData } : l))
+          prev.map((l) =>
+            l.lead_id === dealData.id ? { ...l, ...dealData } : l
+          )
         );
-        setModal({ open: true, mode: 'view', deal: dealData, loading: false });
+        setModal({ open: true, mode: "view", deal: dealData, loading: false });
       }
     } else if (dealData.shouldRefresh) {
       // New lead created, refresh the list and close modal
@@ -353,7 +517,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         const data = await getAllleads();
         setLeads(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Failed to refresh leads after creating:', err);
+        console.error("Failed to refresh leads after creating:", err);
       }
     } else {
       // Fallback
@@ -363,7 +527,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         created_at: new Date().toISOString(),
       };
       setLeads((prev) => [newLead, ...prev]);
-      toast.success('Thêm lead thành công!');
+      toast.success("Thêm lead thành công!");
       closeModal();
     }
   };
@@ -371,12 +535,70 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
   const handleDelete = (lead_id) => {
     setLeads((prev) => prev.filter((d) => d.lead_id !== lead_id));
     closeModal();
-    toast.success('Xóa lead thành công!');
+    toast.success("Xóa lead thành công!");
   };
 
-  const filtered = effectiveFilterStatus ? leads.filter((l) => l.status === effectiveFilterStatus) : leads;
+  const handleRescore = async (lead) => {
+    try {
+      toast.info("Đang tính điểm lại...");
+      const res = await rescoreLead(lead.lead_id, { trigger: "manual" });
+      console.log("Rescore response:", res);
+      if (res?.ok) {
+        toast.success(
+          "Rescore thành công! (Điểm mới: " +
+            (Number(res.data?.prediction?.raw_score).toFixed(2) || "N/A") +
+            ")"
+        );
+        // Refresh list or update specific item
+        // Just reloading all for simplicity or updating local state if complex
+        const updated = await getAllleads(); // Reload entire list to be safe
+        if (Array.isArray(updated)) setLeads(updated);
+      } else {
+        toast.error(
+          "Rescore thất bại: " + (res?.error?.message || "Lỗi không xác định")
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Lỗi khi rescore: " + e.message);
+    }
+  };
+
+  // Hàm tìm kiếm lead
+  const searchLeads = (list, query) => {
+    if (!query.trim()) return list;
+
+    const lowerQuery = query.toLowerCase().trim();
+    return list.filter((lead) => {
+      const searchableFields = [
+        lead.deal_name,
+        lead.name,
+        lead.email,
+        lead.phone,
+        lead.product_interest,
+        lead.assignee_name,
+        lead.notes,
+        lead.source,
+        ...(lead.tags || []),
+      ].filter(Boolean);
+
+      return searchableFields.some((field) =>
+        String(field).toLowerCase().includes(lowerQuery)
+      );
+    });
+  };
+
+  // Apply filter and search
+  const filteredByStatus = effectiveFilterStatus
+    ? leads.filter((l) => l.status === effectiveFilterStatus)
+    : leads;
+  const filtered = searchLeads(filteredByStatus, effectiveSearchQuery);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / dealsPerPage));
-  const current = filtered.slice((currentPage - 1) * dealsPerPage, currentPage * dealsPerPage);
+  const current = filtered.slice(
+    (currentPage - 1) * dealsPerPage,
+    currentPage * dealsPerPage
+  );
   const handlePageChange = (p) => setCurrentPage(p);
   const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
   const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));
@@ -387,8 +609,30 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
       {showHeader && (
         <div className=" z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-bold text-gray-900">Khách hàng tiềm năng</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              Khách hàng tiềm năng
+            </h1>
             <div className="flex gap-3">
+              {/* Search bar */}
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm lead..."
+                  value={effectiveSearchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                />
+                {effectiveSearchQuery && (
+                  <button
+                    onClick={() => handleSearchChange("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
               <DropdownOptions
                 options={FILTER_OPTIONS}
                 value={effectiveFilterStatus}
@@ -396,7 +640,11 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                 width="w-44"
                 placeholder="Lọc trạng thái"
               />
-              <Button onClick={handleCreate} variant="actionCreate" className="gap-2">
+              <Button
+                onClick={handleCreate}
+                variant="actionCreate"
+                className="gap-2"
+              >
                 <Plus className="w-4 h-4" /> Thêm Deal
               </Button>
             </div>
@@ -459,15 +707,15 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
               <thead className="bg-gray-50">
                 <tr>
                   {[
-                    'Deal',
-                    'Khách hàng',
-                    'Email',
-                    'SĐT',
-                    'Giá trị',
-                    'Nguồn',
-                    'Ngày tạo',
-                    'Trạng thái',
-                    '',
+                    "Deal",
+                    "Khách hàng",
+                    "Email",
+                    "SĐT",
+                    "Giá trị",
+                    "Nguồn",
+                    "Ngày tạo",
+                    "Trạng thái",
+                    "",
                   ].map((h) => (
                     <th
                       key={h}
@@ -506,26 +754,40 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                     >
                       <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
                         <div className="flex flex-col items-start gap-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(lead.priority)}`}>
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(
+                              lead.priority
+                            )}`}
+                          >
                             {getPriorityLabel(lead.priority)}
                           </span>
-                          {lead.deal_name || '(Chưa đặt tên deal)'}
+                          {lead.deal_name || "(Chưa đặt tên deal)"}
                         </div>
                       </td>
 
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.name}</td>
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.email}</td>
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">{lead.phone}</td>
-                      <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">
-                        {formatCurrency(Number(lead.predicted_value || 0))}
+                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                        {lead.name}
                       </td>
                       <td className="px-6 py-2 text-sm text-gray-700 truncate">
-                        {lead.source || '-'}
+                        {lead.email}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                        {lead.phone}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">
+                        {formatCurrency(
+                          Math.round(Number(lead.predicted_value || 0))
+                        )}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                        {lead.source || "-"}
                       </td>
                       <td className="px-6 py-2 text-xs text-gray-500">
-                        {formatDate(lead.created_at) || '-'}
+                        {formatDate(lead.created_at) || "-"}
                       </td>
-                      <td className="px-6 py-2">{getStatusBadge(lead.status)}</td>
+                      <td className="px-6 py-2">
+                        {getStatusBadge(lead.status)}
+                      </td>
                       <td className="px-6 py-2 text-center w-36">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
                           <Button
@@ -544,11 +806,19 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          <Button
+                            variant="actionRead"
+                            size="icon"
+                            title="Tính lại điểm (Rescore)"
+                            onClick={() => handleRescore(lead)}
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
                           <ConfirmDialog
                             title="Xác nhận xóa"
                             description={
                               <>
-                                Bạn có chắc chắn muốn xóa lead{' '}
+                                Bạn có chắc chắn muốn xóa lead{" "}
                                 <span className="font-semibold">
                                   {lead.deal_name || lead.name}
                                 </span>
@@ -559,7 +829,11 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
                             cancelText="Hủy"
                             onConfirm={() => handleDelete(lead.lead_id)}
                           >
-                            <Button variant="actionDelete" size="icon" className="h-8 w-8">
+                            <Button
+                              variant="actionDelete"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </ConfirmDialog>
@@ -597,10 +871,14 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         open={modal.open}
         onClose={closeModal}
         title={{
-          view: `Chi tiết lead - ${modal.deal?.title || modal.deal?.deal_name || modal.deal?.name || ''}`,
+          view: `Chi tiết lead - ${
+            modal.deal?.title || modal.deal?.deal_name || modal.deal?.name || ""
+          }`,
           edit: modal.deal
-            ? `Chỉnh sửa lead - ${modal.deal.title || modal.deal.deal_name || modal.deal.name}`
-            : 'Thêm lead mới',
+            ? `Chỉnh sửa lead - ${
+                modal.deal.title || modal.deal.deal_name || modal.deal.name
+              }`
+            : "Thêm lead mới",
         }}
         mode={modal.mode}
         FormComponent={DealForm}
@@ -609,7 +887,7 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
         onSave={handleSave}
         onDelete={(id) => handleDelete(id)}
         setMode={(newMode) => {
-          setModal(prev => ({ ...prev, mode: newMode }));
+          setModal((prev) => ({ ...prev, mode: newMode }));
         }}
         maxWidth="sm:max-w-3xl"
       />
@@ -620,7 +898,9 @@ export default function LeadsPage({ showHeader = true, externalFilterStatus, onF
 function StatCard({ icon, bg, label, value, prev, animate, formatter }) {
   return (
     <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
-      <div className={`w-10 h-10 ${bg} rounded-full flex items-center justify-center`}>
+      <div
+        className={`w-10 h-10 ${bg} rounded-full flex items-center justify-center`}
+      >
         {icon}
       </div>
       <div>
@@ -630,8 +910,8 @@ function StatCard({ icon, bg, label, value, prev, animate, formatter }) {
             end={value}
             start={prev}
             duration={0.6}
-            decimals={label.includes('Tỷ lệ') ? 1 : 0}
-            suffix={label.includes('Tỷ lệ') ? '%' : ''}
+            decimals={label.includes("Tỷ lệ") ? 1 : 0}
+            suffix={label.includes("Tỷ lệ") ? "%" : ""}
             formattingFn={formatter}
             className="text-lg font-bold text-gray-900"
           />

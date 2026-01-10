@@ -50,7 +50,7 @@ const navItems = [
     path: "/kanban",
   },
   {
-    name: "Hóa đơn",
+    name: "Bán hàng",
     icon: <ReceiptText className="w-5 h-5" />,
     subItems: [
       { name: "Đơn hàng", path: "/orders", pro: false },
@@ -99,7 +99,7 @@ const othersItems = [
 ];
 
 export function AppSidebar() {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleSidebar, isMobile } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleSidebar, toggleMobileSidebar, isMobile } = useSidebar();
   const location = useLocation();
 
   const [openSubmenu, setOpenSubmenu] = useState(null); //Trạng thái đóng/mở submenu
@@ -200,7 +200,7 @@ export function AppSidebar() {
                 data-active={isActive(nav.path)}
                 className={`${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
               >
-                <Link to={nav.path}>
+                <Link to={nav.path} onClick={() => isMobile && isMobileOpen && toggleMobileSidebar()}>
                   <span className="flex-shrink-0">
                     {nav.icon}
                   </span>
@@ -234,7 +234,7 @@ export function AppSidebar() {
                       data-active={isActive(subItem.path)}
                       className={isActive(subItem.path) ? "font-semibold" : "font-normal"}
                     >
-                      <Link to={subItem.path}>
+                      <Link to={subItem.path} onClick={() => isMobile && isMobileOpen && toggleMobileSidebar()}>
                         <span>{subItem.name}</span>
                         <span className="flex items-center gap-1">
                           {subItem.new && (

@@ -91,6 +91,24 @@ class CampaignChannelRepository {
       ...options,
     });
   }
+
+  async getChannelStats(options = {}) {
+    return CampaignChannel.findAll({
+      attributes: [
+        'channel',
+        [Sequelize.fn('COUNT', Sequelize.col('campaign_id')), 'campaign_count'],
+        [Sequelize.fn('SUM', Sequelize.col('cost')), 'total_cost'],
+        [Sequelize.fn('SUM', Sequelize.col('revenue')), 'total_revenue'],
+        [Sequelize.fn('SUM', Sequelize.col('sent')), 'total_sent'],
+        [Sequelize.fn('SUM', Sequelize.col('conversions')), 'total_conversions'],
+        [Sequelize.fn('SUM', Sequelize.col('clicks')), 'total_clicks'],
+        [Sequelize.fn('SUM', Sequelize.col('impressions')), 'total_impressions'],
+      ],
+      group: ['channel'],
+      raw: true,
+      ...options,
+    });
+  }
 }
 
 module.exports = new CampaignChannelRepository();
