@@ -475,9 +475,11 @@ class LeadService {
         const lead = await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 
-        // Đã convert rồi
         if (lead.customer_id) {
           const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          if (customerPatch.address) {
+            await existingCustomer.update({ address: customerPatch.address }, { transaction: t });
+          }
           return { lead, customer: existingCustomer, already_converted: true };
         }
 
@@ -555,9 +557,11 @@ class LeadService {
         const lead = await this.repo.findByIdForUpdate
           ? await this.repo.findByIdForUpdate(leadId, { transaction: t })
           : await this.repo.findById(leadId, { transaction: t });
-        if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
         if (lead.customer_id) {
           const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          if (customerPatch.address) {
+            await existingCustomer.update({ address: customerPatch.address }, { transaction: t });
+          }
           return { lead, customer: existingCustomer, already_converted: true };
         }
         const createdOrFound = await customerRepository.findOrCreateSmart(

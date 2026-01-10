@@ -87,7 +87,7 @@ describe('OrderService', () => {
             expect(result.order_id).toBe(1);
         });
 
-        it('tạo đơn hàng và tự động tạo customer từ phone/email', async () => {
+        it('tạo đơn hàng và tạo lead cho khách guest', async () => {
             const orderPayload = {
                 phone: '0123456789',
                 email: 'test@example.com',
@@ -96,31 +96,31 @@ describe('OrderService', () => {
                 total_amount: 100
             };
 
-            const createdCustomer = {
-                customer_id: 10,
-                full_name: 'Test User',
-                phone: '0123456789',
-                email: 'test@example.com'
-            };
-
+            const createdLead = { ok: true, data: { lead_id: 555 } };
             const createdOrder = {
                 order_id: 1,
-                customer_id: 10,
+                customer_id: null, // Guest thì customer_id có thể null
+                lead_id: 555,
                 total_amount: 100
             };
 
+            // Mock các repository/service
             CustomerRepository.findByEmail = jest.fn().mockResolvedValue(null);
             CustomerRepository.findByPhone = jest.fn().mockResolvedValue(null);
-            CustomerRepository.findOrCreateSmart = jest.fn().mockResolvedValue(createdCustomer);
+
+            // Quan trọng: Mock LeadService thay vì CustomerRepository (Ko có cus nên tự tạo lead)
+            LeadService.createLead = jest.fn().mockResolvedValue(createdLead);
             OrderRepository.create = jest.fn().mockResolvedValue(createdOrder);
             OrderDetailService._normalizeDetail = jest.fn().mockImplementation(i => i);
             OrderDetailService.createMany = jest.fn().mockResolvedValue([]);
             Rabbit.publish = jest.fn().mockResolvedValue();
 
             const result = await OrderService.createOrder(orderPayload);
+            //console.log(result);
 
-            expect(CustomerRepository.findOrCreateSmart).toHaveBeenCalled();
-            expect(result.customer_id).toBe(10);
+            // Kiểm tra kết quả
+            expect(LeadService.createLead).toHaveBeenCalled();
+            expect(result.customer_id).toBeNull();
         });
 
         it('báo lỗi khi thiếu tổng tiền', async () => {
@@ -256,28 +256,60 @@ describe('OrderService', () => {
 
     describe('Cập nhật trạng thái đơn hàng', () => {
         it('cập nhật trạng thái thành công và publish order.paid event', async () => {
+            // Chuẩn bị dữ liệu mẫu (Thêm lead_id để test được cả phần convert lead)
             const updatedOrder = {
                 order_id: 1,
                 customer_id: 10,
+                lead_id: 55, // Thêm cái này
                 status: 'paid',
                 total_amount: 100,
-                currency: 'VND'
+                currency: 'VND',
+                payment_method: 'cod',
+                shipping_address: 'Hanoi'
             };
 
-            OrderRepository.updateStatus = jest.fn().mockResolvedValue();
+            // Mock Transaction 
+            const mockTransaction = {
+                commit: jest.fn(),
+                rollback: jest.fn()
+            };
+            OrderRepository.sequelize = {
+                transaction: jest.fn().mockResolvedValue(mockTransaction)
+            };
+
+            // Mock các phương thức Repository (Phải khớp tên hàm trong code)
+            OrderRepository.update = jest.fn().mockResolvedValue([1]);
             OrderRepository.findById = jest.fn().mockResolvedValue(updatedOrder);
-            LeadService.autoConvertLead = jest.fn().mockResolvedValue({ ok: true });
+            LeadService.autoConvertLead = jest.fn().mockResolvedValue({
+                ok: true,
+                data: { customer_id: 10 }
+            });
             Rabbit.publish = jest.fn().mockResolvedValue();
 
             const result = await OrderService.updateStatus(1, 'paid');
 
-            expect(OrderRepository.updateStatus).toHaveBeenCalledWith(1, 'paid', mockTransaction);
+
+            // Kiểm tra gọi hàm update vào DB (lưu ý: code truyền 3 tham số)
+            expect(OrderRepository.update).toHaveBeenCalledWith(
+                1,
+                expect.objectContaining({ status: 'paid' }),
+                mockTransaction
+            );
+
+            // Kiểm tra transaction đã commit
             expect(mockTransaction.commit).toHaveBeenCalled();
+
+            // Kiểm tra gọi convert lead (vì status là paid và có lead_id)
+            expect(LeadService.autoConvertLead).toHaveBeenCalledWith(55, expect.any(Object));
+
+            // Kiểm tra RabbitMQ đã publish đúng event
             expect(Rabbit.publish).toHaveBeenCalledWith('order.paid', expect.objectContaining({
                 order_id: 1,
-                customer_id: 10,
-                status: 'paid'
+                status: 'paid',
+                customer_id: 10
             }));
+
+            // Kiểm tra kết quả trả về
             expect(result.status).toBe('paid');
         });
 

@@ -45,6 +45,51 @@ async function publishOpened({ mid, req, extra = {} }) {
     ...extra,
   });
 }
+router.get('/open', async (req, res) => {
+  const {
+    mid,
+    to,
+    flow_id,
+    template_key,
+    order_id,
+    customer_id,
+    lead_id,
+    campaign_id,
+    channel_id,
+  } = req.query;
+
+  try {
+    await publishOpened({
+      mid,
+      req,
+      extra: {
+        source: 'pixel',
+        to,
+        flow_id,
+        template_key,
+        order_id,
+        customer_id,
+        lead_id,
+        campaign_id,
+        channel_id,
+      },
+    });
+
+    if (channel_id) {
+      await CampaignChannelRepo.incById(channel_id, { opens_total: 1 });
+      const uniqKey = `open|${channel_id}|${String(to || '')}|${String(mid || '')}`;
+      if (!seenRecently(uniqKey, 24 * 60 * 60 * 1000)) {
+        await CampaignChannelRepo.incById(channel_id, { opens_unique: 1 });
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  res.set('Content-Type', 'image/gif');
+  res.send(GIF_1x1);
+});
+
 router.get('/click', async (req, res) => {
   const {
     mid,
@@ -64,6 +109,7 @@ router.get('/click', async (req, res) => {
     return res.status(400).send('Invalid url');
   }
   try {
+    // 1. Publish OPEN event (since click implies open)
     await publishOpened({
       mid,
       req,
@@ -79,6 +125,7 @@ router.get('/click', async (req, res) => {
         channel_id,
       },
     });
+
     if (mid) {
       await Rabbit.publish('engagement.link_clicked', {
         mid,
@@ -96,19 +143,25 @@ router.get('/click', async (req, res) => {
         at: new Date().toISOString(),
       });
     }
-  } catch (e) {
-  }
-  if (channel_id) {
-    try {
-      // total click +1
+
+    // 2. Update DB Stats
+    if (channel_id) {
+      // Click Counts
       await CampaignChannelRepo.incById(channel_id, { clicks_total: 1 });
-      const uniqKey = `click|${channel_id}|${String(to || '')}|${String(mid || '')}`;
-      if (!seenRecently(uniqKey, 24 * 60 * 60 * 1000)) {
+      const clickKey = `click|${channel_id}|${String(to || '')}|${String(mid || '')}`;
+      if (!seenRecently(clickKey, 24 * 60 * 60 * 1000)) {
         await CampaignChannelRepo.incById(channel_id, { clicks_unique: 1 });
       }
-    } catch (e) {
-      // không block redirect
+
+      // Open Counts (Click = Open)
+      await CampaignChannelRepo.incById(channel_id, { opens_total: 1 });
+      const openKey = `open|${channel_id}|${String(to || '')}|${String(mid || '')}`;
+      if (!seenRecently(openKey, 24 * 60 * 60 * 1000)) {
+        await CampaignChannelRepo.incById(channel_id, { opens_unique: 1 });
+      }
     }
+  } catch (e) {
+    // không block redirect
   }
   return res.redirect(302, url);
 });

@@ -69,6 +69,11 @@ export function DealForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isProductAvailable = (product) => {
+    const status = (product?.status || product?.product_status || "").toUpperCase();
+    return status !== "DISCONTINUED" && status !== "OUT_OF_STOCK";
+  };
+
   useEffect(() => {
     if (data) {
       setForm({
@@ -228,8 +233,6 @@ export function DealForm({
   const handleChange = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-
-
   return (
     <div className="flex flex-col h-[70vh]">
       {/* Scrollable Content */}
@@ -377,41 +380,41 @@ export function DealForm({
             {(form.leadScore > 0 ||
               form.conversionProb > 0 ||
               form.aiReason) && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-blue-900">
-                  Đánh giá AI
-                </h4>
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-blue-900">
+                    Đánh giá AI
+                  </h4>
 
-                {/* Grid layout for metrics */}
-                <div className="grid grid-cols-2 gap-2">
-                  {form.leadScore > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-700 mb-1">Điểm Lead</p>
-                      <p className="text-lg font-bold text-blue-900">
-                        {form.leadScore}/100
-                      </p>
-                    </div>
-                  )}
+                  {/* Grid layout for metrics */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {form.leadScore > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-700 mb-1">Điểm Lead</p>
+                        <p className="text-lg font-bold text-blue-900">
+                          {form.leadScore}/100
+                        </p>
+                      </div>
+                    )}
 
-                  {form.conversionProb > 0 && (
+                    {form.conversionProb > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-700 mb-1">Xác suất chuyển đổi</p>
+                        <p className="text-lg font-bold text-blue-900">
+                          {(form.conversionProb * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Reason in separate box */}
+                  {form.aiReason && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-700 mb-1">Xác suất chuyển đổi</p>
-                      <p className="text-lg font-bold text-blue-900">
-                        {(form.conversionProb * 100).toFixed(1)}%
-                      </p>
+                      <p className="text-xs text-blue-700 mb-2 font-medium">Lý do đánh giá:</p>
+                      <p className="text-sm text-blue-900 italic leading-relaxed">{form.aiReason}</p>
                     </div>
                   )}
                 </div>
-
-                {/* Reason in separate box */}
-                {form.aiReason && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs text-blue-700 mb-2 font-medium">Lý do đánh giá:</p>
-                    <p className="text-sm text-blue-900 italic leading-relaxed">{form.aiReason}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
             {/* ML Model Predictions Section */}
             {(form.mlConversionProb > 0 || form.mlPredictedValue > 0 || form.mlModelVersion || form.mlLastScoredAt) && (
@@ -435,7 +438,7 @@ export function DealForm({
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                       <p className="text-xs text-purple-700 mb-1">Giá trị dự đoán (ML)</p>
                       <p className="text-lg font-bold text-purple-900">
-                        {formatCurrency(form.mlPredictedValue)}
+                        {formatCurrency(Math.round(form.mlPredictedValue))}
                       </p>
                     </div>
                   )}
@@ -505,25 +508,47 @@ export function DealForm({
                 </h4>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
                   <div className="space-y-2">
-                    {form.productInterests.map((item) => (
-                      <div key={item.lead_interest_id} className="flex items-start gap-2 text-sm">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{item.product_name}</p>
-                          <div className="flex gap-3 text-xs text-gray-600 mt-1">
-                            <span>Lượt quan tâm: {item.interest_count}</span>
-                            <span>•</span>
-                            <span>Lần đầu: {new Date(item.first_interested_at).toLocaleDateString('vi-VN')}</span>
-                            {item.status && (
-                              <>
-                                <span>•</span>
-                                <span className="capitalize">{item.status}</span>
-                              </>
+                    {form.productInterests.map((item) => {
+                      const available = isProductAvailable(item);
+                      return (
+                        <div 
+                          key={item.lead_interest_id} 
+                          className={`flex items-start gap-2 text-sm ${!available ? 'opacity-60' : ''}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                            available ? 'bg-blue-500' : 'bg-gray-400'
+                          }`}></span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">{item.product_name}</p>
+                              {!available && (
+                                <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full">
+                                  {(item.status || item.product_status || "").toUpperCase() === "DISCONTINUED" 
+                                    ? "Ngừng bán" 
+                                    : "Hết hàng"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-3 text-xs text-gray-600 mt-1">
+                              <span>Lượt quan tâm: {item.interest_count}</span>
+                              <span>•</span>
+                              <span>Lần đầu: {new Date(item.first_interested_at).toLocaleDateString('vi-VN')}</span>
+                              {item.status && (
+                                <>
+                                  <span>•</span>
+                                  <span className="capitalize">{item.status}</span>
+                                </>
+                              )}
+                            </div>
+                            {!available && (
+                              <p className="text-xs text-red-600 mt-1 italic">
+                                Sản phẩm này hiện không thể đặt hàng
+                              </p>
                             )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -536,9 +561,9 @@ export function DealForm({
                   Lịch sử tương tác ({form.interactions.length})
                 </h4>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto">
-                  
+
                   <div className="space-y-3">
-                    
+
                     {form.interactions.map((interaction) => {
                       const typeLabels = {
                         interested: 'Quan tâm',
@@ -547,7 +572,11 @@ export function DealForm({
                         email_opened: 'Mở email',
                         email_clicked: 'Click link email',
                       };
-                      
+
+                      const productAvailable = interaction.properties?.product_status 
+                        ? isProductAvailable({ product_status: interaction.properties.product_status })
+                        : true;
+
                       return (
                         <div key={interaction.interaction_id} className="flex gap-3  pl-0">
                           <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
@@ -566,9 +595,18 @@ export function DealForm({
                               {new Date(interaction.occurred_at).toLocaleString('vi-VN')}
                             </p>
                             {interaction.properties?.product_name && (
-                              <p className="text-xs text-gray-700 mt-1">
-                                Sản phẩm: {interaction.properties.product_name}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-gray-700">
+                                  Sản phẩm: {interaction.properties.product_name}
+                                </p>
+                                {!productAvailable && (
+                                  <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full">
+                                    {(interaction.properties.product_status || "").toUpperCase() === "DISCONTINUED" 
+                                      ? "Ngừng bán" 
+                                      : "Hết hàng"}
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {interaction.properties?.updated_fields && (
                               <p className="text-xs text-gray-500 mt-1">
@@ -591,7 +629,7 @@ export function DealForm({
                     Giá trị dự đoán:
                   </span>
                   <span className="text-lg font-semibold text-green-700">
-                    {formatCurrency(form.value)}
+                    {formatCurrency(Math.round(form.value))}
                   </span>
                 </div>
               </div>
@@ -629,16 +667,16 @@ export function DealForm({
             </>
           ) : (
             <>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleCancel}
                 disabled={isSubmitting}
               >
                 Hủy
               </Button>
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 variant="actionUpdate"
                 disabled={isSubmitting}
               >

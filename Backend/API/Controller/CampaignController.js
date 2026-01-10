@@ -275,6 +275,19 @@ class CampaignController {
       });
     }
   }
+
+  static async getChannelStats(req, res) {
+    try {
+      const result = await CampaignService.getChannelStats();
+      const httpStatus = result?.ok ? 200 : (result?.error?.status || result?.status || 400);
+      return res.status(httpStatus).json(result);
+    } catch (err) {
+      return res.status(500).json({
+        ok: false,
+        error: { code: 'GET_CHANNEL_STATS_FAILED', message: err?.message || 'Internal server error' },
+      });
+    }
+  }
 }
 
 module.exports = CampaignController;

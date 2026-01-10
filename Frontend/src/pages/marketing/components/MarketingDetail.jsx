@@ -12,6 +12,8 @@ import {
   Trash2,
   Edit,
   Send,
+  ExternalLink,
+  Eye,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/helper";
 import {
@@ -27,6 +29,7 @@ import SuccessDialog from "@/components/dialogs/SuccessDialog";
 import StatusHistory from "./StatusHistory";
 import PermissionGuard from "@/components/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const formatPercent = (v) => {
   const n = Number(v);
@@ -63,6 +66,7 @@ const mapStatus = (s) => {
     paused: "Paused",
     completed: "Completed",
     rejected: "Rejected",
+    //active: "Active",
   };
   return map[v] || "Draft";
 };
@@ -145,7 +149,6 @@ export default function MarketingDetail({
     setLocalStatus(mapStatus(c.status));
   }, [c.status]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [actionError, setActionError] = useState("");
   const [channels, setChannels] = useState([]);
 
   // Reject Dialog
@@ -198,14 +201,22 @@ export default function MarketingDetail({
   const handleSubmit = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      // Validate status before submission
+      if (!["Draft", "Rejected"].includes(localStatus)) {
+        toast.error("Chỉ chiến dịch Draft hoặc Rejected mới được gửi duyệt");
+        return;
+      }
+
       const res = await submitForApproval(c.campaign_id);
       setSuccessMessage(res.message || "Đã gửi duyệt thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi submit thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -214,16 +225,24 @@ export default function MarketingDetail({
   const handleReject = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (localStatus !== "Submitted") {
+        toast.error("Chỉ chiến dịch Submitted mới được từ chối");
+        return;
+      }
+
       const res = await rejectCampaign(c.campaign_id, rejectReason);
       setSuccessMessage(res.message || "Đã từ chối chiến dịch");
       setSuccessOpen(true);
       setRejectOpen(false);
       setRejectReason("");
-      // Reload ngay sau khi reject thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -232,14 +251,22 @@ export default function MarketingDetail({
   const handleApproveProposal = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (localStatus !== "Submitted") {
+        toast.error("Chỉ chiến dịch Submitted mới được duyệt");
+        return;
+      }
+
       const res = await approveProposal(c.campaign_id);
       setSuccessMessage(res.message || "Đã duyệt chiến dịch thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi approve thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -248,17 +275,25 @@ export default function MarketingDetail({
   const handleRun = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (!["Approved", "Configuring", "Paused"].includes(localStatus)) {
+        toast.error("Trạng thái không hợp lệ để chạy chiến dịch");
+        return;
+      }
+
       const { ok, status, message } = await approveCampaign(c.campaign_id, {
         status: "running",
       });
       if (!ok) throw new Error(message || "Lỗi khi chạy");
       setSuccessMessage("Chiến dịch đã được chạy thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi run thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -291,14 +326,24 @@ export default function MarketingDetail({
             e.currentTarget.style.display = "none";
           }}
         />
-        <a
-          href={banner}
-          target="_blank"
-          rel="noreferrer"
-          className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-md hover:bg-black/80 transition"
-        >
-          Xem ảnh
-        </a>
+        <div className="absolute bottom-2 right-2 flex gap-2 pr-2">
+          <a
+            href={banner}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-md hover:bg-black/80 transition flex items-center gap-1"
+          >
+            <Eye className="w-3 h-3" /> Xem ảnh
+          </a>
+          <a
+            href={`/landing/campaigns/${c.campaign_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-700 transition flex items-center gap-1 shadow-lg"
+          >
+            <ExternalLink className="w-3 h-3" /> Xem Landing Page
+          </a>
+        </div>
       </div>
 
       {/* Header */}
@@ -604,57 +649,89 @@ export default function MarketingDetail({
           </>
         )}
 
-        {/* Configuring / Running -> Run */}
+        {/* Configuring / Running / Paused -> Run/Pause */}
         {(localStatus === "Configuring" ||
           localStatus === "Running" ||
           localStatus === "Paused" ||
           localStatus === "Approved") && (
-          <PermissionGuard module="campaign" action="run">
-            {/* Chỉ hiện nút Chạy khi đã có kênh và gắn flow */}
-            {channels.length > 0 &&
-            channels.some(
-              (ch) => ch.flow_id || (ch.flows && ch.flows.length > 0)
-            ) ? (
-              <Button
-                className={`px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white ${
-                  localStatus === "Running"
-                    ? "bg-green-600"
-                    : "bg-indigo-600 hover:bg-indigo-700"
-                }`}
-                onClick={handleRun}
-                disabled={isProcessing || localStatus === "Running"}
-              >
-                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
-                {localStatus === "Running"
-                  ? "Đang chạy"
-                  : localStatus === "Paused"
-                  ? "Tiếp tục"
-                  : "Chạy Chiến Dịch"}
-              </Button>
-            ) : (
-              localStatus === "Running" && (
-                <Button
-                  className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-green-600"
-                  disabled
-                >
-                  Đang chạy
-                </Button>
-              )
-            )}
-          </PermissionGuard>
-        )}
+            <PermissionGuard module="campaign" action="run">
+              {/* Chỉ hiện nút Chạy khi đã có kênh và gắn flow */}
+              {channels.length > 0 &&
+                channels.some(
+                  (ch) => ch.flow_id || (ch.flows && ch.flows.length > 0)
+                ) ? (
+                localStatus === "Running" ? (
+                  <Button
+                    className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-amber-500 hover:bg-amber-600"
+                    onClick={async () => {
+                      try {
+                        setIsProcessing(true);
+                        
+                        if (localStatus !== "Running") {
+                          toast.error("Chỉ chiến dịch đang chạy mới được tạm dừng");
+                          return;
+                        }
+
+                        const { ok, message } = await approveCampaign(c.campaign_id, {
+                          status: "paused",
+                        });
+                        if (!ok) throw new Error(message || "Lỗi khi tạm dừng");
+                        setSuccessMessage("Đã tạm dừng chiến dịch");
+                        setSuccessOpen(true);
+                        await reloadCampaignData();
+                      } catch (e) {
+                        const errorMsg = e?.response?.data?.error?.message || 
+                                         e?.response?.data?.message || 
+                                         e?.message || 
+                                         "Có lỗi xảy ra";
+                        toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
+                      } finally {
+                        setIsProcessing(false);
+                      }
+                    }}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Tạm dừng
+                  </Button>
+                ) : (
+                  <Button
+                    className={`px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white ${"bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    onClick={handleRun}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {localStatus === "Paused"
+                      ? "Tiếp tục"
+                      : "Chạy Chiến Dịch"}
+                  </Button>
+                )
+              ) : (
+                // Case: Running but no valid channels (should verify if this happen)
+                localStatus === "Running" && (
+                  <Button
+                    className="px-3 py-2 rounded-lg flex gap-2 items-center text-sm text-white bg-green-600"
+                    disabled
+                  >
+                    Đang chạy
+                  </Button>
+                )
+              )}
+            </PermissionGuard>
+          )}
 
         {(localStatus === "Draft" ||
           localStatus === "Rejected" ||
           localStatus === "Approved" ||
           localStatus === "Configuring") && (
-          <PermissionGuard module="campaign" action="update">
-            <Button variant="actionUpdate" onClick={() => onEdit?.(c)}>
-              <Edit className="w-4 h-4" />
-              Chỉnh sửa
-            </Button>
-          </PermissionGuard>
-        )}
+            <PermissionGuard module="campaign" action="update">
+              <Button variant="actionUpdate" onClick={() => onEdit?.(c)}>
+                <Edit className="w-4 h-4" />
+                Chỉnh sửa
+              </Button>
+            </PermissionGuard>
+          )}
 
         {localStatus !== "Running" && (
           <PermissionGuard module="campaign" action="delete">
@@ -668,10 +745,6 @@ export default function MarketingDetail({
           </PermissionGuard>
         )}
       </div>
-
-      {actionError && (
-        <div className="text-xs text-red-600 mt-2">{actionError}</div>
-      )}
 
       {/* Status History */}
       {c.settings?.history && (

@@ -8,10 +8,10 @@ import {
   Star,
   PhoneCall,
 } from "lucide-react";
-import { getProducts } from "@/services/products";
+import { getProductForShow } from "@/services/products";
 import AppPagination from "@/components/pagination/AppPagination";
 import { Input } from "@/components/ui/input";
-import { getCategories } from "@/services/categories";
+import { getCategoriesForShow } from "@/services/categories";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { toast } from "sonner";
 import { trackProductInterest } from "@/services/leads";
@@ -79,7 +79,7 @@ const AllProductPage = ({ onContact, onOrder, onCartChange, onSubmitInterest }) 
     setLoading(true);
     setError("");
     try {
-      const res = await getProducts();
+      const res = await getProductForShow();
       const list = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res)
@@ -96,7 +96,7 @@ const AllProductPage = ({ onContact, onOrder, onCartChange, onSubmitInterest }) 
 
   const fetchCategoriesForFilter = async () => {
     try {
-      let res = await getCategories();
+      let res = await getCategoriesForShow();
       if (!res.ok) return;
 
       const active = res.data.filter((c) => c && String(c.status) === "ACTIVE");
@@ -178,7 +178,10 @@ const AllProductPage = ({ onContact, onOrder, onCartChange, onSubmitInterest }) 
       cart.push({ ...product, quantity: 1 });
     }
     localStorage.setItem("cart", JSON.stringify(cart));
-    if (typeof onCartChange === "function") onCartChange();
+    
+    // Dispatch custom event để cập nhật header
+    window.dispatchEvent(new Event("cartUpdated"));
+    
     toast.success("Đã thêm sản phẩm vào giỏ hàng.");
   };
 

@@ -3,10 +3,16 @@ const upload = require('../../Infrastructure/external/UploadCloud');
 const CampaignController = require('../Controller/CampaignController');
 const CampaignChannelController = require('../Controller/CampaignChannelController');
 const CampaignChannelFlowController = require('../Controller/CampaignChannelFlowController');
-
+const protectedRoute = require('../Middleware/authMiddleware');
 const router = express.Router();
 
+router.get('/running-public', CampaignController.getRunning);
+router.get('/public/:id', CampaignController.getOne); // Lấy chi tiết chiến dịch công khai
+
+router.use(protectedRoute);
 router.get('/running', CampaignController.getRunning);
+router.get('/stats/channels', CampaignController.getChannelStats);
+router.get('/by-channel', CampaignController.listByChannel);
 router.get('/', CampaignController.getAll);
 router.get('/:id', CampaignController.getOne);
 router.post('/', upload.single('image'), CampaignController.create);
@@ -32,5 +38,8 @@ router.patch('/channel-flows/:id', CampaignChannelFlowController.update);
 router.post('/channel-flows/:id/enable', CampaignChannelFlowController.enable);
 router.post('/channel-flows/:id/disable', CampaignChannelFlowController.disable);
 router.delete('/channel-flows/:id', CampaignChannelFlowController.remove);
+router.get('/stats/channels', CampaignController.getChannelStats);
 router.get('/by-channel', CampaignController.listByChannel);
+
+
 module.exports = router;

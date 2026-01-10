@@ -11,7 +11,7 @@ const api = axios.create({
 //Gắn accessToken vào header Authorization nếu có
 api.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState();
-  if (accessToken) {
+  if (accessToken && accessToken !== "undefined" && accessToken !== "null") {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
@@ -40,7 +40,7 @@ api.interceptors.response.use(
         // Gọi refresh token
         const res = await api.post("/auth/refresh-token", {}, { withCredentials: true });
         const newToken = res.data?.token;
-        if (newToken) {
+        if (newToken && newToken !== "undefined" && newToken !== "null") {
           useAuthStore.getState().setAccessToken(newToken);
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
           return api(originalRequest);
@@ -63,7 +63,9 @@ export async function request(
     // Thêm header Authorization nếu không phải public route
     if (!isPublicRoute) {
       let token = useAuthStore?.getState()?.accessToken;
-      headers["Authorization"] = `Bearer ${token}`;
+      if (token && token !== "undefined" && token !== "null") {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     }
 
     let res = await api({

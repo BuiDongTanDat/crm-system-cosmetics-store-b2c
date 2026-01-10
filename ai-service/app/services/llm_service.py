@@ -558,24 +558,57 @@ class LLMService:
     # ----------------- Core Gemini Call -----------------
     async def _generate(self, prompt: str, model: str) -> str:
         """
-        Gọi tới API Gemini để sinh nội dung.
-        Trả về chuỗi (có thể là JSON hoặc có lẫn text).
+        Calls Gemini API with robust error handling and fallback.
         """
         if not self.enabled:
             return ""
 
-        def _call() -> str:
-            gen_model = genai.GenerativeModel(model)  # type: ignore
-            response = gen_model.generate_content(prompt)
-            if hasattr(response, "text") and response.text:
-                return str(response.text).strip()
-            if hasattr(response, "candidates") and response.candidates:
-                part0 = response.candidates[0].content.parts[0]
-                return getattr(part0, "text", "") or ""
-            return ""
+        # Default fallback model
+        FALLBACK_MODEL = "gemini-1.5-flash"
+        
+        def _call(target_model: str) -> str:
+            try:
+                gen_model = genai.GenerativeModel(target_model)
+                response = gen_model.generate_content(prompt)
+                
+                # Handle safety blocks or empty responses
+                if not response or not hasattr(response, "candidates") or not response.candidates:
+                    print(f"[LLM] ⚠️ No candidates returned from Gemini ({target_model})")
+                    return ""
+                
+                # Check for blocked prompt
+                if response.prompt_feedback and hasattr(response.prompt_feedback, "block_reason") and response.prompt_feedback.block_reason:
+                    print(f"[LLM] 🚫 Prompt blocked: {response.prompt_feedback.block_reason}")
+                    return ""
 
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _call)
+                # Extract text safely
+                try:
+                    return response.text.strip()
+                except ValueError:
+                    # In case of safety block on candidate text
+                    print(f"[LLM] ⚠️ Candidate text blocked by safety filters ({target_model})")
+                    if response.candidates[0].content.parts:
+                        return str(response.candidates[0].content.parts[0].text or "").strip()
+                    return ""
+                    
+            except Exception as e:
+                err_msg = str(e)
+                print(f"[LLM] ❌ Error calling Gemini ({target_model}): {err_msg}")
+                # Raise specifically if we want to try fallback in the outer scope
+                raise e
+
+        try:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, lambda: _call(model))
+        except Exception:
+            # If the primary model fails (e.g. invalid name gemini-3-pro-preview), try fallback
+            if model != FALLBACK_MODEL:
+                print(f"[LLM] 🔄 Retrying with fallback model: {FALLBACK_MODEL}")
+                try:
+                    return await loop.run_in_executor(None, lambda: _call(FALLBACK_MODEL))
+                except Exception as e2:
+                    print(f"[LLM] 💀 Fallback model also failed: {e2}")
+            return ""
 
 
 # ==============================

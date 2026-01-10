@@ -35,6 +35,17 @@ class SessionRepository {
         }
     }
 
+    // Xóa tất cả session của một user
+    async deleteByUserId(userId) {
+        try {
+            await Session.destroy({
+                where: { user_id: userId }
+            });
+        } catch (err) {
+            throw err;
+        }
+    }
+
    
 }
 

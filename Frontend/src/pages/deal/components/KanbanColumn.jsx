@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import KanbanCard from "./KanbanCard";
 import { formatCurrency } from "@/utils/helper";
 import CountUp from "react-countup";
+import { Button } from "@/components/ui/button";
 
 export default function KanbanColumn({
   column,
@@ -10,6 +11,7 @@ export default function KanbanColumn({
   onCardView,
   onCardEdit,
   onCardDelete,
+  onCardRescore,
   onDrop,
   onDragStart,
   animatedData = null, // { startCount, endCount, startTotal, endTotal }
@@ -227,6 +229,7 @@ export default function KanbanColumn({
             onView={onCardView}
             onEdit={onCardEdit}
             onDelete={onCardDelete}
+            onRescore={onCardRescore}
             onDragStart={(e) => handleDragStartLocal(e, card)}
           />
         ))}
@@ -240,14 +243,15 @@ export default function KanbanColumn({
         {/* Nút xem thêm / ẩn bớt */}
         {isClosedCol && sortedCards.length > MAX_VISIBLE && (
           <div className="flex justify-center mt-2">
-            <button
-              className="text-xs text-blue-600 hover:underline"
+            <Button
+              variant="actionShowMore"
+              className="w-full"
               onClick={() => setShowAll((prev) => !prev)}
             >
               {showAll
                 ? "Ẩn bớt"
                 : `Xem thêm (${sortedCards.length - MAX_VISIBLE})`}
-            </button>
+            </Button>
           </div>
         )}
       </div>

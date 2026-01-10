@@ -1,5 +1,5 @@
 const OrderDetailRepo = require('../../Infrastructure/Repositories/OrderDetailRepository');
-const { OrderDetailRequestDTO, OrderDetailResponseDTO} = require('../../Application/DTOs/OrderDTO');
+const { OrderDetailRequestDTO, OrderDetailResponseDTO } = require('../../Application/DTOs/OrderDTO');
 const ProductRepo = require('../../Infrastructure/Repositories/ProductRepository');
 
 
@@ -11,6 +11,8 @@ class OrderDetailService {
 		return {
 			order_id: dto.order_id || detail.order_id,
 			product_id: dto.product_id,
+			product_name: dto.product_name,
+			image: dto.image,
 			price_unit: dto.price_unit,
 			price_original: dto.price_original,
 			quantity: dto.quantity,

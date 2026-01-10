@@ -7,6 +7,7 @@ import Loading from "@/components/common/Loading";
 import {
   CreditCard,
   DollarSign,
+  Loader2,
   Package,
   PackageCheck,
   ShoppingCart,
@@ -22,6 +23,7 @@ const STATUS_LABELS = {
   refunded: "Đã hoàn tiền",
   shipped: "Đã giao hàng",
   completed: "Hoàn tất",
+  draft_cart: "Giỏ hàng",
 };
 
 const PAYMENT_LABELS = {
@@ -32,9 +34,12 @@ const PAYMENT_LABELS = {
 };
 
 const SHIPPING_COST = 0;
-const COUPON_DISCOUNT = 0;
+
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function CheckoutPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const params = new URLSearchParams(location.search);
   const orderId = params.get("order_id");
 
@@ -43,10 +48,9 @@ export default function CheckoutPage() {
 
   const [placing, setPlacing] = useState(false);
 
-  const [coupon, setCoupon] = useState("");
-  const [discount, setDiscount] = useState(0);
   const [localItems, setLocalItems] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [address, setAddress] = useState("");
   const [cardInfo, setCardInfo] = useState({
     name: "",
     number: "",
@@ -64,6 +68,8 @@ export default function CheckoutPage() {
       setOrder(res);
       setLocalItems(res?.items || []);
       setPaymentMethod(res?.payment_method || "credit_card");
+      if (res?.shipping_address) setAddress(res.shipping_address);
+      // Pre-fill address if available in customer/order
     } catch (error) {
       console.error("Lỗi khi lấy đơn hàng:", error);
       toast.error("Lỗi khi lấy đơn hàng");
@@ -92,21 +98,13 @@ export default function CheckoutPage() {
     );
   };
 
-  const handleApplyCoupon = (code) => {
-    if (code === "FREESHIP") {
-      setDiscount(COUPON_DISCOUNT);
-      toast.success("Áp dụng mã giảm giá thành công");
-    } else {
-      toast.error("Mã giảm giá không hợp lệ");
-      setDiscount(0);
-    }
-  };
-
   const subtotal =
-    localItems?.reduce((sum, item) => sum + item.price_unit * item.quantity, 0) ||
-    0;
+    localItems?.reduce(
+      (sum, item) => sum + item.price_unit * item.quantity,
+      0
+    ) || 0;
 
-  const totalPayable = subtotal - discount;
+  const totalPayable = subtotal + SHIPPING_COST;
 
   const handlePlaceOrder = async () => {
     if (!orderId) {
@@ -120,6 +118,11 @@ export default function CheckoutPage() {
 
     if (order.status === "paid") {
       toast.info("Đơn hàng đã thanh toán trước đó. Vui lòng kiểm tra email.");
+      return;
+    }
+
+    if (!address || address.trim().length < 5) {
+      toast.error("Vui lòng nhập địa chỉ giao hàng hợp lệ");
       return;
     }
 
@@ -138,11 +141,14 @@ export default function CheckoutPage() {
 
     setPlacing(true);
     try {
+      // Delay 3 seconds with loading
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       await updateOrderStatus(orderId, {
         status: "paid",
         payment_method: paymentMethod,
-        total_amount: totalPayable, // bật nếu backend cần
-        // currency: order.currency || "VND",
+        total_amount: totalPayable,
+        shipping_address: address,
       });
 
       await fetchOrder(orderId);
@@ -150,6 +156,9 @@ export default function CheckoutPage() {
       toast.success(
         "Đặt hàng thành công. Vui lòng kiểm tra email để xem biên nhận/chi tiết đơn hàng."
       );
+      setTimeout(() => {
+        navigate("/landing");
+      }, 2000);
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
       toast.error(error?.message || "Thanh toán thất bại. Vui lòng thử lại.");
@@ -159,10 +168,29 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen ">
-      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-2 py-8 px-2">
-        {/* Cart */}
-        <div className="flex-2 bg-white rounded-xl shadow p-6">
+    <div className="flex flex-col min-h-screen bg-gray-50/50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 py-3">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate("/landing")}
+          >
+            <img src="/images/logo/Logo.svg" alt="CChain" className="h-8 w-8" />
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500 bg-clip-text text-transparent">
+              CChain Beauty
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+            <span className="hidden sm:inline">Thanh toán an toàn</span>
+            <ShoppingCart size={18} />
+          </div>
+        </div>
+      </header>
+
+      <div className=" animate-fade-in transition duration-150  flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-4 py-8 px-4">
+        {/* Cart & Shipping Info */}
+        <div className="flex-[2] bg-white rounded-xl shadow p-6">
           <h2 className="text-2xl font-semibold mb-4 flex gap-2">
             <Package />
             Xác nhận đơn hàng
@@ -240,14 +268,15 @@ export default function CheckoutPage() {
                   </thead>
                   <tbody>
                     {(localItems || []).map((item, idx) => (
-                      <tr
-                        key={item.order_detail_id}
-                        className="border-b"
-                      >
+                      <tr key={item.order_detail_id} className="border-b">
                         <td className="py-3">
                           <div className="flex items-center gap-2">
                             <img
                               src={item.image || "/default-product-image.png"}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/default-product-image.png";
+                              }}
                               alt=""
                               className="w-10 h-10 rounded object-cover border flex-shrink-0"
                             />
@@ -275,7 +304,9 @@ export default function CheckoutPage() {
                             >
                               -
                             </Button>
-                            <span className="px-1 min-w-[24px] text-center">{item.quantity}</span>
+                            <span className="px-1 min-w-[24px] text-center">
+                              {item.quantity}
+                            </span>
                             <Button
                               size="icon"
                               variant="outline"
@@ -289,8 +320,8 @@ export default function CheckoutPage() {
                         <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {formatCurrency(
                             item.price_unit *
-                            item.quantity *
-                            (1 - (item.discount || 0))
+                              item.quantity *
+                              (1 - (item.discount || 0))
                           )}
                         </td>
                       </tr>
@@ -299,36 +330,10 @@ export default function CheckoutPage() {
                 </table>
               </div>
 
-              <div className="flex items-end gap-6">
-                {/* Coupon - LEFT */}
-                <div className="flex-1">
-                  <div className="font-semibold mb-2">Mã giảm giá</div>
-                  <div className="flex gap-2">
-                    <Input
-                      variant="normal"
-                      placeholder="Nhập mã giảm giá"
-                      onChange={(e) => setCoupon(e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <Button
-                      variant="actionUpdate"
-                      onClick={() => handleApplyCoupon(coupon)}
-                    >
-                      Áp dụng
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Summary - RIGHT */}
-                <div className="flex flex-col text-sm text-right">
-                  <span>Tạm tính: {formatCurrency(subtotal)}</span>
-                  <span>Phí vận chuyển: {formatCurrency(SHIPPING_COST)}</span>
-                  <span>Giảm giá coupon: {formatCurrency(discount)}</span>
-                </div>
-              </div>
-
-              {/* Tổng kết */}
-              <div className="flex flex-col gap-1 items-end text-sm">
+              {/* Summary */}
+              <div className="flex flex-col gap-1 items-end text-sm mb-6">
+                <span>Tạm tính: {formatCurrency(subtotal)}</span>
+                <span>Phí vận chuyển: {formatCurrency(SHIPPING_COST)}</span>
                 <div className="border-t w-full my-2"></div>
                 <div className="flex gap-8 font-semibold text-lg">
                   <span>Tổng cộng</span>
@@ -340,9 +345,23 @@ export default function CheckoutPage() {
         </div>
 
         {/* Payment Info */}
-        <div className=" bg-white rounded-xl shadow p-6 flex-1 flex-col">
-          <h2 className="text-2xl font-semibold mb-4">Thông tin thanh toán</h2>
+        <div className="animate-fade-in transition duration-150 flex-1 bg-white rounded-xl shadow p-6">
+          {/* Thông tin giao hàng */}
 
+          <h2 className="text-2xl font-semibold mb-4">Thông tin giao hàng</h2>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">
+              Địa chỉ nhận hàng <span className="text-red-500">*</span>
+            </label>
+            <Input
+              variant="normal"
+              placeholder="Số nhà, đường, phường/xã..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+
+          <h2 className="border-t pt-3 text-2xl font-semibold mb-4">Thông tin thanh toán</h2>
           <div className="mb-4">
             <div className="font-medium mb-2">Phương thức thanh toán</div>
             <div className="flex flex-col gap-2">
@@ -350,9 +369,10 @@ export default function CheckoutPage() {
                 {/* Credit Card */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${paymentMethod === "credit_card"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-500"
+                    ${
+                      paymentMethod === "credit_card"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input
@@ -370,9 +390,10 @@ export default function CheckoutPage() {
                 {/* Paypal */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${paymentMethod === "paypal"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-500"
+                    ${
+                      paymentMethod === "paypal"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input
@@ -390,9 +411,10 @@ export default function CheckoutPage() {
                 {/* COD */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${paymentMethod === "cash_on_delivery"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-500"
+                    ${
+                      paymentMethod === "cash_on_delivery"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input
@@ -493,8 +515,17 @@ export default function CheckoutPage() {
             onClick={handlePlaceOrder}
             disabled={placing || loading || !order}
           >
-            <ShoppingCart className="!w-7 !h-7" />
-            {placing ? "Đang xử lý..." : "Đặt hàng"}
+            {placing ? (
+              <>
+                <Loader2 className="animate-spin !w-7 !h-7" />
+                Đang xử lý...
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="!w-7 !h-7" />
+                Đặt hàng
+              </>
+            )}
           </Button>
         </div>
       </div>

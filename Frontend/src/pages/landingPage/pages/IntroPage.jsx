@@ -99,7 +99,7 @@ const IntroPage = ({ onContact, onViewProducts, children }) => {
             <div className="mt-6 flex items-center gap-4">
               <Button
                 variant="actionDashboardDeepBlue"
-                onClick={onViewProducts}
+                onClick={() => onViewProducts?.()}
                 className="p-6 text-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-full shadow-lg hover:from-blue-700 hover:to-cyan-600"
               >
                 SHOP NOW
@@ -107,7 +107,7 @@ const IntroPage = ({ onContact, onViewProducts, children }) => {
 
               <Button
                 variant="outline"
-                onClick={onContact}
+                onClick={() => onContact?.()}
                 className="p-6 text-xl font-medium text-blue-700 border-blue-300 rounded-full hover:bg-blue-50"
               >
                 Learn more

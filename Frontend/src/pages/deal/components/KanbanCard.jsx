@@ -1,38 +1,57 @@
-import React, { useState } from 'react';
-import { CircleUser, Calendar, Banknote, Eye, Edit2, Trash, Edit, Trash2 } from 'lucide-react';
-import DropdownMore from '@/components/common/DropdownMore';
+import React, { useState } from "react";
+import {
+  CircleUser,
+  Calendar,
+  Banknote,
+  Eye,
+  Edit2,
+  Trash,
+  Edit,
+  Trash2,
+  RefreshCcw,
+} from "lucide-react";
+import DropdownMore from "@/components/common/DropdownMore";
 import {
   formatCurrency,
   formatDate,
   getPriorityColor,
   getPriorityLabel,
-  getInitials
-} from '@/utils/helper';
-import ConfirmDialog from '@/components/dialogs/ConfirmDialog';
+  getInitials,
+} from "@/utils/helper";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 
-export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart }) {
+export default function KanbanCard({
+  card,
+  onView,
+  onEdit,
+  onDelete,
+  onRescore,
+  onDragStart,
+}) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const title = card?.title || 'Chiến dịch A Chiến dịch A Chiến dịch A';
-  const customer = card?.name || 'Khách lẻ';
+  const title = card?.title || "Chiến dịch A Chiến dịch A Chiến dịch A";
+  const customer = card?.name || "Khách lẻ";
   const value = Number.isFinite(card?.value) ? card.value : 0;
-  const currency = card?.predicted_value_currency || '';
-  const assignee = card?.assignee || 'Chưa phân công';
+  const currency = card?.predicted_value_currency || "";
+  const assignee = card?.assignee || "Chưa phân công";
   const lastActivity = card?.lastActivity || card?.createdDate;
-  const priority = card?.priority || 'medium';
+  const priority = card?.priority || "medium";
   const productInterest = card?.productInterest || null;
   const tags = Array.isArray(card?.tags) ? card.tags : [];
   const leadScore = Number.isFinite(card?.leadScore) ? card.leadScore : null;
-  const convProbPct = card?.conversionProb != null ? Math.round(card.conversionProb * 100) : null;
+  const convProbPct =
+    card?.conversionProb != null ? Math.round(card.conversionProb * 100) : null;
 
   return (
     <div
-      className={`group relative bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer  active:scale-95 ${isDragging ? 'opacity-60 scale-95 rotate-1 shadow-2xl' : ''
-        }`}
+      className={`group relative bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer  active:scale-95 ${
+        isDragging ? "opacity-60 scale-95 rotate-1 shadow-2xl" : ""
+      }`}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', card.id);
-        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData("text/plain", card.id);
+        e.dataTransfer.effectAllowed = "move";
         setIsDragging(true);
         if (onDragStart) onDragStart(e);
       }}
@@ -45,7 +64,9 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
           {/* Left: badge + title */}
           <div className="flex-1 min-w-0 flex items-start gap-1">
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getPriorityColor(priority)}`}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getPriorityColor(
+                priority
+              )}`}
             >
               {getPriorityLabel(priority)}
             </span>
@@ -61,15 +82,47 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
           >
             <DropdownMore
               options={[
-                { id: "view", label: "Xem", icon: <Eye />, iconColor: "text-blue-500", textColor: "text-blue-700", hoverBg: "bg-blue-100" },
-                { id: "edit", label: "Chỉnh sửa", icon: <Edit />, iconColor: "text-blue-500", textColor: "text-blue-700", hoverBg: "bg-blue-100" },
-                { id: "delete", label: "Xóa", icon: <Trash2 />, iconColor: "text-red-500", textColor: "text-red-700", hoverBg: "bg-red-100" },
+                {
+                  id: "view",
+                  label: "Xem",
+                  icon: <Eye />,
+                  iconColor: "text-blue-500",
+                  textColor: "text-blue-700",
+                  hoverBg: "bg-blue-100",
+                },
+                {
+                  id: "edit",
+                  label: "Chỉnh sửa",
+                  icon: <Edit />,
+                  iconColor: "text-blue-500",
+                  textColor: "text-blue-700",
+                  hoverBg: "bg-blue-100",
+                },
+                {
+                  id: "rescore",
+                  label: "Tính lại điểm",
+                  icon: <RefreshCcw />,
+                  iconColor: "text-blue-500",
+                  textColor: "text-blue-700",
+                  hoverBg: "bg-blue-100",
+                },
+                {
+                  id: "delete",
+                  label: "Xóa",
+                  icon: <Trash2 />,
+                  iconColor: "text-red-500",
+                  textColor: "text-red-700",
+                  hoverBg: "bg-red-100",
+                },
               ]}
               onChange={(val) => {
                 if (val === "view") return onView(card);
                 if (val === "edit") return onEdit(card);
                 if (val === "delete") {
                   document.getElementById(`delete-trigger-${card.id}`).click();
+                }
+                if (val === "rescore") {
+                  return onRescore(card);
                 }
               }}
               side="bottom"
@@ -80,19 +133,15 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
                 <>
                   Bạn có chắc chắn muốn xóa thẻ{" "}
                   <span className="font-semibold text-black">{title}</span>?
-                </>}
+                </>
+              }
               onConfirm={() => onDelete(card)}
             >
               {/* nút ẩn làm trigger */}
-              <button
-                id={`delete-trigger-${card.id}`}
-                className="hidden"
-              />
+              <button id={`delete-trigger-${card.id}`} className="hidden" />
             </ConfirmDialog>
-
           </div>
         </div>
-
 
         {/* Product interest (optional) */}
         {productInterest && (
@@ -136,10 +185,14 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
         {(leadScore != null || convProbPct != null) && (
           <div className="flex items-center gap-2 text-[10px] text-gray-600">
             {leadScore != null && (
-              <span className="px-1.5 py-[1px] rounded bg-gray-100 border border-gray-200">Score: {leadScore}</span>
+              <span className="px-1.5 py-[1px] rounded bg-gray-100 border border-gray-200">
+                Score: {leadScore}
+              </span>
             )}
             {convProbPct != null && (
-              <span className="px-1.5 py-[1px] rounded bg-gray-100 border border-gray-200">Prob: {convProbPct}%</span>
+              <span className="px-1.5 py-[1px] rounded bg-gray-100 border border-gray-200">
+                Prob: {convProbPct}%
+              </span>
             )}
           </div>
         )}
@@ -160,6 +213,6 @@ export default function KanbanCard({ card, onView, onEdit, onDelete, onDragStart
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 }

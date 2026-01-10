@@ -8,6 +8,7 @@ import { CustomerTypes, CustomerSources, Industries } from "@/lib/data";
 import InteractionHistory from "@/pages/customer/components/InteractionHistory";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
+import CustomerAnalytics from "./CustomerAnalytics";
 
 export function CustomerForm({
   mode = "view",
@@ -382,6 +383,11 @@ export function CustomerForm({
                 rows={3}
               />
             </div>
+
+            {/* AI Analysis Section */}
+            {(mode === 'view' || mode === 'edit') && data?.id && (
+              <CustomerAnalytics customerId={data.id} />
+            )}
           </div>
         </div>
       </div>

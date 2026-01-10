@@ -12,6 +12,7 @@ function renderTemplate(templateKey, ctx = {}) {
     html = fn(ctx);
   } catch (err) {
     console.error(`[TemplateRenderer] Error rendering template "${key}":`, err.message || err);
+    console.debug('[TemplateRenderer] Context snippet:', JSON.stringify(ctx || {}).substring(0, 200));
     return '';
   }
 

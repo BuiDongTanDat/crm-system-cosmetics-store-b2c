@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {  Phone, Mail, Users, MessageCircle, User, ArrowLeft } from "lucide-react";
-import { formatDateTimeSeparate,  } from "@/utils/helper";
+import { Phone, Mail, Users, MessageCircle, User, ArrowLeft } from "lucide-react";
+import { formatDateTimeSeparate, } from "@/utils/helper";
+import { getCustomerInteractions } from "@/services/customers";
 
 const InteractionTypes = {
   Call: "Cuộc gọi",
-  Email: "Email", 
+  Email: "Email",
   Meeting: "Cuộc họp",
   Chat: "Chat",
   "Social Media": "Mạng xã hội"
@@ -27,39 +28,20 @@ export function InteractionHistory({ customerId, customerName, onBack }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    const mockInteractions = [
-      {
-        id: 1,
-        type: "Call",
-        dateTime: "2024-01-15T10:30:00",
-        content: "Tư vấn về sản phẩm X, khách hàng quan tâm đến tính năng A và B",
-        employeeName: "Nguyễn Văn A",
-        contactName: null
-      },
-      {
-        id: 2,
-        type: "Email",
-        dateTime: "2024-01-12T14:20:00",
-        content: "Gửi báo giá sản phẩm Y theo yêu cầu của khách hàng",
-        employeeName: "Trần Thị B",
-        contactName: null
-      },
-      {
-        id: 3,
-        type: "Meeting",
-        dateTime: "2024-01-10T09:00:00",
-        content: "Cuộc họp demo sản phẩm tại văn phòng khách hàng",
-        employeeName: "Lê Văn C",
-        contactName: "Phạm Văn D"
+    const fetchInteractions = async () => {
+      if (!customerId) return;
+      setLoading(true);
+      try {
+        const res = await getCustomerInteractions(customerId);
+        setInteractions(res?.data || res || []);
+      } catch (error) {
+        console.error("Lỗi khi lấy lịch sử tương tác:", error);
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    // Simulate API delay
-    setTimeout(() => {
-      setInteractions(mockInteractions);
-      setLoading(false);
-    }, 500);
+    fetchInteractions();
   }, [customerId]);
 
 
@@ -103,11 +85,11 @@ export function InteractionHistory({ customerId, customerName, onBack }) {
                           <span className="text-xs text-gray-500">{date} lúc {time}</span>
                         </div>
                       </div>
-                      
+
                       <p className="text-sm text-gray-700 mb-3 leading-relaxed">
                         {interaction.content}
                       </p>
-                      
+
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <div className="flex items-center gap-1">
                           <User className="w-3 h-3" />
