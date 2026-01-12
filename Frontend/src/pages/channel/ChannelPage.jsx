@@ -81,6 +81,7 @@ export default function ChannelPage() {
 						return {
 							...mock,
 							count: Number(found.campaign_count || 0),
+							totalCost: Number(found.total_cost || 0),
 							raw: found
 						};
 					}

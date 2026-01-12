@@ -37,6 +37,8 @@ const SHIPPING_COST = 0;
 
 import { useNavigate, useLocation } from "react-router-dom";
 
+import { useNavigate, useLocation } from "react-router-dom";
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -342,6 +344,21 @@ export default function CheckoutPage() {
               </div>
             </>
           )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6 mb-2">
+          <h2 className="text-xl font-semibold mb-4">Thông tin giao hàng</h2>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">
+              Địa chỉ nhận hàng <span className="text-red-500">*</span>
+            </label>
+            <Input
+              variant="normal"
+              placeholder="Số nhà, đường, phường/xã..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Payment Info */}
