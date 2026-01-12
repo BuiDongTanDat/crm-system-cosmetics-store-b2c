@@ -69,6 +69,11 @@ export function DealForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isProductAvailable = (product) => {
+    const status = (product?.status || product?.product_status || "").toUpperCase();
+    return status !== "DISCONTINUED" && status !== "OUT_OF_STOCK";
+  };
+
   useEffect(() => {
     if (data) {
       setForm({
@@ -227,8 +232,6 @@ export function DealForm({
 
   const handleChange = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
-
 
   return (
     <div className="flex flex-col h-[70vh]">
@@ -505,25 +508,47 @@ export function DealForm({
                 </h4>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
                   <div className="space-y-2">
-                    {form.productInterests.map((item) => (
-                      <div key={item.lead_interest_id} className="flex items-start gap-2 text-sm">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{item.product_name}</p>
-                          <div className="flex gap-3 text-xs text-gray-600 mt-1">
-                            <span>Lượt quan tâm: {item.interest_count}</span>
-                            <span>•</span>
-                            <span>Lần đầu: {new Date(item.first_interested_at).toLocaleDateString('vi-VN')}</span>
-                            {item.status && (
-                              <>
-                                <span>•</span>
-                                <span className="capitalize">{item.status}</span>
-                              </>
+                    {form.productInterests.map((item) => {
+                      const available = isProductAvailable(item);
+                      return (
+                        <div 
+                          key={item.lead_interest_id} 
+                          className={`flex items-start gap-2 text-sm ${!available ? 'opacity-60' : ''}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                            available ? 'bg-blue-500' : 'bg-gray-400'
+                          }`}></span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">{item.product_name}</p>
+                              {!available && (
+                                <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full">
+                                  {(item.status || item.product_status || "").toUpperCase() === "DISCONTINUED" 
+                                    ? "Ngừng bán" 
+                                    : "Hết hàng"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-3 text-xs text-gray-600 mt-1">
+                              <span>Lượt quan tâm: {item.interest_count}</span>
+                              <span>•</span>
+                              <span>Lần đầu: {new Date(item.first_interested_at).toLocaleDateString('vi-VN')}</span>
+                              {item.status && (
+                                <>
+                                  <span>•</span>
+                                  <span className="capitalize">{item.status}</span>
+                                </>
+                              )}
+                            </div>
+                            {!available && (
+                              <p className="text-xs text-red-600 mt-1 italic">
+                                Sản phẩm này hiện không thể đặt hàng
+                              </p>
                             )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -548,6 +573,10 @@ export function DealForm({
                         email_clicked: 'Click link email',
                       };
 
+                      const productAvailable = interaction.properties?.product_status 
+                        ? isProductAvailable({ product_status: interaction.properties.product_status })
+                        : true;
+
                       return (
                         <div key={interaction.interaction_id} className="flex gap-3  pl-0">
                           <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
@@ -566,9 +595,18 @@ export function DealForm({
                               {new Date(interaction.occurred_at).toLocaleString('vi-VN')}
                             </p>
                             {interaction.properties?.product_name && (
-                              <p className="text-xs text-gray-700 mt-1">
-                                Sản phẩm: {interaction.properties.product_name}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-gray-700">
+                                  Sản phẩm: {interaction.properties.product_name}
+                                </p>
+                                {!productAvailable && (
+                                  <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full">
+                                    {(interaction.properties.product_status || "").toUpperCase() === "DISCONTINUED" 
+                                      ? "Ngừng bán" 
+                                      : "Hết hàng"}
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {interaction.properties?.updated_fields && (
                               <p className="text-xs text-gray-500 mt-1">

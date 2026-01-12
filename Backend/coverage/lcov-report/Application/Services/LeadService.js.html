@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.78% </span>
+                <span class="strong">34.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>408/1173</span>
+                <span class='fraction'>408/1177</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">61.53% </span>
+                <span class="strong">61.01% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>72/117</span>
+                <span class='fraction'>72/118</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.78% </span>
+                <span class="strong">34.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>408/1173</span>
+                <span class='fraction'>408/1177</span>
             </div>
         
             
@@ -1236,7 +1236,11 @@
 <a name='L1171'></a><a href='#L1171'>1171</a>
 <a name='L1172'></a><a href='#L1172'>1172</a>
 <a name='L1173'></a><a href='#L1173'>1173</a>
-<a name='L1174'></a><a href='#L1174'>1174</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L1174'></a><a href='#L1174'>1174</a>
+<a name='L1175'></a><a href='#L1175'>1175</a>
+<a name='L1176'></a><a href='#L1176'>1176</a>
+<a name='L1177'></a><a href='#L1177'>1177</a>
+<a name='L1178'></a><a href='#L1178'>1178</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1713,9 +1717,11 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1788,6 +1794,8 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -2886,9 +2894,11 @@ class LeadService {
         const lead = await this.repo.findById(leadId, { transaction: t });
         if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });
 &nbsp;
-        // Đã convert rồi
         if (lead.customer_id) {
           const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });
+          if (customerPatch.address) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
+<span class="cstat-no" title="statement not covered" >            await existingCustomer.update({ address: customerPatch.address }, { transaction: t });</span>
+<span class="cstat-no" title="statement not covered" >          }</span>
           return { lead, customer: existingCustomer, already_converted: true };
         }
 &nbsp;
@@ -2966,9 +2976,11 @@ class LeadService {
 <span class="cstat-no" title="statement not covered" >        const lead = await this.repo.findByIdForUpdate</span>
 <span class="cstat-no" title="statement not covered" >          ? await this.repo.findByIdForUpdate(leadId, { transaction: t })</span>
 <span class="cstat-no" title="statement not covered" >          : await this.repo.findById(leadId, { transaction: t });</span>
-<span class="cstat-no" title="statement not covered" >        if (!lead) throw new AppError('Lead not found', { status: 404, code: 'LEAD_NOT_FOUND' });</span>
 <span class="cstat-no" title="statement not covered" >        if (lead.customer_id) {</span>
 <span class="cstat-no" title="statement not covered" >          const existingCustomer = await customerRepository.findById(lead.customer_id, { transaction: t });</span>
+<span class="cstat-no" title="statement not covered" >          if (customerPatch.address) {</span>
+<span class="cstat-no" title="statement not covered" >            await existingCustomer.update({ address: customerPatch.address }, { transaction: t });</span>
+<span class="cstat-no" title="statement not covered" >          }</span>
 <span class="cstat-no" title="statement not covered" >          return { lead, customer: existingCustomer, already_converted: true };</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
 <span class="cstat-no" title="statement not covered" >        const createdOrFound = await customerRepository.findOrCreateSmart(</span>
@@ -3589,7 +3601,7 @@ module.exports = new LeadService();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-07T12:37:38.250Z
+                at 2026-01-09T13:04:50.388Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -342,7 +342,20 @@ export default function OrderForm({
     return Number((p / (1 - d)).toFixed(2));
   };
 
+  const isProductAvailable = (product) => {
+    const status = (product.status || "").toUpperCase();
+    return status !== "DISCONTINUED" && status !== "OUT_OF_STOCK";
+  };
+
   const addOrderDetailWithProduct = (product) => {
+    // Kiểm tra trạng thái sản phẩm
+    if (!isProductAvailable(product)) {
+      toast.error(
+        `Không thể thêm sản phẩm "${product.name}". Sản phẩm đã ngừng bán hoặc hết hàng.`
+      );
+      return;
+    }
+
     const pid = product.product_id ?? product.id ?? "";
     const price = Number(product.price_current ?? product.price ?? 0);
     let prodDiscount =
@@ -634,9 +647,9 @@ export default function OrderForm({
                       "Chọn khách hàng"
                     }
                     searchPlaceholder="Tìm theo tên, email, số điện thoại..."
-                    contentClassName="max-h-72 overflow-y-auto w-[520px] p-2"
+                    contentClassName="max-h-72 overflow-y-auto p-2"
                     renderItem={(p) => (
-                      <div className="w-full">
+                      <div className="w-full ">
                         <div className="flex items-center justify-between">
                           <div className="font-medium truncate">{p.name}</div>
                           <span
@@ -817,38 +830,63 @@ export default function OrderForm({
                       .toLowerCase()
                       .includes((s || "").toLowerCase())
                   }
-                  onSelect={(p) => addOrderDetailWithProduct(p)}
+                  onSelect={(p) => {
+                    if (!isProductAvailable(p)) {
+                      toast.error(
+                        `Không thể chọn sản phẩm "${p.name}". Sản phẩm đã ngừng bán hoặc hết hàng.`
+                      );
+                      return;
+                    }
+                    addOrderDetailWithProduct(p);
+                  }}
                   searchPlaceholder="Tìm sản phẩm..."
                   contentClassName="w-96 max-w-full h-96 overflow-y-auto p-2"
-                  renderItem={(product) => (
-                    <div className="w-full">
-                      <div className="flex justify-between items-center">
-                        <span className="truncate">{product.name}</span>
-                        <span className="text-xs text-gray-700">
-                          {product.price_current
-                            ? formatCurrency(product.price_current)
-                            : ""}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
-                        <div>
-                          {product.discount_percent ?? product.discount ? (
-                            <span className="text-amber-600 font-medium">
-                              Giảm{" "}
-                              {product.discount_percent ?? product.discount}%
+                  renderItem={(product) => {
+                    const available = isProductAvailable(product);
+                    return (
+                      <div
+                        className={`w-full ${
+                          !available ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="truncate">{product.name}</span>
+                          <div className="flex items-center gap-2">
+                            {!available && (
+                              <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">
+                                {(product.status || "").toUpperCase() ===
+                                "DISCONTINUED"
+                                  ? "Ngừng bán"
+                                  : "Hết hàng"}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-700">
+                              {product.price_current
+                                ? formatCurrency(product.price_current)
+                                : ""}
                             </span>
-                          ) : null}
+                          </div>
                         </div>
-                        <div>
-                          {product.price_original ? (
-                            <span className="line-through">
-                              {formatCurrency(product.price_original)}
-                            </span>
-                          ) : null}
+                        <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
+                          <div>
+                            {product.discount_percent ?? product.discount ? (
+                              <span className="text-amber-600 font-medium">
+                                Giảm{" "}
+                                {product.discount_percent ?? product.discount}%
+                              </span>
+                            ) : null}
+                          </div>
+                          <div>
+                            {product.price_original ? (
+                              <span className="line-through">
+                                {formatCurrency(product.price_original)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  }}
                 >
                   <Button variant="actionCreate">
                     <Plus className="w-4 h-4 mr-2" />
@@ -1030,64 +1068,92 @@ export default function OrderForm({
                 </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {recommendations.map((product, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white p-3 rounded-md border border-blue-100 hover:border-blue-300 cursor-pointer transition-colors"
-                    onClick={() => {
-                      // Add product to orderDetails (not form.items)
-                      addOrderDetailWithProduct({
-                        product_id: product.product_id,
-                        id: product.product_id,
-                        name: product.name,
-                        price_current: product.price_current,
-                        price_original: product.price_original,
-                        discount_percent: product.discount_percent,
-                      });
-                      toast.success(`Đã thêm ${product.name} vào đơn hàng`);
-                    }}
-                  >
-                    <div className="flex justify-between">
-                      <div className="flex flex-col items-start gap-2">
-                        <p className="text-sm font-medium text-gray-900 flex-1">
-                          {product.name}
-                        </p>
-                        {product.discount_percent > 0 && (
-                          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">
-                            Giảm {product.discount_percent}%
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-end">
-                        <div className="text-right ">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(product.price_current || 0)}
+                {recommendations.map((product, idx) => {
+                  // Tìm thông tin đầy đủ từ danh sách products
+                  const fullProduct =
+                    products.find(
+                      (p) =>
+                        String(p.product_id || p.id) ===
+                        String(product.product_id)
+                    ) || product;
+                  const available = isProductAvailable(fullProduct);
+                  return (
+                    <div
+                      key={idx}
+                      className={`bg-white p-3 rounded-md border border-blue-100 transition-colors ${
+                        available
+                          ? "hover:border-blue-300 cursor-pointer"
+                          : "opacity-60 cursor-not-allowed"
+                      }`}
+                      {...(available && {
+                        onClick: () => {
+                          // Add product to orderDetails (not form.items)
+                          addOrderDetailWithProduct({
+                            product_id: product.product_id,
+                            id: product.product_id,
+                            name: product.name,
+                            price_current: product.price_current,
+                            price_original: product.price_original,
+                            discount_percent: product.discount_percent,
+                            status: product.status,
+                          });
+                          toast.success(`Đã thêm ${product.name} vào đơn hàng`);
+                        },
+                      })}
+                    >
+                      <div className="flex justify-between">
+                        <div className="flex flex-col items-start gap-2">
+                          <p className="text-sm font-medium text-gray-900 flex-1">
+                            {product.name}
                           </p>
-                          {product.price_original &&
-                            product.price_original > product.price_current && (
-                              <p className="text-xs text-gray-500 line-through">
-                                {formatCurrency(product.price_original)}
-                              </p>
+                          <div className="flex gap-2">
+                            {product.discount_percent > 0 && (
+                              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                                Giảm {product.discount_percent}%
+                              </span>
                             )}
-                        </div>
-                        {product.confidence_score && (
-                          <div className="text-right">
-                            <p className="text-xs text-blue-600 font-medium">
-                              {(product.confidence_score * 100).toFixed(0)}% phù
-                              hợp
-                            </p>
+                            {!available && (
+                              <span className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded">
+                                {(product.status || "").toUpperCase() ===
+                                "DISCONTINUED"
+                                  ? "Ngừng bán"
+                                  : "Hết hàng"}
+                              </span>
+                            )}
                           </div>
-                        )}
+                        </div>
+                        <div className="flex items-center justify-end">
+                          <div className="text-right ">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(product.price_current || 0)}
+                            </p>
+                            {product.price_original &&
+                              product.price_original >
+                                product.price_current && (
+                                <p className="text-xs text-gray-500 line-through">
+                                  {formatCurrency(product.price_original)}
+                                </p>
+                              )}
+                          </div>
+                          {product.confidence_score && (
+                            <div className="text-right">
+                              <p className="text-xs text-blue-600 font-medium">
+                                {(product.confidence_score * 100).toFixed(0)}%
+                                phù hợp
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {product.reason && (
-                      <p className="text-xs text-gray-500 mt-2 italic">
-                        {product.reason}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                      {product.reason && (
+                        <p className="text-xs text-gray-500 mt-2 italic">
+                          {product.reason}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -29,6 +29,7 @@ import SuccessDialog from "@/components/dialogs/SuccessDialog";
 import StatusHistory from "./StatusHistory";
 import PermissionGuard from "@/components/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const formatPercent = (v) => {
   const n = Number(v);
@@ -65,6 +66,7 @@ const mapStatus = (s) => {
     paused: "Paused",
     completed: "Completed",
     rejected: "Rejected",
+    //active: "Active",
   };
   return map[v] || "Draft";
 };
@@ -147,7 +149,6 @@ export default function MarketingDetail({
     setLocalStatus(mapStatus(c.status));
   }, [c.status]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [actionError, setActionError] = useState("");
   const [channels, setChannels] = useState([]);
 
   // Reject Dialog
@@ -200,14 +201,22 @@ export default function MarketingDetail({
   const handleSubmit = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      // Validate status before submission
+      if (!["Draft", "Rejected"].includes(localStatus)) {
+        toast.error("Chỉ chiến dịch Draft hoặc Rejected mới được gửi duyệt");
+        return;
+      }
+
       const res = await submitForApproval(c.campaign_id);
       setSuccessMessage(res.message || "Đã gửi duyệt thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi submit thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -216,16 +225,24 @@ export default function MarketingDetail({
   const handleReject = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (localStatus !== "Submitted") {
+        toast.error("Chỉ chiến dịch Submitted mới được từ chối");
+        return;
+      }
+
       const res = await rejectCampaign(c.campaign_id, rejectReason);
       setSuccessMessage(res.message || "Đã từ chối chiến dịch");
       setSuccessOpen(true);
       setRejectOpen(false);
       setRejectReason("");
-      // Reload ngay sau khi reject thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -234,14 +251,22 @@ export default function MarketingDetail({
   const handleApproveProposal = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (localStatus !== "Submitted") {
+        toast.error("Chỉ chiến dịch Submitted mới được duyệt");
+        return;
+      }
+
       const res = await approveProposal(c.campaign_id);
       setSuccessMessage(res.message || "Đã duyệt chiến dịch thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi approve thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -250,17 +275,25 @@ export default function MarketingDetail({
   const handleRun = async () => {
     try {
       setIsProcessing(true);
-      setActionError("");
+      
+      if (!["Approved", "Configuring", "Paused"].includes(localStatus)) {
+        toast.error("Trạng thái không hợp lệ để chạy chiến dịch");
+        return;
+      }
+
       const { ok, status, message } = await approveCampaign(c.campaign_id, {
         status: "running",
       });
       if (!ok) throw new Error(message || "Lỗi khi chạy");
       setSuccessMessage("Chiến dịch đã được chạy thành công");
       setSuccessOpen(true);
-      // Reload ngay sau khi run thành công
       await reloadCampaignData();
     } catch (e) {
-      setActionError(e.message);
+      const errorMsg = e?.response?.data?.error?.message || 
+                       e?.response?.data?.message || 
+                       e?.message || 
+                       "Có lỗi xảy ra";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
     } finally {
       setIsProcessing(false);
     }
@@ -293,7 +326,7 @@ export default function MarketingDetail({
             e.currentTarget.style.display = "none";
           }}
         />
-        <div className="absolute bottom-2 right-2 flex gap-2">
+        <div className="absolute bottom-2 right-2 flex gap-2 pr-2">
           <a
             href={banner}
             target="_blank"
@@ -303,7 +336,7 @@ export default function MarketingDetail({
             <Eye className="w-3 h-3" /> Xem ảnh
           </a>
           <a
-            href={`/campaigns/${c.campaign_id}`}
+            href={`/landing/campaigns/${c.campaign_id}`}
             target="_blank"
             rel="noreferrer"
             className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-700 transition flex items-center gap-1 shadow-lg"
@@ -633,7 +666,12 @@ export default function MarketingDetail({
                     onClick={async () => {
                       try {
                         setIsProcessing(true);
-                        setActionError("");
+                        
+                        if (localStatus !== "Running") {
+                          toast.error("Chỉ chiến dịch đang chạy mới được tạm dừng");
+                          return;
+                        }
+
                         const { ok, message } = await approveCampaign(c.campaign_id, {
                           status: "paused",
                         });
@@ -642,7 +680,11 @@ export default function MarketingDetail({
                         setSuccessOpen(true);
                         await reloadCampaignData();
                       } catch (e) {
-                        setActionError(e.message);
+                        const errorMsg = e?.response?.data?.error?.message || 
+                                         e?.response?.data?.message || 
+                                         e?.message || 
+                                         "Có lỗi xảy ra";
+                        toast.error(typeof errorMsg === 'string' ? errorMsg : "Có lỗi xảy ra");
                       } finally {
                         setIsProcessing(false);
                       }
@@ -703,10 +745,6 @@ export default function MarketingDetail({
           </PermissionGuard>
         )}
       </div>
-
-      {actionError && (
-        <div className="text-xs text-red-600 mt-2">{actionError}</div>
-      )}
 
       {/* Status History */}
       {c.settings?.history && (

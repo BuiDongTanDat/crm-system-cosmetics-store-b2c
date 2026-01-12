@@ -26,6 +26,9 @@ class AuthService {
     //Tạo refresh token 
     const refreshToken = jwt.generateRefreshToken({ id: user.user_id });
 
+    // Xóa tất cả session cũ của user trước khi tạo session mới
+    await SessionRepository.deleteByUserId(user.user_id);
+
     // Tạo session mới để lưu refresh token
     await SessionRepository.createSession({
       user_id: user.user_id,

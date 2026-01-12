@@ -4,6 +4,13 @@ const ProductController = require('../Controller/ProductController');
 const permissionRoute = require('../Middleware/permissionMiddleware');
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
+const protectedRoute = require('../Middleware/authMiddleware');
+//Public route
+router.get('/get-all-for-show', ProductController.getAll); // Lấy tất cả sản phẩm để hiển thị công khai
+router.get('/public/:id', ProductController.getById); // Lấy sản phẩm công khai theo ID
+
+router.use(protectedRoute);
+//Private
 router.get('/', ProductController.getAll);
 router.get('/:id', ProductController.getById);
 router.post('/', permissionRoute('product', 'update'), ProductController.create);

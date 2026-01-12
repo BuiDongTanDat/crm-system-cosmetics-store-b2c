@@ -558,6 +558,8 @@ class OrderService {
 			if (c) customerIds.push(c.customer_id);
 		}
 
+
+
 		// Also check if Leads (if we want to support un-converted leads orders, though usually orders have customer_id)
 		// For now, simpler to rely on customer_id as createOrder ensures customer creation.
 
@@ -579,6 +581,13 @@ class OrderService {
 		const results = await Promise.all(
 			allOrders.map(async (o) => {
 				let details = await OrderDetailService.getByOrderId(o.order_id);
+				// THêm chỗ này để lấy tên khách hàng
+				if (o.customer_id) {
+					const customer = await customerRepository.findById(o.customer_id);
+					if (customer) {
+						o.customer_name = customer.full_name;
+					}
+				}
 				// Enrich with product info
 				if (details && details.length > 0) {
 					details = await Promise.all(details.map(async (detail) => {

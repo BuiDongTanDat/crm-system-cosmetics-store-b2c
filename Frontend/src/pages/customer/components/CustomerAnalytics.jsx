@@ -93,6 +93,8 @@ export default function CustomerAnalytics({ customerId }) {
                     title="Phân tích CFM"
                     icon={<Users className="w-5 h-5 text-blue-600" />}
                     bg="bg-blue-50"
+                    borderBG="border-blue-300"
+
                 >
                     <div className="space-y-2 mt-2">
                         <MetricRow label="Tần suất mua" value={data?.cfm_frequency ? `${data.cfm_frequency.toFixed(1)} lần/tháng` : '--'} />
@@ -106,6 +108,7 @@ export default function CustomerAnalytics({ customerId }) {
                     title="Customer Lifetime Value"
                     icon={<TrendingUp className="w-5 h-5 text-green-600" />}
                     bg="bg-green-50"
+                    borderBG="border-green-300"
                 >
                     <div className="space-y-2 mt-2">
                         <MetricRow
@@ -124,11 +127,12 @@ export default function CustomerAnalytics({ customerId }) {
                     title="Phân tích Churn"
                     icon={<AlertTriangle className="w-5 h-5 text-red-600" />}
                     bg="bg-red-50"
+                    borderBG="border-red-300"
                 >
                     <div className="space-y-2 mt-2">
                         <MetricRow label="Tỷ lệ rời bỏ" value={data?.churn_probability ? `${(data.churn_probability * 100).toFixed(1)}%` : '--'} highlight color="text-red-600" />
                         <MetricRow label="Nguy cơ" value={data?.churn_risk_level || '--'} />
-                        <div className="pt-1">
+                        <div className="flex pt-1 justify-center w-full">
                             {data?.churn_probability > 0.5 ? (
                                 <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">Cần chăm sóc ngay</span>
                             ) : (
@@ -149,9 +153,9 @@ export default function CustomerAnalytics({ customerId }) {
     );
 }
 
-function Card({ title, icon, children, bg }) {
+function Card({ title, icon, children, bg, borderBG }) {
     return (
-        <div className={`p-4 rounded-xl border ${bg} border-opacity-50`}>
+        <div className={`p-4 rounded-xl border ${bg} ${borderBG}`}>
             <div className="flex items-center gap-2 mb-3">
                 {icon}
                 <span className="font-semibold text-gray-800">{title}</span>
@@ -165,7 +169,7 @@ function MetricRow({ label, value, highlight, color }) {
     return (
         <div className="flex justify-between items-center text-sm">
             <span className="text-gray-500">{label}</span>
-            <span className={`font-medium ${highlight ? 'text-base' : ''} ${color || 'text-gray-900'}`}>{value}</span>
+            <span className={`font-medium ${highlight ? 'text-sm' : ''} ${color || 'text-gray-900'}`}>{value}</span>
         </div>
     );
 }

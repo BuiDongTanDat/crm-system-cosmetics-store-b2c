@@ -27,11 +27,11 @@ import { getChannelStats, listByChannel } from "@/services/campaign";
 
 // --- Mock Data cho các kênh chưa có real data ---
 const SAMPLE_CHANNELS = [
-	{ id: 'email', name: 'Email Marketing', count: 0, totalCost: 0 },
-	{ id: 'sms', name: 'SMS Brandname', count: 12, totalCost: 5400000 },
-	{ id: 'zalo', name: 'Zalo OA', count: 8, totalCost: 1200000 },
-	{ id: 'livestream', name: 'LiveStream', count: 3, totalCost: 15000000 },
-	{ id: 'facebook', name: 'Facebook Ads', count: 20, totalCost: 12500000 },
+	{ id: 'email', name: 'Email Marketing', count: 0 },
+	{ id: 'sms', name: 'SMS Brandname', count: 12 },
+	{ id: 'zalo', name: 'Zalo OA', count: 8 },
+	{ id: 'livestream', name: 'LiveStream', count: 3 },
+	{ id: 'facebook', name: 'Facebook Ads', count: 20 },
 ];
 
 export default function ChannelPage() {
@@ -68,11 +68,10 @@ export default function ChannelPage() {
 			const res = await getChannelStats();
 
 			if (res.ok && res.data) {
-				// res.data.items: [{ channel, campaign_count, total_cost }]
+				// res.data.items: [{ channel, campaign_count }]
 				const realStats = res.data.items || [];
 
 				// Merge realStats vào SAMPLE_CHANNELS
-				// Backend key 'channel' vs Mock key 'id'
 				const merged = SAMPLE_CHANNELS.map(mock => {
 					const found = realStats.find(r =>
 						String(r.channel).toLowerCase() === mock.id ||
@@ -296,18 +295,18 @@ export default function ChannelPage() {
 											: "border-brand-100 hover:border-brand-500 hover:bg-brand-50/40"
 										}`}
 								>
-									<div className="flex items-center gap-3 min-w-0">
+									<div className="flex items-center gap-3 min-w-0 flex-1">
 										{getChannelIcon(ch)}
-										<div className="min-w-0">
+										<div className="min-w-0 flex-1">
 											<div className="text-sm font-medium text-gray-900 truncate">
 												{ch.name}
 											</div>
-											<div className="text-xs text-gray-500 truncate">
-												Chi phí: {formatCurrency(ch.totalCost)}
+											<div className="text-xs text-gray-500">
+												{ch.count} chiến dịch
 											</div>
 										</div>
 									</div>
-									<div className="text-sm font-semibold text-gray-700 ml-2">
+									<div className="text-lg font-semibold text-brand-600 ml-2">
 										{ch.count}
 									</div>
 								</button>
