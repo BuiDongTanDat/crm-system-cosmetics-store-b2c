@@ -251,7 +251,7 @@ export default function LeadCustomerReport() {
   return (
     <div className="space-y-4">
       {/* Thống kê tổng quan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4  gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Tổng khách hàng"
           value={stats.totalCustomers}
@@ -285,13 +285,13 @@ export default function LeadCustomerReport() {
       </div>
 
       {/* Pie chart khách hàng vs lead + Pie chart loại khách hàng */}
-      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Card: Khách hàng / Lead */}
-        <Card className="flex flex-row items-stretch">
-          <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
+        <Card className="flex flex-col lg:flex-row items-stretch">
+          <div className="flex flex-col justify-between p-4 lg:p-6 w-full lg:w-1/2 lg:min-w-[180px]">
             <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base">Tỷ lệ Khách hàng / Lead</CardTitle>
-              <CardDescription>Phân loại theo loại đối tượng</CardDescription>
+              <CardTitle className="text-sm lg:text-base">Tỷ lệ Khách hàng / Lead</CardTitle>
+              <CardDescription className="text-xs">Phân loại theo loại đối tượng</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-2">
               {stats.pieTypeData.map((d, idx) => {
@@ -302,7 +302,7 @@ export default function LeadCustomerReport() {
                 return (
                   <div
                     key={d.type}
-                    className={`flex items-center gap-2 text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
+                    className={`flex items-center gap-2 text-xs lg:text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
                     onMouseEnter={() => setActiveTypeIndex(idx)}
                     onMouseLeave={() => setActiveTypeIndex(-1)}
                   >
@@ -324,8 +324,8 @@ export default function LeadCustomerReport() {
               })}
             </div>
           </div>
-          <CardContent className="flex items-center justify-center w-1/2">
-            <ChartContainer config={chartConfig} className="mx-auto h-[250px] w-[250px]">
+          <CardContent className="flex items-center justify-center w-full lg:w-1/2 p-4">
+            <ChartContainer config={chartConfig} className="mx-auto h-[200px] w-[200px] lg:h-[250px] lg:w-[250px]">
               <PieChart>
                 <ChartTooltip cursor={false} content={pieTypeTooltip} />
                 <Pie
@@ -379,11 +379,11 @@ export default function LeadCustomerReport() {
           </CardContent>
         </Card>
         {/* Card: Loại khách hàng */}
-        <Card className="flex flex-row items-stretch">
-          <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
+        <Card className="flex flex-col lg:flex-row items-stretch">
+          <div className="flex flex-col justify-between p-4 lg:p-6 w-full lg:w-1/2 lg:min-w-[180px]">
             <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base">Tỷ lệ loại khách hàng</CardTitle>
-              <CardDescription>VIP, Premium, Tiêu chuẩn, Mới...</CardDescription>
+              <CardTitle className="text-sm lg:text-base">Tỷ lệ loại khách hàng</CardTitle>
+              <CardDescription className="text-xs">VIP, Premium, Tiêu chuẩn, Mới...</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-2">
               {stats.pieCustomerTypeData.map((d, idx) => {
@@ -393,7 +393,7 @@ export default function LeadCustomerReport() {
                 return (
                   <div
                     key={d.type}
-                    className={`flex items-center gap-2 text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
+                    className={`flex items-center gap-2 text-xs lg:text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
                     onMouseEnter={() => setActiveCustomerTypeIndex(idx)}
                     onMouseLeave={() => setActiveCustomerTypeIndex(-1)}
                   >
@@ -415,8 +415,8 @@ export default function LeadCustomerReport() {
               })}
             </div>
           </div>
-          <CardContent className="flex items-center justify-center w-1/2">
-            <ChartContainer config={chartConfig} className="mx-auto h-[250px] w-[250px]">
+          <CardContent className="flex items-center justify-center w-full lg:w-1/2 p-4">
+            <ChartContainer config={chartConfig} className="mx-auto h-[200px] w-[200px] lg:h-[250px] lg:w-[250px]">
               <PieChart>
                 <ChartTooltip cursor={false} content={pieCustomerTypeTooltip} />
                 <Pie
@@ -472,13 +472,13 @@ export default function LeadCustomerReport() {
       </div>
 
       {/* Pie chart nguồn khách hàng & giới tính */}
-      <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Card: Nguồn khách hàng */}
-        <Card className="flex flex-row items-stretch">
-          <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
+        <Card className="flex flex-col lg:flex-row items-stretch">
+          <div className="flex flex-col justify-between p-4 lg:p-6 w-full lg:w-1/2 lg:min-w-[180px]">
             <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base">Tỷ lệ theo nguồn khách hàng</CardTitle>
-              <CardDescription>Website, Facebook, Zalo, v.v.</CardDescription>
+              <CardTitle className="text-sm lg:text-base">Tỷ lệ theo nguồn khách hàng</CardTitle>
+              <CardDescription className="text-xs">Website, Facebook, Zalo, v.v.</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-2">
               {stats.pieSourceData.map((d, idx) => {
@@ -488,7 +488,7 @@ export default function LeadCustomerReport() {
                 return (
                   <div
                     key={d.source}
-                    className={`flex items-center gap-2 text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
+                    className={`flex items-center gap-2 text-xs lg:text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
                     onMouseEnter={() => setActiveSourceIndex(idx)}
                     onMouseLeave={() => setActiveSourceIndex(-1)}
                   >
@@ -510,8 +510,8 @@ export default function LeadCustomerReport() {
               })}
             </div>
           </div>
-          <CardContent className="flex items-center justify-center w-1/2">
-            <ChartContainer config={chartConfig} className="mx-auto h-[250px] w-[250px]">
+          <CardContent className="flex items-center justify-center w-full lg:w-1/2 p-4">
+            <ChartContainer config={chartConfig} className="mx-auto h-[200px] w-[200px] lg:h-[250px] lg:w-[250px]">
               <PieChart>
                 <ChartTooltip cursor={false} content={pieSourceTooltip} />
                 <Pie
@@ -565,11 +565,11 @@ export default function LeadCustomerReport() {
           </CardContent>
         </Card>
         {/* Card: Giới tính khách hàng */}
-        <Card className="flex flex-row items-stretch">
-          <div className="flex flex-col justify-between p-6 w-1/2 min-w-[180px]">
+        <Card className="flex flex-col lg:flex-row items-stretch">
+          <div className="flex flex-col justify-between p-4 lg:p-6 w-full lg:w-1/2 lg:min-w-[180px]">
             <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base">Tỷ lệ giới tính khách hàng</CardTitle>
-              <CardDescription>Nam, Nữ, Khác</CardDescription>
+              <CardTitle className="text-sm lg:text-base">Tỷ lệ giới tính khách hàng</CardTitle>
+              <CardDescription className="text-xs">Nam, Nữ, Khác</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-2">
               {stats.pieGenderData.map((d, idx) => {
@@ -579,7 +579,7 @@ export default function LeadCustomerReport() {
                 return (
                   <div
                     key={d.gender}
-                    className={`flex items-center gap-2 text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
+                    className={`flex items-center gap-2 text-xs lg:text-sm transition-all duration-150 cursor-pointer ${isActive ? "font-bold text-blue-600 scale-105" : ""}`}
                     onMouseEnter={() => setActiveGenderIndex(idx)}
                     onMouseLeave={() => setActiveGenderIndex(-1)}
                   >
@@ -601,8 +601,8 @@ export default function LeadCustomerReport() {
               })}
             </div>
           </div>
-          <CardContent className="flex items-center justify-center w-1/2">
-            <ChartContainer config={chartConfig} className="mx-auto h-[250px] w-[250px]">
+          <CardContent className="flex items-center justify-center w-full lg:w-1/2 p-4">
+            <ChartContainer config={chartConfig} className="mx-auto h-[200px] w-[200px] lg:h-[250px] lg:w-[250px]">
               <PieChart>
                 <ChartTooltip cursor={false} content={pieGenderTooltip} />
                 <Pie

@@ -160,7 +160,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="p-0 min-h-screen">
+    <div className="p-0">
       {/* Header */}
       <div className="flex-col my-3 z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
         <div>

@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   XCircle,
   Loader,
+  List,
+  Square,
 } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import OrderForm from "@/pages/order/components/OrderForm";
@@ -37,6 +39,7 @@ import DropdownWithSearch from "@/components/common/DropdownWithSearch";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
 import DateRangeButtonPicker from "@/components/common/DateRangeButtonPicker";
+import Loading from "@/components/common/Loading";
 
 export default function OrderPage() {
   const [orders, setOrders] = useState([]);
@@ -44,6 +47,11 @@ export default function OrderPage() {
   const [products, setProducts] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [dateRange, setDateRange] = useState({ from: null, to: null });
+  const [loading, setLoading] = useState(false);
+
+  // View mode: 'table' or 'card'
+  const [viewMode, setViewMode] = useState("table");
+
   // Nhãn tiếng Việt cho payment methods
   const PAYMENT_LABELS = {
     credit_card: "Thẻ tín dụng",
@@ -70,6 +78,7 @@ export default function OrderPage() {
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
 
     Promise.all([getOrders(), getProducts(), getCustomers()])
       .then(([ordersRes, productsRes, customersRes]) => {
@@ -112,6 +121,9 @@ export default function OrderPage() {
       .catch((err) => {
         console.error("Load orders failed:", err);
         setOrders([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
 
     return () => {
@@ -469,6 +481,14 @@ export default function OrderPage() {
     return statusMap[status] || `${baseClass} bg-gray-100 text-gray-800`;
   };
 
+  if (loading && orders.length === 0) {
+    return (
+      <div>
+        <Loading />
+      </div>
+    );
+  }
+
   return (
     <div className=" flex flex-col">
       {/* Sticky header*/}
@@ -478,15 +498,35 @@ export default function OrderPage() {
       >
         {/* Header: */}
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          {/* Cụm trái: Tiêu đề */}
-          <div className="flex items-center gap-2 mb-2 lg:mb-0">
+          {/* Cụm trái: Tiêu đề và toggle */}
+          <div className="flex items-center gap-2 mb-2 lg:mb-0 justify-between w-full lg:w-auto">
             <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
               Danh sách đơn hàng ({filteredOrders.length})
             </h1>
+
+            {/* View mode toggle */}
+            <div className="flex gap-0">
+              <Button
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("card")}
+                className="rounded-none rounded-tl-md rounded-bl-md"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("table")}
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
+
           {/* Cụm phải: Search, Filter, Thêm, Import/Export */}
-          <div className="flex flex-col gap-2 w-full   lg:gap-2 lg:w-auto">
-            <div></div>
+          <div className="flex flex-col gap-2 w-full lg:gap-2 lg:w-auto">
             <div className="flex flex-row gap-2 w-full justify-end ">
               {/* Search */}
               <div className="relative w-full lg:w-56">
@@ -510,22 +550,11 @@ export default function OrderPage() {
                     <span className="">Thêm Đơn hàng</span>
                   </Button>
                 </PermissionGuard>
-                {/* Import/Export Dropdown */}
-                {/* <ImportExportDropdown
-                                data={orders}
-                                filename="orders"
-                                fieldMapping={orderFieldMapping}
-                                onImportSuccess={handleImportSuccess}
-                                onImportError={handleImportError}
-                                trigger="icon"
-                                variant="actionNormal"
-                                className="w-10 h-10 shrink"
-                            /> */}
               </div>
             </div>
 
             {/* Filter row: Trạng thái + Khách hàng + Ngày */}
-            <div className="flex flex-row gap-2 w-full">
+            <div className="flex flex-col md:flex-row gap-2 w-full">
               <DropdownOptions
                 options={[
                   { value: "", label: "Tất cả trạng thái" },
@@ -591,96 +620,224 @@ export default function OrderPage() {
 
       {/* Scrollable content: */}
       <div className="flex-1 p-0 ">
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="w-full">
-            <table className="w-full table-fixed">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Người đặt hàng",
-                    "Ngày đặt hàng",
-                    "Tổng giá trị",
-                    "Phương thức thanh toán",
-                    "Trạng thái",
-                    "",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" /* reduced vertical padding */
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentOrders.map((order) => (
-                  <tr
-                    key={order.order_id}
-                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(order.order_id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                  >
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {/* API returns customer_id; if customer_name exists prefer that */}
-                      {order.customer_name || order.customer_id || "N/A"}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {formatDateTime(order.order_date)}{" "}
-                      {/* Ensure correct timezone */}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {formatCurrency(order.total_amount || order.total || 0)}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {PAYMENT_LABELS[order.payment_method] ||
-                        order.payment_method}
-                    </td>
-                    <td className="px-4 py-2 text-center w-32">
-                      {" "}
-                      {/* reduced padding */}
-                      <span className={getStatusBadge(order.status)}>
-                        {STATUS_LABELS[order.status] ||
-                          String(order.status || "").toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-center w-36">
-                      {" "}
-                      {/* reduced padding */}
-                      <div
-                        className={`flex justify-center gap-1 transition-all duration-200 ${
-                          hoveredRow === order.order_id
-                            ? "opacity-100 translate-y-0 pointer-events-auto"
-                            : "opacity-0 translate-y-1 pointer-events-none"
-                        }`}
+        {/* Table View */}
+        {viewMode === "table" && (
+          <div className="animate-fade-in transition duration-150 bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full  ">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "Người đặt hàng",
+                      "Ngày đặt hàng",
+                      "Tổng giá trị",
+                      "Phương thức thanh toán",
+                      "Trạng thái",
+                      "",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" /* reduced vertical padding */
                       >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentOrders.map((order) => (
+                    <tr
+                      key={order.order_id}
+                      className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                      onMouseEnter={() => setHoveredRow(order.order_id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {/* API returns customer_id; if customer_name exists prefer that */}
+                        {order.customer_name || order.customer_id || "N/A"}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {formatDateTime(order.order_date)}{" "}
+                        {/* Ensure correct timezone */}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {formatCurrency(order.total_amount || order.total || 0)}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {PAYMENT_LABELS[order.payment_method] ||
+                          order.payment_method}
+                      </td>
+                      <td className="px-4 py-2 text-center w-32">
+                        {" "}
+                        {/* reduced padding */}
+                        <span className={getStatusBadge(order.status)}>
+                          {STATUS_LABELS[order.status] ||
+                            String(order.status || "").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-center w-36">
+                        {" "}
+                        {/* reduced padding */}
+                        <div
+                          className={`flex justify-center gap-1 transition-all duration-200 ${
+                            hoveredRow === order.order_id
+                              ? "opacity-100 translate-y-0 pointer-events-auto"
+                              : "opacity-0 translate-y-1 pointer-events-none"
+                          }`}
+                        >
+                          <PermissionGuard module="order" action="read">
+                            <Button
+                              variant="actionRead"
+                              size="icon"
+                              onClick={() => handleView(order)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="order" action="update">
+                            <Button
+                              variant="actionUpdate"
+                              size="icon"
+                              onClick={() => handleEdit(order)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="order" action="delete">
+                            <ConfirmDialog
+                              title="Xác nhận xóa"
+                              description={
+                                <>
+                                  Bạn có chắc chắn muốn xóa đơn hàng{" "}
+                                  <span className="font-semibold">
+                                    {order.order_id}
+                                  </span>
+                                  ?
+                                </>
+                              }
+                              confirmText="Xóa"
+                              cancelText="Hủy"
+                              onConfirm={() => handleDelete(order.order_id)}
+                            >
+                              <Button
+                                variant="actionDelete"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </ConfirmDialog>
+                          </PermissionGuard>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Trạng thái rỗng */}
+                  {currentOrders.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="text-center py-8 text-gray-500">
+                        Không có Đơn hàng
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Card View */}
+        {viewMode === "card" && (
+          <div className="mb-4">
+            {currentOrders.length === 0 ? (
+              <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                Không có đơn hàng
+              </div>
+            ) : (
+              <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {currentOrders.map((order) => (
+                  <div
+                    key={order.order_id}
+                    className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                  >
+                    <div className="p-4 flex flex-col h-full">
+                      {/* Header: Mã đơn và Badge Trạng thái */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-lg line-clamp-1 mb-1">
+                            #{order.order_id}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {order.customer_name || order.customer_id || "N/A"}
+                          </p>
+                        </div>
+                        <span className={getStatusBadge(order.status)}>
+                          {STATUS_LABELS[order.status] ||
+                            String(order.status || "").toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Thông tin chi tiết */}
+                      <div className="flex-grow space-y-2 mb-4 text-sm">
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Ngày đặt:
+                          </span>
+                          <span className="text-gray-900">
+                            {formatDateTime(order.order_date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Tổng giá trị:
+                          </span>
+                          <span className="text-gray-900 font-semibold">
+                            {formatCurrency(order.total_amount || order.total || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-start text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Thanh toán:
+                          </span>
+                          <span className="text-gray-900 break-all line-clamp-1">
+                            {PAYMENT_LABELS[order.payment_method] ||
+                              order.payment_method}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons - Hiển thị đầy đủ như table */}
+                      <div className="flex gap-2 w-full border-t pt-2 mt-auto">
                         <PermissionGuard module="order" action="read">
                           <Button
                             variant="actionRead"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleView(order)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4 mr-1" />
+                            Xem
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="order" action="update">
                           <Button
                             variant="actionUpdate"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleEdit(order)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-4 h-4 mr-1" />
+                            Sửa
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="order" action="delete">
@@ -701,29 +858,22 @@ export default function OrderPage() {
                           >
                             <Button
                               variant="actionDelete"
-                              size="icon"
-                              className="h-8 w-8"
+                              size="sm"
+                              className="h-9 flex-1"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Xóa
                             </Button>
                           </ConfirmDialog>
                         </PermissionGuard>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-                {/* Trạng thái rỗng */}
-                {currentOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-500">
-                      Không có Đơn hàng
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Pagination */}
         <AppPagination

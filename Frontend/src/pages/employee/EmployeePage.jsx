@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter, History } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, History, List, Square } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import EmployeeForm from "@/pages/employee/components/EmployeeForm";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -20,6 +20,9 @@ import { Input } from "@/components/ui/input";
 import { getInitials } from "@/utils/helper";
 import { useAuthStore } from "@/store/useAuthStore";
 import PermissionGuard from "@/components/auth/PermissionGuard";
+import { se } from "date-fns/locale";
+import { set } from "date-fns";
+import Loading from "@/components/common/Loading";
 
 export default function EmployeePage() {
     const { user } = useAuthStore(); 
@@ -30,6 +33,9 @@ export default function EmployeePage() {
     const [hoveredRow, setHoveredRow] = useState(null);
     const [filterRole, setFilterRole] = useState(""); // Lọc theo vai trò
     const [filterStatus, setFilterStatus] = useState(""); // Lọc theo trạng thái
+    const [loading, setLoading] = useState(false);
+    // View mode: 'table' or 'card'
+    const [viewMode, setViewMode] = useState("table");
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -47,6 +53,7 @@ export default function EmployeePage() {
     // Fetch employees từ API
     const fetchEmployees = async () => {
         try {
+            setLoading(true);
             const res = await getUsers();
             let data = Array.isArray(res) ? res : res?.data;
             if (!data) data = [];
@@ -63,11 +70,15 @@ export default function EmployeePage() {
         } catch (err) {
             console.error("Lỗi tải danh sách nhân viên:", err);
         }
+        finally {
+            setLoading(false);
+        }
     };
 
     // Fetch roles từ API
     const fetchRoles = async () => {
         try {
+            setLoading(true);
             const res = await getRoles(); //Call api lấy roles
             let data = Array.isArray(res) ? res : res?.data;
             if (!data) data = [];
@@ -80,6 +91,9 @@ export default function EmployeePage() {
             );
         } catch (err) {
             console.error("Lỗi tải danh sách vai trò:", err);
+        }
+        finally {
+            setLoading(false);
         }
     };
 
@@ -272,7 +286,9 @@ export default function EmployeePage() {
     };
 
 
-
+    if (loading && employees.length === 0) {
+        return <div><Loading/></div>
+    }
     return (
         <div className="flex flex-col">
             {/* Sticky header */}
@@ -282,12 +298,33 @@ export default function EmployeePage() {
             >
                 {/* Header: */}
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    {/* Cụm trái: Tiêu đề */}
-                    <div className="flex items-center gap-2 mb-2 lg:mb-0">
+                    {/* Cụm trái: Tiêu đề và toggle */}
+                    <div className="flex items-center gap-2 mb-2 lg:mb-0 justify-between w-full lg:w-auto">
                         <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
                             Quản lý Nhân viên({filteredEmployees.length})
                         </h1>
+
+                        {/* View mode toggle */}
+                        <div className="flex gap-0">
+                            <Button
+                                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                                size="icon"
+                                onClick={() => setViewMode("card")}
+                                className="rounded-none rounded-tl-md rounded-bl-md"
+                            >
+                                <Square className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                variant={viewMode === "table" ? "actionCreate" : "actionNormal"}
+                                size="icon"
+                                onClick={() => setViewMode("table")}
+                                className="rounded-none rounded-tr-md rounded-br-md"
+                            >
+                                <List className="w-4 h-4" />
+                            </Button>
+                        </div>
                     </div>
+
                     {/* Cụm phải: Search, Filter, Thêm */}
                     <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2 lg:w-auto">
                         <div className="flex flex-col gap-2 w-full lg:flex-row lg:items-center lg:gap-2">
@@ -337,107 +374,237 @@ export default function EmployeePage() {
                 </div>
             </div>
 
-            {/* Scrollable content: table, pagination, dialog */}
+            {/* Scrollable content: table/card, pagination, dialog */}
             <div className="flex-1 pt-4">
-                {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[800px]">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        "Nhân viên",
-                                        "Email",
-                                        "SĐT",
-                                        "Vai trò",
-                                        "Trạng thái",
-                                        ""
-                                    ].map((header) => (
-                                        <th
-                                            key={header}
-                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            {header}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {currentEmployees.map((employee) => {
-                                    const isCurrentUser = user.user_id === employee.id; // check row hiện tại có phải chính user đăng nhập không
-                                    console.log('Current User ID:', user.user_id, 'Employee ID:', employee.id);
-                                    return (
-                                        <tr
-                                            key={employee.id}
-                                            className={`group relative transition-colors cursor-pointer
-                                                    ${hoveredRow === employee.id ? "bg-gray-50" : ""}
-                                                    ${user.user_id === employee.id ? "bg-blue-50 hover:bg-blue-100" : ""}`
-                                            }
-                                            onMouseEnter={() => setHoveredRow(employee.id)}
-                                            onMouseLeave={() => setHoveredRow(null)}
-                                        >
+                {/* Table View */}
+                {viewMode === "table" && (
+                    <div className="animate-fade-in transition duration-150 bg-white rounded-lg shadow overflow-hidden mb-4">
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[800px]">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        {[
+                                            "Nhân viên",
+                                            "Email",
+                                            "SĐT",
+                                            "Vai trò",
+                                            "Trạng thái",
+                                            ""
+                                        ].map((header) => (
+                                            <th
+                                                key={header}
+                                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            >
+                                                {header}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {currentEmployees.map((employee) => {
+                                        const isCurrentUser = user.user_id === employee.id; // check row hiện tại có phải chính user đăng nhập không
+                                        console.log('Current User ID:', user.user_id, 'Employee ID:', employee.id);
+                                        return (
+                                            <tr
+                                                key={employee.id}
+                                                className={`group relative transition-colors cursor-pointer
+                                                        ${hoveredRow === employee.id ? "bg-gray-50" : ""}
+                                                        ${user.user_id === employee.id ? "bg-blue-50 hover:bg-blue-100" : ""}`
+                                                }
+                                                onMouseEnter={() => setHoveredRow(employee.id)}
+                                                onMouseLeave={() => setHoveredRow(null)}
+                                            >
 
-                                            <td className="px-6 py-2 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
+                                                <td className="px-6 py-2 whitespace-nowrap">
+                                                    <div className="flex items-center gap-3">
+                                                        {employee.avatar_url ? (
+                                                            <img
+                                                                src={employee.avatar_url}
+                                                                alt={employee.name}
+                                                                className="w-8 h-8 rounded-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xs font-semibold uppercase">
+                                                                {getInitials(employee.name)}
+                                                            </div>
+                                                        )}
+                                                        <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                                                    </div>
+                                                </td>
+
+                                                <td className="px-6 py-2 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{employee.email}</div>
+                                                </td>
+
+                                                <td className="px-6 py-2 whitespace-nowrap text-center">
+                                                    <div className="text-sm text-gray-900">{employee.phone}</div>
+                                                </td>
+
+                                                <td className="px-6 py-2 whitespace-nowrap text-center">
+                                                    <span>{employee.role}</span>
+                                                </td>
+
+                                                <td className="px-6 py-2 whitespace-nowrap text-center w-32 uppercase">
+                                                    <span className={getStatusBadge(employee.status)}>
+                                                        {employee.status}
+                                                    </span>
+                                                </td>
+
+                                                <td className="px-6 py-2 text-center w-36">
+                                                    {!isCurrentUser && (
+                                                        <div
+                                                            className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
+                                                                ? "opacity-100 translate-y-0 pointer-events-auto"
+                                                                : "opacity-0 translate-y-1 pointer-events-none"
+                                                                }`}
+                                                        >
+                                                            <PermissionGuard module="user" action="read">
+                                                                <Button
+                                                                    variant="actionRead"
+                                                                    size="icon"
+                                                                    onClick={() => handleView(employee)}
+                                                                    className="h-8 w-8"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </Button>
+                                                            </PermissionGuard>
+                                                            <PermissionGuard module="user" action="update">
+                                                                <Button
+                                                                    variant="actionUpdate"
+                                                                    size="icon"
+                                                                    onClick={() => handleEdit(employee)}
+                                                                    className="h-8 w-8"
+                                                                >
+                                                                    <Edit className="w-4 h-4" />
+                                                                </Button>
+                                                            </PermissionGuard>
+                                                            <PermissionGuard module="user" action="delete">
+                                                                <ConfirmDialog
+                                                                    title="Xác nhận xóa"
+                                                                    description={
+                                                                        <>
+                                                                            Bạn có chắc chắn muốn xóa nhân viên{" "}
+                                                                            <span className="font-semibold text-black">{employee.name}</span>?
+                                                                        </>
+                                                                    }
+                                                                    confirmText="Xóa"
+                                                                    cancelText="Hủy"
+                                                                    onConfirm={() => handleDelete(employee.id)}
+                                                                >
+                                                                    <Button
+                                                                        variant="actionDelete"
+                                                                        size="icon"
+                                                                        className="h-8 w-8"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                </ConfirmDialog>
+                                                            </PermissionGuard>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                    )
+                                    }
+                                    {/* Trạng thái rỗng */}
+                                    {currentEmployees.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} className="text-center py-8 text-gray-500">Không có Nhân viên</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Card View */}
+                {viewMode === "card" && (
+                    <div className="mb-4">
+                        {currentEmployees.length === 0 ? (
+                            <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                                Không có nhân viên
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3  gap-4">
+                                {currentEmployees.map((employee) => {
+                                    const isCurrentUser = user.user_id === employee.id;
+                                    return (
+                                        <div
+                                            key={employee.id}
+                                            className={` rounded-lg  shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+                                                isCurrentUser ? "bg-blue-100" : "bg-white"
+                                            }`}
+                                        >
+                                            <div className="p-4 flex flex-col h-full">
+                                                {/* Header: Avatar và Tên */}
+                                                <div className="flex items-start gap-3 mb-3">
                                                     {employee.avatar_url ? (
                                                         <img
                                                             src={employee.avatar_url}
                                                             alt={employee.name}
-                                                            className="w-8 h-8 rounded-full object-cover"
+                                                            className="w-12 h-12 rounded-full object-cover"
                                                         />
                                                     ) : (
-                                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xs font-semibold uppercase">
+                                                        <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-sm font-semibold uppercase">
                                                             {getInitials(employee.name)}
                                                         </div>
                                                     )}
-                                                    <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-semibold text-gray-900 text-lg line-clamp-1">
+                                                            {employee.name}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-500">
+                                                            {employee.role}
+                                                        </p>
+                                                    </div>
+                                                    <span className={getStatusBadge(employee.status)}>
+                                                        {employee.status.toUpperCase()}
+                                                    </span>
                                                 </div>
-                                            </td>
 
-                                            <td className="px-6 py-2 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">{employee.email}</div>
-                                            </td>
+                                                {/* Thông tin chi tiết */}
+                                                <div className="flex-grow space-y-2 mb-4 text-sm">
+                                                    <div className="flex items-start text-gray-600">
+                                                        <span className="font-medium min-w-[60px]">Email:</span>
+                                                        <span className="text-gray-900 break-all line-clamp-1">
+                                                            {employee.email || "—"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center text-gray-600">
+                                                        <span className="font-medium min-w-[60px]">SĐT:</span>
+                                                        <span className="text-gray-900">
+                                                            {employee.phone || "—"}
+                                                        </span>
+                                                    </div>
+                                                </div>
 
-                                            <td className="px-6 py-2 whitespace-nowrap text-center">
-                                                <div className="text-sm text-gray-900">{employee.phone}</div>
-                                            </td>
-
-                                            <td className="px-6 py-2 whitespace-nowrap text-center">
-                                                <span>{employee.role}</span>
-                                            </td>
-
-                                            <td className="px-6 py-2 whitespace-nowrap text-center w-32 uppercase">
-                                                <span className={getStatusBadge(employee.status)}>
-                                                    {employee.status}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-6 py-2 text-center w-36">
+                                                {/* Action buttons - chỉ hiển thị nếu không phải current user */}
                                                 {!isCurrentUser && (
-                                                    <div
-                                                        className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === employee.id
-                                                            ? "opacity-100 translate-y-0 pointer-events-auto"
-                                                            : "opacity-0 translate-y-1 pointer-events-none"
-                                                            }`}
-                                                    >
+                                                    <div className="flex gap-2 w-full border-t pt-2 mt-auto">
                                                         <PermissionGuard module="user" action="read">
                                                             <Button
                                                                 variant="actionRead"
-                                                                size="icon"
+                                                                size="sm"
                                                                 onClick={() => handleView(employee)}
-                                                                className="h-8 w-8"
+                                                                className="h-9 flex-1"
                                                             >
-                                                                <Eye className="w-4 h-4" />
+                                                                <Eye className="w-4 h-4 mr-1" />
+                                                                Xem
                                                             </Button>
                                                         </PermissionGuard>
                                                         <PermissionGuard module="user" action="update">
                                                             <Button
                                                                 variant="actionUpdate"
-                                                                size="icon"
+                                                                size="sm"
                                                                 onClick={() => handleEdit(employee)}
-                                                                className="h-8 w-8"
+                                                                className="h-9 flex-1"
                                                             >
-                                                                <Edit className="w-4 h-4" />
+                                                                <Edit className="w-4 h-4 mr-1" />
+                                                                Sửa
                                                             </Button>
                                                         </PermissionGuard>
                                                         <PermissionGuard module="user" action="delete">
@@ -455,32 +622,24 @@ export default function EmployeePage() {
                                                             >
                                                                 <Button
                                                                     variant="actionDelete"
-                                                                    size="icon"
-                                                                    className="h-8 w-8"
+                                                                    size="sm"
+                                                                    className="h-9 flex-1"
                                                                 >
-                                                                    <Trash2 className="w-4 h-4" />
+                                                                    <Trash2 className="w-4 h-4 mr-1" />
+                                                                    Xóa
                                                                 </Button>
                                                             </ConfirmDialog>
                                                         </PermissionGuard>
                                                     </div>
                                                 )}
-                                            </td>
-                                        </tr>
+                                            </div>
+                                        </div>
                                     );
-                                }
-                                )
-                                }
-                                {/* Trạng thái rỗng */}
-                                {currentEmployees.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="text-center py-8 text-gray-500">Không có Nhân viên</td>
-                                    </tr>
-                                )}
-                            </tbody>
-
-                        </table>
+                                })}
+                            </div>
+                        )}
                     </div>
-                </div>
+                )}
 
                 {/* Pagination */}
                 <AppPagination
@@ -511,7 +670,7 @@ export default function EmployeePage() {
                     onSave={handleSave}
                     onDelete={handleDelete}
                     availableRoles={roles}
-                // ...
+                
                 />
             </div>
         </div>

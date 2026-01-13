@@ -253,75 +253,7 @@ const CFMAnalysisPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-          <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">Danh sách khách hàng</h3>
-          <div className="relative w-64 text-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Tìm kiếm khách hàng..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
-              <tr>
-                <th className="px-6 py-4">Khách hàng</th>
-                <th className="px-6 py-4 text-center">Tần suất (90d)</th>
-                <th className="px-6 py-4 text-center">Giá trị (90d)</th>
-                <th className="px-6 py-4 text-center">AOV</th>
-                <th className="px-6 py-4 text-center">Recency</th>
-                <th className="px-6 py-4 text-center">Score</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan="6" className="text-center py-10 text-gray-400">Đang tải dữ liệu...</td></tr>
-              ) : listData.items.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-10 text-gray-400">Không tìm thấy dữ liệu</td></tr>
-              ) : (
-                listData.items.map((it, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{it.customer?.full_name || 'Khách ẩn danh'}</div>
-                      <div className="text-xs text-gray-500">{it.customer?.phone || it.customer?.email}</div>
-                    </td>
-                    <td className="px-6 py-4 text-center font-medium">{it.frequency_90d} lần</td>
-                    <td className="px-6 py-4 text-center font-medium">{Number(it.monetary_90d).toLocaleString()} đ</td>
-                    <td className="px-6 py-4 text-center font-medium">{Number(it.avg_order_value_90d).toLocaleString()} đ</td>
-                    <td className="px-6 py-4 text-center text-gray-600">{it.recency_days} ngày</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px - 2 py - 1 rounded - full text - xs font - bold ${(it.cfm_score || 8) >= 8 ? 'bg-green-100 text-green-700' :
-                          (it.cfm_score || 8) >= 5 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                        } `}>
-                        {it.cfm_score || 8.0}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t bg-gray-50">
-          <AppPagination
-            currentPage={page}
-            totalPages={Math.ceil(listData.total / pageSize)}
-            handlePageChange={setPage}
-            handleNext={() => setPage(p => p + 1)}
-            handlePrev={() => setPage(p => p - 1)}
-          />
-        </div>
-      </div>
+      
     </div>
   );
 };

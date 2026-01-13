@@ -4,6 +4,7 @@ import {
   TrendingUp,
   Users,
   CalendarIcon,
+  Box,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +22,11 @@ import RevenueReport from "@/pages/report/components/RevenueReport";
 import LeadCustomerReport from "@/pages/report/components/LeadCustomerReport";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import GeneralReport from "./components/GeneralReport";
+import Loading from "@/components/common/Loading";
 
 export default function ReportPage() {
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({
     from: undefined,
     to: undefined,
@@ -43,12 +46,20 @@ export default function ReportPage() {
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
-    // Update filters with formatted dates
     setFilters({
       ...filters,
       from: range?.from ? range.from.toISOString().split('T')[0] : "",
       to: range?.to ? range.to.toISOString().split('T')[0] : "",
     });
+  };
+
+  const handleTabChange = (tabId) => {
+    setLoading(true);
+    setSelectedTab(tabId);
+    // Simulate loading delay
+    setTimeout(() => {
+      setLoading(false);
+    }, 300);
   };
 
   const handleExportExcel = () => {
@@ -58,24 +69,24 @@ export default function ReportPage() {
   return (
     <div className="flex flex-col">
       {/* Sticky header */}
-      <div className="my-3 z-20 flex gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
+      <div className="my-3 z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md">
         <div className="flex-col items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex items-center gap-4 mb-2">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">
               Báo cáo & Phân tích
             </h1>
           </div>
-          <div className="flex gap-2 overflow-x-auto pt-2">
+          <div className="flex gap-2 overflow-x-auto pt-2 w-full">
             {[
               {
                 id: "overview",
                 label: "Tổng quan",
-                icon: TrendingUp,
+                icon: BarChart3,
               },
               {
                 id: "product",
                 label: "Báo cáo Sản phẩm",
-                icon: BarChart3,
+                icon: Box,
               },
               {
                 id: "revenue",
@@ -96,8 +107,8 @@ export default function ReportPage() {
                     selectedTab === tab.id ? "actionCreate" : "actionNormal"
                   }
                   size="sm"
-                  onClick={() => setSelectedTab(tab.id)}
-                  className="flex items-center gap-1"
+                  onClick={() => handleTabChange(tab.id)}
+                  className="flex items-center gap-1 flex-1 md:flex-none min-w-fit"
                 >
                   <Icon className="w-4 h-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -110,83 +121,95 @@ export default function ReportPage() {
 
       {/* Bộ lọc cho các báo cáo chi tiết */}
       {selectedTab !== "overview" && (
-        <div className="justify-between items-center bg-white p-4 rounded-lg border border-gray-200 flex flex-wrap gap-4 mb-4">
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1">
-            {/* <label className="text-sm text-gray-600">Chọn khoảng thời gian:</label> */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-auto justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "dd/MM/yyyy", { locale: vi })} -{" "}
-                        {format(dateRange.to, "dd/MM/yyyy", { locale: vi })}
-                      </>
-                    ) : (
-                      format(dateRange.from, "dd/MM/yyyy", { locale: vi })
-                    )
-                  ) : (
-                    <span>Chọn khoảng thời gian</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarRangePicker
-                  value={dateRange}
-                  onChange={handleDateRangeChange}
-                />
-              </PopoverContent>
-            </Popover>
+        <div className="bg-white p-4 rounded-lg border border-gray-200 flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
+          <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <div className="flex flex-col gap-1 w-full md:w-auto">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full md:w-auto justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <span className="text-xs sm:text-sm">
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd/MM/yyyy", { locale: vi })} -{" "}
+                            {format(dateRange.to, "dd/MM/yyyy", { locale: vi })}
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd/MM/yyyy", { locale: vi })
+                        )
+                      ) : (
+                        "Chọn khoảng thời gian"
+                      )}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarRangePicker
+                    value={dateRange}
+                    onChange={handleDateRangeChange}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            {selectedTab === "product" && (
+              <DropdownOptions
+                label="Loại sản phẩm"
+                name="productType"
+                options={[
+                  { value: "", label: "Tất cả" },
+                  { value: "physical", label: "Vật lý" },
+                  { value: "digital", label: "Kỹ thuật số" },
+                ]}
+                value={filters.productType}
+                onChange={handleFilterChange}
+                width="w-full md:w-auto"
+              />
+            )}
+            {selectedTab === "customer_lead" && (
+              <DropdownOptions
+                label="Loại khách hàng"
+                name="customerType"
+                options={[
+                  { value: "", label: "Loại khách hàng" },
+                  { value: "new", label: "Mới" },
+                  { value: "returning", label: "Quay lại" },
+                ]}
+                value={filters.customerType}
+                onChange={handleFilterChange}
+                width="w-full md:w-auto"
+              />
+            )}
           </div>
-          {selectedTab === "product" && (
-            <DropdownOptions
-              label="Loại sản phẩm"
-              name="productType"
-              options={[
-                { value: "", label: "Tất cả" },
-                { value: "physical", label: "Vật lý" },
-                { value: "digital", label: "Kỹ thuật số" },
-              ]}
-              value={filters.productType}
-              onChange={handleFilterChange}
-              width="w-auto"
-            />
-          )}
-          {selectedTab === "customer_lead" && (
-           <DropdownOptions
-              label="Loại khách hàng"
-              name="customerType"
-              options={[
-                { value: "", label: "Loại khách hàng" },
-                { value: "new", label: "Mới" },
-                { value: "returning", label: "Quay lại" },
-              ]}
-              value={filters.customerType}
-              onChange={handleFilterChange}
-              width="w-auto"
-            />
-          )}
-          </div>
-          <Button variant="actionUpdate" size="sm" onClick={handleExportExcel}>
+          <Button 
+            variant="actionUpdate" 
+            size="sm" 
+            onClick={handleExportExcel}
+            className="w-full md:w-auto"
+          >
             Xuất Excel
           </Button>
         </div>
       )}
 
       {/* Nội dung các tab */}
-      <div className="flex-1 space-y-6">
-        {selectedTab === "overview" && <GeneralReport />}
-        {selectedTab === "product" && <ProductReport filters={filters} />}
-        {selectedTab === "revenue" && <RevenueReport />}
-        {selectedTab === "customer_lead" && (
-          <LeadCustomerReport filters={filters} />
-        )}
-      </div>
+      {loading ? (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Loading />
+        </div>
+      ) : (
+        <div className="flex-1 space-y-6">
+          {selectedTab === "overview" && <GeneralReport />}
+          {selectedTab === "product" && <ProductReport filters={filters} />}
+          {selectedTab === "revenue" && <RevenueReport />}
+          {selectedTab === "customer_lead" && (
+            <LeadCustomerReport filters={filters} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

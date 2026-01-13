@@ -8,6 +8,7 @@ import {
   Columns3,
   List,
   Search,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import KanbanColumn from "@/pages/deal/components/KanbanColumn";
@@ -87,7 +88,7 @@ export default function KanbanPage() {
   });
   const [prevStats, setPrevStats] = useState(stats);
   const [shouldAnimateStats, setShouldAnimateStats] = useState(false);
-  const [viewMode, setViewMode] = useState("kanban"); // 'kanban' | 'list'
+  const [viewMode, setViewMode] = useState("kanban"); // 'kanban' | 'list' | 'card'
 
   // new: filter state for list view
   const [filterStatus, setFilterStatus] = useState("");
@@ -1054,7 +1055,7 @@ export default function KanbanPage() {
 
   // Hiển thị Loading khi đang tải
   if (isLoading) {
-    return <Loading text="Đang tải pipeline..." />;
+    return <Loading text="Đang tải..." />;
   }
 
   // Hàm tìm kiếm lead
@@ -1184,9 +1185,16 @@ export default function KanbanPage() {
               <Button
                 variant={viewMode === "list" ? "actionCreate" : "actionNormal"}
                 onClick={() => setViewMode("list")}
-                className="rounded-none rounded-tr-md rounded-br-md size-8"
+                className="rounded-none  size-8"
               >
                 <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                onClick={() => setViewMode("card")}
+                className="rounded-none rounded-tr-md rounded-br-md size-8"
+              >
+                <Square className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -1205,7 +1213,7 @@ export default function KanbanPage() {
             </div>
 
             {/* Filter dropdown (only in list mode) */}
-            {viewMode === "list" && (
+            {(viewMode === "list" || viewMode==="card") && (
               <div className="w-full items-center gap-3">
                 <DropdownOptions
                   options={FILTER_OPTIONS}
@@ -1269,7 +1277,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Main content: toggle between Kanban board and Leads list */}
-      {viewMode === "kanban" ? (
+      {viewMode === "kanban" && (
         <>
           {/* Kanban board */}
           <div
@@ -1361,8 +1369,10 @@ export default function KanbanPage() {
             maxWidth="sm:max-w-5xl"
           />
         </>
-      ) : (
-        // List view: render LeadsPage without its header, pass controlled filter props
+      )}
+
+      {viewMode === "list" && (
+        // List view: render LeadsPage without its header, pass controlled props
         <div className="flex-1 overflow-auto">
           <LeadsPage
             showHeader={false}
@@ -1370,9 +1380,24 @@ export default function KanbanPage() {
             onFilterChange={setFilterStatus}
             externalSearchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            externalViewMode="table"
           />
         </div>
       )}
+      {viewMode === "card" && (
+        // List view: render LeadsPage without its header, pass controlled props
+        <div className="flex-1 overflow-auto">
+          <LeadsPage
+            showHeader={false}
+            externalFilterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+            externalSearchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            externalViewMode="card"
+          />
+        </div>
+      )}
+      
     </div>
   );
 }
