@@ -42,10 +42,12 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await signIn(form.email, form.password);
+      const res = await signIn(form.email, form.password);
+      console.log('LoginPage signIn result:', res);
+      if (!res) return; // Tránh điều hướng nếu đăng nhập thất bại
       navigate("/");
     } catch (err) {
-      //toast.error("Đăng nhập thất bại");
+      // Hàm signIn đã xử lý thông báo lỗi
     } finally {
       setIsSubmitting(false);
     }
@@ -60,7 +62,7 @@ export default function LoginPage() {
           backgroundImage: 'url("/images/background/bg.jpg")',
         }}
       />
-      <div className=" flex flex-col gap-6 min-h-screen justify-center items-center relative z-10">
+      <div className="p-5 flex flex-col gap-6 min-h-screen justify-center items-center relative z-10">
         <Card className="animate-fade-in transition duration-200 overflow-hidden p-0 border-border w-full max-w-2xl shadow-2xl">
           <CardContent className="grid p-0 md:grid-cols-2">
             <form

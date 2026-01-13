@@ -436,35 +436,39 @@ export default function ProductPage() {
               </div>
             </div>
             {/* Filter row: Category + Status filter */}
-            <div className="flex flex-row gap-2 w-full lg:w-auto">
-              <DropdownOptions
-                options={categoryOptions}
-                value={selectedCategory}
-                onChange={(val) => setSelectedCategory(val)}
-                width="w-full lg:w-44"
-                placeholder="Danh mục"
-              />
-              <DropdownOptions
-                options={STATUS_FILTER_OPTIONS}
-                value={statusFilter}
-                onChange={(val) => setStatusFilter(val)}
-                width="w-full lg:w-36"
-                placeholder="Trạng thái"
-              />
-              <DropdownOptions
-                options={PRICE_FILTER_OPTIONS}
-                value={priceFilter}
-                onChange={(val) => setPriceFilter(val)}
-                width="w-full lg:w-40"
-                placeholder="Mệnh giá"
-              />
-              <DropdownOptions
-                options={CREATED_SORT_OPTIONS}
-                value={sortCreated}
-                onChange={(val) => setSortCreated(val)}
-                width="w-full lg:w-44"
-                placeholder="Sắp xếp ngày tạo"
-              />
+            <div className="flex flex-col md:flex-row w-full lg:w-auto gap-2">
+              <div className="flex gap-2">
+                <DropdownOptions
+                  options={categoryOptions}
+                  value={selectedCategory}
+                  onChange={(val) => setSelectedCategory(val)}
+                  width="w-full lg:w-44"
+                  placeholder="Danh mục"
+                />
+                <DropdownOptions
+                  options={STATUS_FILTER_OPTIONS}
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val)}
+                  width="w-full lg:w-36"
+                  placeholder="Trạng thái"
+                />
+              </div>
+              <div className="flex gap-2">
+                <DropdownOptions
+                  options={PRICE_FILTER_OPTIONS}
+                  value={priceFilter}
+                  onChange={(val) => setPriceFilter(val)}
+                  width="w-full lg:w-40"
+                  placeholder="Mệnh giá"
+                />
+                <DropdownOptions
+                  options={CREATED_SORT_OPTIONS}
+                  value={sortCreated}
+                  onChange={(val) => setSortCreated(val)}
+                  width="w-full lg:w-44"
+                  placeholder="Sắp xếp ngày tạo"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -494,7 +498,7 @@ export default function ProductPage() {
                 )}
               </div>
             ) : (
-              <div className=" rounded-md shadow overflow-hidden mb-2 mx-1">
+              <div className="animate-fade-in transition duration-150 rounded-md shadow overflow-hidden mb-2 mx-1">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1000px]">
                     <thead className="bg-gray-50">

@@ -391,8 +391,9 @@ export default function MarketingPage() {
                 </PermissionGuard>
               </div>
             </div>
-            <div className="flex gap-2 justify-end w-full lg:w-auto">
-              {/* Filter loại chiến dịch */}
+            <div className="flex flex-col md:flex-row gap-2 justify-end w-full lg:w-auto">
+              <div className="flex gap-2 w-full lg:w-auto">
+                {/* Filter loại chiến dịch */}
               <DropdownOptions
                 options={CAMPAIGN_TYPE_OPTIONS}
                 value={selectedType}
@@ -409,6 +410,7 @@ export default function MarketingPage() {
                 width="w-full flex-1 lg:w-44"
                 placeholder="Trạng thái"
               />
+              </div>
               {/* Thêm bộ lọc theo khoảng ngày */}
               <DateRangeButtonPicker
                 value={dateRange}

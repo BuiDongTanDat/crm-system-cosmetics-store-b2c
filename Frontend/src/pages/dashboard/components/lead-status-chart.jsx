@@ -126,8 +126,8 @@ export default function LeadStatusChart() {
   return (
     <Card className="flex flex-col">
       <CardContent className="flex-1 pb-0">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-2 flex-col gap-4 py-5 text-md justify-end h-full">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+          <div className="flex flex-2 flex-col gap-4 py-5 text-md justify-end h-full w-full md:w-auto">
             <div className="flex flex-col items-start gap-1 mb-4">
               <h1 className="text-blue-500 font-bold text-lg">Trạng thái Lead</h1>
               <h2 className="text-slate-600">Thống kê theo trạng thái</h2>
@@ -169,63 +169,65 @@ export default function LeadStatusChart() {
               </div>
             </div>
           </div>
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto h-[250px] w-[250px]"
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Pie
-                data={chartData}
-                dataKey="count"
-                nameKey="status"
-                innerRadius={60}
-                strokeWidth={5}
-                isAnimationActive={true}
-                activeIndex={activeIndex}
-                activeShape={({ outerRadius = 0, ...props }) => (
-                  <Sector {...props} outerRadius={outerRadius + 10} />
-                )}
-                onMouseEnter={(_, idx) => setActiveIndex(idx)}
-                onMouseLeave={() => setActiveIndex(-1)}
-              >
-                {chartData.map((entry) => (
-                  <Cell key={entry.status} fill={entry.fill} />
-                ))}
-                <Label
-                  content={({ viewBox }) => {
-                    if (!viewBox || !("cx" in viewBox)) return null;
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
+          <div className="w-full flex justify-center md:block md:w-auto">
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto w-full max-w-xs md:max-w-[250px] h-[220px] md:h-[250px]"
+            >
+              <PieChart width={250} height={250} className="w-full h-full">
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="count"
+                  nameKey="status"
+                  innerRadius={60}
+                  strokeWidth={5}
+                  isAnimationActive={true}
+                  activeIndex={activeIndex}
+                  activeShape={({ outerRadius = 0, ...props }) => (
+                    <Sector {...props} outerRadius={outerRadius + 10} />
+                  )}
+                  onMouseEnter={(_, idx) => setActiveIndex(idx)}
+                  onMouseLeave={() => setActiveIndex(-1)}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.status} fill={entry.fill} />
+                  ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      if (!viewBox || !("cx" in viewBox)) return null;
+                      return (
+                        <text
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
                         >
-                          {totalDeals.toLocaleString()}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground text-sm"
-                        >
-                          Tổng Deal
-                        </tspan>
-                      </text>
-                    );
-                  }}
-                />
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {totalDeals.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground text-sm"
+                          >
+                            Tổng Deal
+                          </tspan>
+                        </text>
+                      );
+                    }}
+                  />
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+          </div>
         </div>
       </CardContent>
     </Card>

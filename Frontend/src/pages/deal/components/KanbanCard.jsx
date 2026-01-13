@@ -77,7 +77,7 @@ export default function KanbanCard({
 
           {/* Right: menu button */}
           <div
-            className="invisible group-hover:visible flex items-start ml-1 relative"
+            className="  flex items-start ml-1 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <DropdownMore

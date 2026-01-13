@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, List, Square } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import RoleForm from "@/pages/role/components/RoleForm";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -18,6 +18,9 @@ import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
+import { set } from "date-fns";
+import { se } from "date-fns/locale";
+import Loading from "@/components/common/Loading";
 
 
 export default function RolePage() {
@@ -27,6 +30,9 @@ export default function RolePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState({ open: false, mode: "view", role: null });
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [loading, setLoading] = useState(false);
+  // View mode: 'table' or 'card'
+  const [viewMode, setViewMode] = useState("table");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +67,7 @@ export default function RolePage() {
   // Fetch roles từ API
   const fetchRoles = async () => {
     try {
+      setLoading(true);
       const res = await getRoles();
       let data = Array.isArray(res) ? res : res?.data;
       if (!data) data = [];
@@ -73,18 +80,25 @@ export default function RolePage() {
       //   "Không thể tải danh sách vai trò.";
       // toast.error(msg);
     }
+    finally {
+      setLoading(false);
+    }
   };
 
   //Fetch module và permission
   const fetchModulesAndPermissions = async () => {
     try {
+      setLoading(true);
       const res = await getModules();
       const modules = res?.permissions;
       const actionList = res?.actions;
       setModules(modules);
       setActions(actionList);
     } catch (error) {
-      
+      console.error("Lỗi tải modules và permissions:", error);
+    }
+    finally {
+      setLoading(false);
     }
   }
 
@@ -169,20 +183,42 @@ export default function RolePage() {
       toast.error(msg);
     }
   };
-
+  if (loading && roles.length === 0) {
+          return <div><Loading/></div>
+      }
   return (
     <div className=" flex flex-col">
       {/* Sticky header */}
       <div
-        className="my-3 z-20 flex  gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md "
+        className="my-3 z-20 flex flex-col gap-3 p-3 bg-brand/10 backdrop-blur-lg rounded-md"
         style={{ backdropFilter: "blur" }}
       >
-        <div className="flex md:justify-between w-full flex-col md:flex-row gap-3">
-          {/* Header */}
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row md:justify-between w-full gap-3">
+          {/* Cụm trái: Tiêu đề và toggle */}
+          <div className="flex items-center gap-2 justify-between w-full md:w-auto">
             <h1 className="text-xl font-bold text-gray-900">
               Quản lý Vai trò ({filteredRoles.length})
             </h1>
+
+            {/* View mode toggle */}
+            <div className="flex gap-0">
+              <Button
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("card")}
+                className="rounded-none rounded-tl-md rounded-bl-md"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("table")}
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row w-full md:w-auto items-center gap-3">
@@ -212,88 +248,197 @@ export default function RolePage() {
         </div>
       </div>
 
-      {/* Scrollable content: table, pagination, dialog */}
+      {/* Scrollable content: table/card, pagination, dialog */}
       <div className="flex-1">
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Tên vai trò",
-                    "Mô tả",
-                    "Ngày tạo",
-                    "Cập nhật lần cuối",
-                    "",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentRoles.map((role) => (
-                  <tr
-                    key={role.role_name}
-                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(role.role_name)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                  >
-                    <td className="px-6 2 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {role.role_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-2 whitespace-nowrap text-start">
-                      <div className="text-sm text-gray-900">
-                        {role.description || "-"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-2 text-center whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(role.created_at)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-2 text-center whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDateTime(role.updated_at)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-2 text-center w-36">
-                      <div
-                        className={`flex justify-center gap-1 transition-all duration-200 ${
-                          hoveredRow === role.role_name
-                            ? "opacity-100 translate-y-0 pointer-events-auto "
-                            : "opacity-0 translate-y-1 pointer-events-none"
-                        }`}
+        {/* Table View */}
+        {viewMode === "table" && (
+          <div className="animate-fade-in transition duration-150 bg-white rounded-lg shadow overflow-hidden mb-4">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "Tên vai trò",
+                      "Mô tả",
+                      "Ngày tạo",
+                      "Cập nhật lần cuối",
+                      "",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                       >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentRoles.map((role) => (
+                    <tr
+                      key={role.role_name}
+                      className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                      onMouseEnter={() => setHoveredRow(role.role_name)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <td className="px-6 2 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {role.role_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-start">
+                        <div className="text-sm text-gray-900">
+                          {role.description || "-"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-2 text-center whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatDate(role.created_at)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-2 text-center whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatDateTime(role.updated_at)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-2 text-center w-36">
+                        <div
+                          className={`flex justify-center gap-1 transition-all duration-200 ${
+                            hoveredRow === role.role_name
+                              ? "opacity-100 translate-y-0 pointer-events-auto "
+                              : "opacity-0 translate-y-1 pointer-events-none"
+                          }`}
+                        >
+                          <PermissionGuard module="role" action="read">
+                            <Button
+                              variant="actionRead"
+                              size="icon"
+                              onClick={() => handleView(role)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="role" action="update">
+                            <Button
+                              variant="actionUpdate"
+                              size="icon"
+                              onClick={() => handleEdit(role)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="role" action="delete">
+                            {/* Dùng ConfirmDialog cho hành động xóa */}
+                            <ConfirmDialog
+                              title="Xác nhận xóa"
+                              description={
+                                <>
+                                  Bạn có chắc chắn muốn xóa vai trò{" "}
+                                  <span className="font-semibold text-black">
+                                    {role.role_name}
+                                  </span>
+                                  ?
+                                </>
+                              }
+                              confirmText="Xóa"
+                              cancelText="Hủy"
+                              onConfirm={() => handleDelete(role.role_name)}
+                            >
+                              <Button
+                                variant="actionDelete"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </ConfirmDialog>
+                          </PermissionGuard>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Trạng thái rỗng */}
+                  {currentRoles.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-gray-500">
+                        Không có Vai trò
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Card View */}
+        {viewMode === "card" && (
+          <div className="mb-4">
+            {currentRoles.length === 0 ? (
+              <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                Không có vai trò
+              </div>
+            ) : (
+              <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {currentRoles.map((role) => (
+                  <div
+                    key={role.role_name}
+                    className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                  >
+                    <div className="p-4 flex flex-col h-full">
+                      {/* Header: Tên vai trò */}
+                      <div className="mb-3">
+                        <h3 className="font-semibold text-gray-900 text-lg line-clamp-1 mb-1">
+                          {role.role_name}
+                        </h3>
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {role.description || "Không có mô tả"}
+                        </p>
+                      </div>
+
+                      {/* Thông tin chi tiết */}
+                      <div className="flex-grow space-y-2 mb-4 text-sm">
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[80px]">Ngày tạo:</span>
+                          <span className="text-gray-900">
+                            {formatDate(role.created_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[80px]">Cập nhật:</span>
+                          <span className="text-gray-900">
+                            {formatDateTime(role.updated_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex gap-2 w-full border-t pt-2 mt-auto">
                         <PermissionGuard module="role" action="read">
                           <Button
                             variant="actionRead"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleView(role)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4 mr-1" />
+                            Xem
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="role" action="update">
                           <Button
                             variant="actionUpdate"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleEdit(role)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-4 h-4 mr-1" />
+                            Sửa
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="role" action="delete">
-                          {/* Dùng ConfirmDialog cho hành động xóa */}
                           <ConfirmDialog
                             title="Xác nhận xóa"
                             description={
@@ -311,29 +456,22 @@ export default function RolePage() {
                           >
                             <Button
                               variant="actionDelete"
-                              size="icon"
-                              className="h-8 w-8"
+                              size="sm"
+                              className="h-9 flex-1"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Xóa
                             </Button>
                           </ConfirmDialog>
                         </PermissionGuard>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-                {/* Trạng thái rỗng */}
-                {currentRoles.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center py-8 text-gray-500">
-                      Không có Vai trò
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Pagination */}
         <AppPagination

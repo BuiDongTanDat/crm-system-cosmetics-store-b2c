@@ -314,9 +314,9 @@ export function DataTable() {
         value={tab}
         className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
       >
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6 border">
+        <div className="bg-white rounded-lg shadow overflow-auto mb-6 border">
           <div className="w-full">
-            <table className="w-full table-fixed">
+            <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   {columns.map((col) => (
