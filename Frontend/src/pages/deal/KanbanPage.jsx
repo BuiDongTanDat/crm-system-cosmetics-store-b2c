@@ -711,7 +711,9 @@ export default function KanbanPage() {
     closeOrderModal();
   };
   const handleSave = async (dealData) => {
-    if (dealData.id && !dealData.shouldRefresh) {
+    // Nếu có id, đây là hành động update
+    if (dealData.id) {
+      console.log("Updating existing lead:", dealData.id);
       // Updated existing lead - refresh data and switch to view mode
       try {
         // Fetch updated lead details

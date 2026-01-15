@@ -774,7 +774,7 @@ export default function OrderPage() {
                       {/* Header: Mã đơn và Badge Trạng thái */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-lg line-clamp-1 mb-1">
+                          <h3 className="font-semibold text-gray-900  line-clamp-1 mb-1">
                             #{order.order_id}
                           </h3>
                           <p className="text-xs text-gray-500">

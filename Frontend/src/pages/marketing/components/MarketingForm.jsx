@@ -16,6 +16,7 @@ import {
   Sparkles,
   Loader2,
   Plus,
+  Link,
 } from "lucide-react";
 import {
   CampaignTypeList,
@@ -731,7 +732,7 @@ export function MarketingForm({
                           document.getElementById("upload-image")?.click();
                         }}
                       >
-                        <span className="w-full text-center">Chọn ảnh</span>
+                        <span className="flex w-full items-center gap-2"><Link className="!w-4 !h-4" />Chọn ảnh</span>
                       </Button>
                     </div>
                   )}

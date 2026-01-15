@@ -554,7 +554,7 @@ export default function EmployeePage() {
                                                         </div>
                                                     )}
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className="font-semibold text-gray-900 text-lg line-clamp-1">
+                                                        <h3 className="font-semibold text-gray-900 line-clamp-1">
                                                             {employee.name}
                                                         </h3>
                                                         <p className="text-xs text-gray-500">

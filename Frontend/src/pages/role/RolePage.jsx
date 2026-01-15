@@ -390,7 +390,7 @@ export default function RolePage() {
                     <div className="p-4 flex flex-col h-full">
                       {/* Header: Tên vai trò */}
                       <div className="mb-3">
-                        <h3 className="font-semibold text-gray-900 text-lg line-clamp-1 mb-1">
+                        <h3 className="font-semibold text-gray-900 line-clamp-1 mb-1">
                           {role.role_name}
                         </h3>
                         <p className="text-sm text-gray-600 line-clamp-2">

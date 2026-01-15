@@ -387,7 +387,7 @@ export default function LeadsPage({
     setModal({ open: false, mode: "view", deal: null, loading: false });
 
   const handleSave = async (dealData) => {
-    if (dealData.id && !dealData.shouldRefresh) {
+    if (dealData.id) {
       // Updated existing lead - refresh data and switch to view mode
       try {
         const res = await getLeadDetailsById(dealData.id);

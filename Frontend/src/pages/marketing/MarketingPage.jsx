@@ -14,7 +14,6 @@ import MarketingCard from "@/pages/marketing/components/MarketingCard";
 import AppDialog from "@/components/dialogs/AppDialog";
 import MarketingForm from "@/pages/marketing/components/MarketingForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import DateRangeButtonPicker from "@/components/common/DateRangeButtonPicker";
 import { getAll } from "@/services/campaign";
@@ -248,12 +247,20 @@ export default function MarketingPage() {
   // Sửa lại handleSave để đảm bảo cập nhật ngay
   const handleSave = async (apiData) => {
     try {
+
+      const isCreating = modal.mode === "add";
       // Reload toàn bộ danh sách
       await reloadCampaigns();
 
+      if (isCreating) {
+        closeModal();
+        //toast.success("Tạo chiến dịch mới thành công");
+        return;
+      }
       // Fetch lại campaign vừa lưu để có dữ liệu mới nhất
       let campaignId = apiData?.campaign_id || apiData?.id;
 
+      
       if (campaignId) {
         try {
           const { items } = await getAll();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter, LayoutGrid, LayoutList, List, Square } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, LayoutGrid, LayoutList, List, Square, ClipboardList, Heading4 } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import CategoryForm from "@/pages/category/components/CategoryForm";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -326,8 +326,8 @@ export default function CategoryPage() {
                                 >
                                     <div className="p-4 flex flex-col h-full">
                                         <div className="flex items-start justify-between mb-3">
-                                            <h3 className="font-semibold text-gray-900 text-lg line-clamp-1">
-                                                {category.name}
+                                            <h3 className="flex font-semibold text-gray-900  line-clamp-1">
+                                                 {category.name}
                                             </h3>
                                             <span className={getStatusBadge(category.status)}>
                                                 {category.status}
