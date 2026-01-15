@@ -320,8 +320,8 @@ export default function CheckoutPage() {
                         <td className="py-3 font-semibold text-sm text-right whitespace-nowrap">
                           {formatCurrency(
                             item.price_unit *
-                              item.quantity *
-                              (1 - (item.discount || 0))
+                            item.quantity *
+                            (1 - (item.discount || 0))
                           )}
                         </td>
                       </tr>
@@ -384,10 +384,9 @@ export default function CheckoutPage() {
                 {/* Credit Card */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${
-                      paymentMethod === "credit_card"
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-blue-500"
+                    ${paymentMethod === "credit_card"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input
@@ -405,10 +404,9 @@ export default function CheckoutPage() {
                 {/* Paypal */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${
-                      paymentMethod === "paypal"
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-blue-500"
+                    ${paymentMethod === "paypal"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input
@@ -426,10 +424,9 @@ export default function CheckoutPage() {
                 {/* COD */}
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition
-                    ${
-                      paymentMethod === "cash_on_delivery"
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-blue-500"
+                    ${paymentMethod === "cash_on_delivery"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
                     }`}
                 >
                   <input

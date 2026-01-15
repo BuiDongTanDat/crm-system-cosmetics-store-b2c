@@ -27,6 +27,9 @@ const Rabbit = require('../../Infrastructure/Bus/RabbitMQPublisher');
 const { createPaymentLink } = require('../../Infrastructure/utils/paymentLink');
 const { renderTemplate } = require('../../Infrastructure/external/email_templates/TemplateRenderer');
 
+const LeadScoringService = require('./LeadScoringService');
+const CustomerAnalyticsSnapshotService = require('./CustomerAnalyticsSnapshotService');
+
 // ============================
 // Constants
 // ============================
@@ -760,6 +763,10 @@ class AutomationService {
       case 'loyal_customer': {
         return leadRepo.findByConditions({ loyalty_score_gte: cond.min_score || 80, ...cond });
       }
+      case 'active_customers': {
+        // Return active customers. Note: returns Customer entities, not Leads
+        return customerRepository.findByConditions({ is_active: true, ...cond });
+      }
       default:
         return leadRepo.findByConditions(cond || {});
     }
@@ -805,14 +812,24 @@ class AutomationService {
           leads = leads.slice(0, limitPerFlow);
         }
 
-        for (const lead of leads) {
+        for (const item of leads) {
+          // Identify if it's a lead or customer based on ID field
+          const isCustomer = !!(item.customer_id);
+          const isLead = !!(item.lead_id);
+
           const payload = {
             segment: flow.trigger?.segment_key || flow.slug || flowName,
-            lead_id: lead.lead_id,
             flow_id: flow.flow_id || flow._id || flow.id,
             flow_name: flowName,
             ...(flow.trigger?.extra_payload || {}),
           };
+
+          if (isCustomer) {
+            payload.customer_id = item.customer_id;
+            payload.customerId = item.customer_id;
+          } else if (isLead) {
+            payload.lead_id = item.lead_id;
+          }
 
           if (dryRun) console.log('[Automation][DRYRUN] Would publish:', payload);
           else await Rabbit.publish('segment.scheduled', payload);
@@ -1409,6 +1426,142 @@ const ACTION_HANDLERS = Object.freeze({
 
     if (cfg.save_to_ctx) svc.setByPath(ctx, cfg.save_to_ctx, res.data);
   },
+  // -------------------
+  // facebook_post
+  // -------------------
+  facebook_post: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const message = svc.render(cfg.message || '', ctx);
+    const imageUrl = cfg.image_url ? svc.render(cfg.image_url, ctx) : null;
+    const linkUrl = cfg.link_url ? svc.render(cfg.link_url, ctx) : null;
+
+    if (!message) return console.warn('[Automation] facebook_post: missing message');
+
+    // Resolve Page Token (from Channel Settings or Env)
+    // Note: In real app, we should get this from Channel credentials
+    const pageId = ctx.campaign_channel?.settings?.page_id || process.env.FB_PAGE_ID;
+    const pageToken = ctx.campaign_channel?.settings?.page_access_token || process.env.FB_PAGE_ACCESS_TOKEN;
+
+    if (!pageId || !pageToken) {
+      console.warn('[Automation] facebook_post: missing FB Page ID/Token');
+      // Update action status to failed?
+      return;
+    }
+
+    try {
+      console.log(`[Automation] Posting to Facebook Page ${pageId}: ${message.substring(0, 50)}...`);
+
+      const payload = {
+        message,
+        access_token: pageToken,
+        published: true
+      };
+
+      if (imageUrl) payload.url = imageUrl;
+      if (linkUrl) payload.link = linkUrl;
+
+      // Decide endpoint based on media
+      const endpoint = imageUrl
+        ? `https://graph.facebook.com/v19.0/${pageId}/photos`
+        : `https://graph.facebook.com/v19.0/${pageId}/feed`;
+
+      const res = await axios.post(endpoint, null, { params: payload });
+      const postId = res.data?.id || res.data?.post_id;
+
+      if (postId) {
+        console.log(`[Automation] FB Post success: ${postId}`);
+        // SAVE POST ID TO CHANNEL METRICS FOR SYNC
+        const channelId = ctx.campaign_channel?.channel_id || ctx.campaign_channel?.id;
+        if (channelId) {
+          await CampaignChannelRepo.incById(channelId, { sent: 1 });
+          // Append post_id to metrics_extra.fb_post_ids array
+          // NOTE: This requires a custom DB operation or a read-modify-write. 
+          // For simplicity here, we assume a helper or direct raw query, 
+          // or we just trust the SyncService to find it via Graph API if we only stored 'last_post_id'.
+          // Better approach: Store in a separate 'CampaignChannelPosts' table or append to JSONB.
+
+          // Using a pragmatic JSONB append approach (race condition unsafe but okay for MVP):
+          const ch = await CampaignChannelRepo.findById(channelId);
+          const extra = ch.metrics_extra || {};
+          const posts = Array.isArray(extra.fb_post_ids) ? extra.fb_post_ids : [];
+          if (!posts.includes(postId)) {
+            posts.push(postId);
+            await CampaignChannelRepo.updateById(channelId, {
+              metrics_extra: { ...extra, fb_post_ids: posts }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Automation] facebook_post failed:', e?.response?.data || e?.message);
+    }
+  },
+
+  // -------------------
+  // banner (Google Form)
+  // -------------------
+  banner: async (svc, action, ctx) => {
+    const cfg = action.content || {};
+    const formUrl = svc.render(cfg.google_form_url || '', ctx);
+    const spreadsheetId = svc.render(cfg.spreadsheet_id || '', ctx);
+
+    if (!formUrl) return console.warn('[Automation] banner: missing google_form_url');
+
+    console.log(`[Automation] Banner deployed: ${formUrl}`);
+
+    // Update Channel with Spreadsheet ID for Sync
+    const channelId = ctx.campaign_channel?.channel_id || ctx.campaign_channel?.id;
+    if (channelId && spreadsheetId) {
+      const ch = await CampaignChannelRepo.findById(channelId);
+      const extra = ch.metrics_extra || {};
+      if (extra.spreadsheet_id !== spreadsheetId) {
+        await CampaignChannelRepo.updateById(channelId, {
+          metrics_extra: { ...extra, spreadsheet_id: spreadsheetId }
+        });
+      }
+    }
+
+    // Log deployment
+    if (channelId) await CampaignChannelRepo.incById(channelId, { sent: 1 }); // Count as "deployed"
+  },
+
+  // -------------------
+  // ai_predict_lead
+  // -------------------
+  ai_predict_lead: async (svc, action, ctx) => {
+    const leadId = ctx?.lead?.lead_id || ctx?.lead?.id || ctx?.leadId;
+    if (!leadId) return console.warn('[Automation] ai_predict_lead: missing lead_id');
+
+    console.log(`[Automation] AI Predict Lead: ${leadId}`);
+    try {
+      await LeadScoringService.rescoreLead(leadId);
+    } catch (e) {
+      console.error(`[Automation] ai_predict_lead failed for ${leadId}:`, e.message);
+    }
+  },
+
+  // -------------------
+  // ai_predict_customer
+  // -------------------
+  ai_predict_customer: async (svc, action, ctx) => {
+    const customerId = ctx?.customer?.customer_id || ctx?.customer?.id || ctx?.customerId;
+    if (!customerId) return console.warn('[Automation] ai_predict_customer: missing customer_id');
+
+    try {
+      // Default horizon 12m, debug false
+      const cfg = action.content || {};
+      const horizon = cfg.horizon || '12m';
+      console.log(`[Automation] AI Predict Customer (CLV/Churn): ${customerId} (horizon=${horizon})`);
+
+      await CustomerAnalyticsSnapshotService.upsertSnapshotWithAI(customerId, null, {
+        horizon,
+        debug: false,
+        segmentMap: { "0": "Potential", "1": "Review", "2": "Loyal" } // Default map
+      });
+    } catch (e) {
+      console.error(`[Automation] ai_predict_customer failed for ${customerId}:`, e.message);
+    }
+  }
 });
 
 // ============================

@@ -28,3 +28,27 @@ export function formatCron(expr) {
     return expr;
   }
 }
+
+export function parseCronExpr(expr) {
+  if (!expr) return { type: "daily", hour: "9", minute: "0", daysOfWeek: [] };
+
+  const parts = expr.split(" ");
+  if (parts.length < 5) return { type: "daily", hour: "9", minute: "0", daysOfWeek: [] };
+
+  const minute = parts[0];
+  const hour = parts[1];
+  const dayOfMonth = parts[2];
+  const month = parts[3];
+  const dayOfWeek = parts[4];
+
+  if (dayOfWeek !== "*" && dayOfWeek !== "?") {
+    const days = dayOfWeek.split(",").map(Number);
+    return { type: "weekly", hour, minute, daysOfWeek: days };
+  }
+
+  if (dayOfMonth !== "*" && dayOfMonth !== "?") {
+    return { type: "monthly", hour, minute, daysOfWeek: [] };
+  }
+
+  return { type: "daily", hour, minute, daysOfWeek: [] };
+}

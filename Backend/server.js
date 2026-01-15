@@ -33,8 +33,24 @@ require('./Domain/Events/EngagementEvents');
 const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
 const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
 const app = express();
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://192.168.1.94:5173',
+  'https://smrmn0wh-5173.asse.devtunnels.ms',
+  process.env.CORS_ORIGIN
+].filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.some(allowed => origin.startsWith(allowed));
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.log(`[CORS] Blocked origin: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
 }));
 
@@ -57,34 +73,26 @@ app.use('/auth', authRoutes);
    */
 
 // YouTube OAuth routes (không cần bảo vệ)
-app.use('/youtube', YoutubeRoutes); // Sau khi implement xong, thì path khi callback sẽ là /youtube/callback đúng với url mình khai báo trên Google Console nhen
+app.use('/youtube', YoutubeRoutes); 
 app.use('/stream', StreamingRoutes);
 app.use('/orders', OrderRoutes);
 app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/campaign', CampaignRoute);
-
-app.use(protectedRoute);
-
-app.use('/automation-event', automationCatalogRoutes);
-app.use('/automation', flowRoutes);
-
-app.use('/users', userRoutes);
-
-app.use('/leads', LeadRoutes);
-app.use('/Ai', AiRoutes);
-app.use('/roles', roleRoutes);
-
-
-app.use('/customers', CustomerRoutes);
-
-app.use('/payment', paymentRoutes);// Diagnostics
-app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
-app.get('/', (_req, res) => res.send('CRM API is running successfully!'));
+app.use('/payment', paymentRoutes);
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 app.get('/readyz', (_req, res) => res.status(200).json({ ready: true }));
 
-// Manual run automation now: POST /automation/run-now?dryRun=true
+app.use(protectedRoute);
+app.use('/automation-event', automationCatalogRoutes);
+app.use('/automation', flowRoutes);
+app.use('/users', userRoutes);
+app.use('/leads', LeadRoutes);
+app.use('/Ai', AiRoutes);
+app.use('/roles', roleRoutes);
+app.use('/customers', CustomerRoutes);
+app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
+app.get('/', (_req, res) => res.send('CRM API is running successfully!'));
 app.post('/automation/run-now', async (req, res, next) => {
   try {
     const dryRun = (req.query.dryRun || process.env.AUTOMATION_DRYRUN) === 'true';
@@ -96,7 +104,6 @@ app.post('/automation/run-now', async (req, res, next) => {
   }
 });
 
-// Error handler (cuối chuỗi middleware)
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err);
   if (!res.headersSent) res.status(500).json({ error: err.message || 'Internal Server Error' });

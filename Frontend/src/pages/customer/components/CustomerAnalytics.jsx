@@ -1,15 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, TrendingUp, Users, Activity, AlertTriangle } from 'lucide-react';
-import { rebuildCustomerSnapshot } from '@/services/customers';
+import { rebuildCustomerSnapshot, getCustomerSnapshot } from '@/services/customers';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/utils/helper';
 import DropdownOptions from "@/components/common/DropdownOptions";
 
 export default function CustomerAnalytics({ customerId }) {
     const [loading, setLoading] = useState(false);
-    const [data, setData] = useState(null);
+    const [rawData, setRawData] = useState(null); // Store raw snapshot
     const [horizon, setHorizon] = useState('12m');
+
+    // Fetch on mount
+    useEffect(() => {
+        if (!customerId) return;
+        const fetchSnap = async () => {
+            try {
+                const res = await getCustomerSnapshot(customerId);
+                if (res?.ok && res.data) {
+                    setRawData(res.data);
+                }
+            } catch (e) {
+                console.error("Failed to load snapshot", e);
+            }
+        };
+        fetchSnap();
+    }, [customerId]);
 
     const handleRebuild = async () => {
         if (!customerId) return;
@@ -23,25 +39,7 @@ export default function CustomerAnalytics({ customerId }) {
             });
             if (res?.ok) {
                 toast.success(`Đã cập nhật phân tích (${horizon})!`);
-                const d = res.data || {};
-                // Map backend keys to frontend expectations
-                const mapped = {
-                    ...d,
-                    cfm_frequency: d.frequency_90d || 0,
-                    cfm_monetary: d.monetary_90d || 0,
-                    // CFM Score (Recency/Freq/Money) - makeshift from churn inverse or other metric
-                    cfm_score: d.metadata?.churn_ai?.churn_score ? Math.round((1 - d.metadata.churn_ai.churn_score) * 10) : 5,
-
-                    clv_prediction: d[`clv_${horizon}`] || d.clv_12m || d.clv_6m || 0,
-                    total_spent: d.monetary_90d || d.revenue_30d || 0,
-                    customer_lifespan: d.metadata?.customer_tenure_days ? Math.round(d.metadata.customer_tenure_days / 30) : 0,
-
-                    churn_probability: d.churn_score || 0,
-                    churn_risk_level: (d.churn_score || 0) > 0.7 ? 'Cao' : (d.churn_score || 0) > 0.3 ? 'Trung bình' : 'Thấp',
-
-                    segment: d.segment_name || 'N/A'
-                };
-                setData(mapped);
+                setRawData(res.data); // Update with new fresh data
             } else {
                 toast.error("Lỗi cập nhật: " + (res?.error?.message || "Unknown"));
             }
@@ -52,6 +50,30 @@ export default function CustomerAnalytics({ customerId }) {
             setLoading(false);
         }
     };
+
+    // Derive UI data from rawData + horizon
+    const data = React.useMemo(() => {
+        if (!rawData) return null;
+        const d = rawData;
+        return {
+            ...d,
+            cfm_frequency: d.frequency_90d || 0,
+            cfm_monetary: d.monetary_90d || 0,
+            // CFM Score (Recency/Freq/Money) - makeshift from churn inverse or other metric
+            cfm_score: d.metadata?.churn_ai?.churn_score ? Math.round((1 - d.metadata.churn_ai.churn_score) * 10) : 5,
+
+            // Select correct CLV based on horizon state
+            clv_prediction: d[`clv_${horizon}`] || (horizon === '12m' ? d.clv_12m : 0) || 0,
+
+            total_spent: d.monetary_90d || d.revenue_30d || 0,
+            customer_lifespan: d.metadata?.customer_tenure_days ? Math.round(d.metadata.customer_tenure_days / 30) : 0,
+
+            churn_probability: d.churn_score || 0,
+            churn_risk_level: (d.churn_score || 0) > 0.7 ? 'Cao' : (d.churn_score || 0) > 0.3 ? 'Trung bình' : 'Thấp',
+
+            segment: d.segment_name || 'N/A'
+        };
+    }, [rawData, horizon]);
 
     const horizonOptions = [
         { value: '1m', label: '1 Tháng' },

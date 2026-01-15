@@ -29,6 +29,7 @@ router.get('/:id/channels', CampaignChannelController.list);
 // Channel resource
 router.patch('/channels/:channel_id', CampaignChannelController.update);
 router.delete('/channels/:channel_id', CampaignChannelController.remove);
+router.post('/channels/:channel_id/sync', CampaignChannelController.sync);
 // Channel -> flow mappings
 router.post('/channels/:channel_id/flows', CampaignChannelFlowController.add);
 router.get('/channels/:channel_id/flows', CampaignChannelFlowController.list);

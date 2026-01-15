@@ -1,14 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import AppDialog from "@/components/dialogs/AppDialog";
-import { createCronJob } from "@/services/AutomationCronJob";
+import { createCronJob, updateCronJob } from "@/services/AutomationCronJob";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { buildCronExpr, formatCron } from "./cronHelper";
-import DateButtonPicker from "@/components/common/DateButtonPicker";
+import { buildCronExpr, formatCron, parseCronExpr } from "./cronHelper";
 import DropdownOptions from "@/components/common/DropdownOptions";
 
 //Form laf một Component riêng
-function CronJobForm({ onClose, onCreated }) {
+function CronJobForm({ onClose, onCreated, data }) {
+    const isEdit = !!data;
     const [form, setForm] = useState({
         job_key: "",
         name: "",
@@ -17,8 +17,22 @@ function CronJobForm({ onClose, onCreated }) {
         minute: "0",
         daysOfWeek: [],       // weekly
         timezone: "Asia/Ho_Chi_Minh",
-        startDate: null,      // for date picker
     });
+
+    useEffect(() => {
+        if (data) {
+            const parsed = parseCronExpr(data.cron_expr);
+            setForm({
+                job_key: data.job_key || "",
+                name: data.name || "",
+                type: parsed.type,
+                hour: parsed.hour,
+                minute: parsed.minute,
+                daysOfWeek: parsed.daysOfWeek,
+                timezone: data.timezone || "Asia/Ho_Chi_Minh",
+            });
+        }
+    }, [data]);
 
     const cronExpr = useMemo(() => buildCronExpr(form), [form]);
     const preview = useMemo(() => formatCron(cronExpr), [cronExpr]);
@@ -49,24 +63,39 @@ function CronJobForm({ onClose, onCreated }) {
     };
 
     const submit = async () => {
-        if (!form.job_key || !form.name) {
-            alert("Nhập job_key và tên cron job");
+        const finalJobKey = form.job_key.trim();
+        const finalName = form.name.trim();
+
+        if (!finalJobKey) {
+            alert("Vui lòng nhập Job Key");
+            return;
+        }
+        if (!finalName) {
+            alert("Vui lòng nhập Tên lịch chạy");
             return;
         }
 
         try {
-            await createCronJob({
-                job_key: form.job_key,
-                name: form.name,
+            const payload = {
+                job_key: finalJobKey,
+                name: finalName,
                 cron_expr: cronExpr,
                 timezone: form.timezone,
-                event_type: "cron.daily",
+                event_type: isEdit ? data.event_type : "cron.daily",
                 enabled: true,
-            });
+            };
+
+            if (isEdit) {
+                await updateCronJob(data.job_key, payload);
+            } else {
+                await createCronJob(payload);
+            }
+
             onCreated?.();
             onClose?.();
         } catch (error) {
-            console.error("Lỗi khi tạo cron job:", error);
+            console.error("Lỗi khi tạo/cập nhật cron job:", error);
+            alert(error.message || "Lỗi thao tác");
         }
     };
 
@@ -76,6 +105,7 @@ function CronJobForm({ onClose, onCreated }) {
                 <label className="text-sm font-medium">Job Key</label>
                 <Input
                     variant="normal"
+                    disabled={isEdit}
                     placeholder="vd: daily_inactive_customer"
                     value={form.job_key}
                     onChange={(e) => setForm({ ...form, job_key: e.target.value })}
@@ -132,13 +162,12 @@ function CronJobForm({ onClose, onCreated }) {
                     {[1, 2, 3, 4, 5, 6, 0].map((d) => (
                         <Button
                             key={d}
-                            variant= {form.daysOfWeek.includes(d) ? "primary" : "outline"}
+                            variant={form.daysOfWeek.includes(d) ? "primary" : "outline"}
                             onClick={() => toggleDay(d)}
-                            className={`px-2 py-1 border rounded text-sm flex-1 ${
-                                form.daysOfWeek.includes(d)
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-white"
-                            }`}
+                            className={`px-2 py-1 border rounded text-sm flex-1 ${form.daysOfWeek.includes(d)
+                                ? "bg-blue-600 text-white"
+                                : "bg-white text-gray-700"
+                                }`}
                         >
                             {["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]}
                         </Button>
@@ -151,23 +180,22 @@ function CronJobForm({ onClose, onCreated }) {
             </div>
 
             <Button variant="actionCreate" className="w-full" onClick={submit}>
-                Tạo cron job
+                {isEdit ? "Cập nhật" : "Tạo cron job"}
             </Button>
         </div>
     );
 }
 
 // Component modal chính
-export default function CreateCronJobModal({ open, onClose, onCreated }) {
+export default function CreateCronJobModal({ open, onClose, onCreated, initialData }) {
     return (
         <AppDialog
             open={open}
             onClose={onClose}
-            title="Tạo lịch chạy tự động"
-            // Truyền trực tiếp Component, KHÔNG truyền () => ...
+            title={initialData ? "Chỉnh sửa lịch chạy" : "Tạo lịch chạy tự động"}
             FormComponent={CronJobForm}
-            // AppDialog sẽ tự động truyền các props này vào CronJobForm
             onCreated={onCreated}
+            data={initialData}
         />
-  );
+    );
 }

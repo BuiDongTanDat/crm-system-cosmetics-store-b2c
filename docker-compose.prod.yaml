@@ -1,0 +1,126 @@
+version: "3.9"
+
+services:
+  # ===============================
+  # CLOUDFLARE TUNNEL (Public Access)
+  # ===============================
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: crm_tunnel_prod
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    command: tunnel --url http://nginx:80
+    restart: always
+    networks:
+      - crm_prod_net
+    depends_on:
+      - nginx
+
+  # ===============================
+  # NGINX (Reverse Proxy & Frontend)
+  # ===============================
+  nginx:
+    image: nginx:alpine
+    container_name: crm_nginx_prod
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    ports:
+      - "80:80"
+      # - "443:443" # Không cần 443 ở local vì Tunnel đã lo SSL
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # Mount the built frontend assets
+      - ./Frontend/dist:/usr/share/nginx/html
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - crm_prod_net
+
+  # ===============================
+  # BACKEND SERVICE
+  # ===============================
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile.prod
+    container_name: crm_backend_prod
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    env_file:
+      - ./Backend/.env.prod
+    restart: always
+    networks:
+      - crm_prod_net
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbit:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+
+  # ===============================
+  # AI SERVICE
+  # ===============================
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.prod
+    container_name: crm_ai_service_prod
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    env_file:
+      - ./ai-service/.env.prod
+    restart: always
+    networks:
+      - crm_prod_net
+    depends_on:
+      - rabbit
+
+  # ===============================
+  # POSTGRES DATABASE
+  # ===============================
+  db:
+    image: postgres:15
+    container_name: crm_postgres_prod
+    restart: always
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    env_file:
+      - ./Backend/.env.prod
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - crm_prod_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ===============================
+  # RABBITMQ
+  # ===============================
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_prod
+    restart: always
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - crm_prod_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+networks:
+  crm_prod_net:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:

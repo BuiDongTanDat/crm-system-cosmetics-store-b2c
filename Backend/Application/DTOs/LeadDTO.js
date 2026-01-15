@@ -8,6 +8,7 @@ class CreateRequestLeadDTO {
         this.status = req.status || 'new';
         this.source = req.source || 'InBound';
         this.campaign_id = req.campaign_id || null;
+        this.channel_id = req.channel_id || null;
         this.tags = Array.isArray(req.tags) ? req.tags : [];
         this.assigned_to = req.assigned_to || null;
         this.notes = (req.notes ?? req.note ?? '').toString().trim() || null;

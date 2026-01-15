@@ -19,7 +19,7 @@ const AutomationCronJobRepository = require('../../Infrastructure/Repositories/A
 
 const { seedAutomationCatalog } = require('./seed_automation_catalog');
 const { seedRole } = require('./seedRole');
-// const { seedUser } = require('./seedUser'); // ❌ bỏ: tránh seed user 2 lần gây lệch password
+// const { seedUser } = require('./seedUser'); //  bỏ: tránh seed user 2 lần gây lệch password
 
 // Domain models (for quick count/find)
 const Category = require('../../Domain/Entities/Category');
@@ -977,7 +977,7 @@ async function seedCronJobs() {
       name: 'Daily Cron',
       description: 'Bắn event cron.daily mỗi ngày',
       event_type: 'cron.daily',
-      cron_expr: '48 13 * * *',
+      cron_expr: '0 0 * * *',
       timezone: 'Asia/Ho_Chi_Minh',
       enabled: true,
       meta: {},
@@ -1412,6 +1412,97 @@ async function seedCampaignChannelEmailBlastFlow() {
   return flowId;
 }
 
+async function seedDailyAIScoringFlow() {
+  const flowId = await ensureFlowId({
+    name: 'Daily AI Scoring',
+    description: 'Tự động chấm điểm Lead và dự đoán CLV/Churn hàng ngày.',
+    tags: ['ai', 'scoring', 'clv', 'daily'],
+    enabled: true,
+    status: 'draft',
+  });
+  if (!flowId) return null;
+
+  const ok = await saveAndPublishFlow(flowId, {
+    isNewRecord: true,
+    flow_meta: {
+      name: 'Daily AI Scoring',
+      description: 'Tự động chấm điểm Lead và dự đoán CLV/Churn hàng ngày.',
+      tags: ['ai', 'scoring', 'clv', 'daily'],
+    },
+    upserts: {
+      triggers: [{ trigger_id: null, event_type: 'cron.daily', is_active: true, conditions: {} }],
+      actions: [
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'query.leads',
+          channel: 'internal',
+          content: {
+            conditions: { is_active: true },
+            limit: 5000,
+            save_to_ctx: 'lead_batch',
+          },
+          delay_minutes: 0,
+          order_index: 0,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'for_each',
+          channel: 'internal',
+          content: {
+            from_path: 'lead_batch',
+            item_key: 'lead',
+            next_action: {
+              action_type: 'ai_predict_lead',
+              content: {},
+            },
+          },
+          delay_minutes: 0,
+          order_index: 1,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'query.customers',
+          channel: 'internal',
+          content: {
+            conditions: { is_active: true },
+            limit: 5000,
+            save_to_ctx: 'customer_batch',
+          },
+          delay_minutes: 0,
+          order_index: 2,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'for_each',
+          channel: 'internal',
+          content: {
+            from_path: 'customer_batch',
+            item_key: 'customer',
+            next_action: {
+              action_type: 'ai_predict_customer',
+              content: { horizon: '12m' },
+            },
+          },
+          delay_minutes: 0,
+          order_index: 3,
+          status: 'pending',
+        },
+      ],
+    },
+    deletes: { trigger_ids: [], action_ids: [] },
+  });
+
+  if (ok) console.log('[Seed][Automation] Daily AI Scoring flow published.');
+  return flowId;
+}
+
 async function seedEmailOpenedFlow() {
   const flowId = await ensureFlowId({
     name: 'Engagement - Email Opened',
@@ -1556,6 +1647,67 @@ async function seedEngagementLinkClickedFlow() {
 }
 
 // =========================
+// 9.5) FLOW: Facebook Post
+// =========================
+async function seedFacebookViralFlow() {
+  const flowId = await ensureFlowId({
+    name: 'Facebook Viral Post Flow',
+    description: 'Auto-post content to Facebook Page when campaign runs',
+    tags: ['social', 'facebook', 'viral'],
+    enabled: true,
+    status: 'draft',
+  });
+  if (!flowId) return null;
+
+  const ok = await saveAndPublishFlow(flowId, {
+    isNewRecord: true,
+    flow_meta: {
+      name: 'Facebook Viral Post Flow',
+      description: 'Auto-post content to Facebook Page when campaign runs',
+      tags: ['social', 'facebook', 'viral'],
+    },
+    upserts: {
+      triggers: [{ trigger_id: null, event_type: 'campaign.channel.run', is_active: true, conditions: {} }],
+      actions: [
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'facebook_post',
+          channel: 'facebook',
+          content: {
+            message: '🔥 Siêu sale tháng 10! Giảm giá 50% cho tất cả các dòng son môi. Mua ngay tại: {{ link_url }}',
+            image_url: 'https://via.placeholder.com/800x400.png?text=Sale+50%25',
+            link_url: 'https://myshop.local/promo/october?utm_source=facebook'
+          },
+          delay_minutes: 0,
+          order_index: 0,
+          status: 'pending',
+        },
+        {
+          action_id: null,
+          trigger_id: null,
+          action_type: 'create_task',
+          channel: 'internal',
+          content: {
+            title: 'Check FB Comments',
+            description: 'Check comments on the new viral post',
+            priority: 'medium',
+            due_in_minutes: 60
+          },
+          delay_minutes: 0,
+          order_index: 1,
+          status: 'pending',
+        }
+      ],
+    },
+    deletes: { trigger_ids: [], action_ids: [] },
+  });
+
+  if (ok) console.log('[Seed][Automation] Facebook Viral Post flow published.');
+  return flowId;
+}
+
+// =========================
 // MAIN SEED (campaign-centric order)
 // =========================
 async function seedDatabase() {
@@ -1604,6 +1756,7 @@ async function seedDatabase() {
   await seedOrderPaidReceiptFlow();
   await seedEmailOpenedFlow();
   await seedEngagementLinkClickedFlow();
+  await seedDailyAIScoringFlow();
 
   // Flow mapped cho channel email
   const campaignEmailBlastFlowId = await seedCampaignChannelEmailBlastFlow();
@@ -1614,6 +1767,39 @@ async function seedDatabase() {
     const channel_id = emailChannel.channel_id || emailChannel.id;
     await mapFlowToChannel({ channel_id, flow_id: campaignEmailBlastFlowId, order_index: 0, is_active: true });
     console.log('[Seed] Mapped Email Blast channel -> Campaign Channel Email Blast flow');
+  }
+
+  // 9.5) Facebook Viral Flow & Channel Mapping
+  if (campaign_id) {
+    const fbFlowId = await seedFacebookViralFlow();
+
+    // Find or Create FB Channel
+    let fbChannel = (channels || []).find(c => c.channel === 'facebook_post' || c.channel_type === 'facebook');
+
+    if (!fbChannel) {
+      // Create ad-hoc if missing
+      try {
+        if (CampaignChannelRepository.create) {
+          fbChannel = await CampaignChannelRepository.create({
+            campaign_id,
+            channel: 'facebook_post',
+            name: 'Facebook Viral Page',
+            status: 'active',
+            metrics_extra: { page_id: '100000000', page_access_token: 'EAAG...' }
+          });
+          console.log('[Seed] Created ad-hoc Facebook Channel.');
+          fbChannel = safeJson(fbChannel);
+        }
+      } catch (e) {
+        console.warn('[Seed] Create FB Channel failed:', e.message);
+      }
+    }
+
+    if (fbChannel && fbFlowId) {
+      const cid = fbChannel.channel_id || fbChannel.id;
+      await mapFlowToChannel({ channel_id: cid, flow_id: fbFlowId, order_index: 0, is_active: true });
+      console.log('[Seed] Mapped Facebook Channel -> Facebook Viral Post flow');
+    }
   }
 
   void leadWelcomeFlowId;

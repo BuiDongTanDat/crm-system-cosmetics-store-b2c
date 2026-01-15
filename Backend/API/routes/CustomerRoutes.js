@@ -43,6 +43,7 @@ router.put('/:id', CustomerController.update);
 router.delete('/', CustomerController.deleteMany);
 // router.post('/:id/interactions', CustomerController.addInteraction);
 router.get('/:id/interactions', CustomerController.getInteractions);
+router.get('/:id/snapshot/latest', CustomerController.getSnapshot);
 router.post('/:id/snapshot/rebuild', CustomerController.rebuildSnapshot);
 
 module.exports = router;

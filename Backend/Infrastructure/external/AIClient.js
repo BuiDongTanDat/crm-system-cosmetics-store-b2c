@@ -13,7 +13,7 @@ const DEFAULTS = {
   TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 100000),
   RETRIES: Number(process.env.AI_RETRIES || 3),
 };
-
+console.log(`[AIClient] Using AI service URL: ${DEFAULTS.BASE_URLS}`);
 class AIClient {
   constructor(options = {}) {
     const baseURL = options.baseURL || DEFAULTS.BASE_URLS[0];

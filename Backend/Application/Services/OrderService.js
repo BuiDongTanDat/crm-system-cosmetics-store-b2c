@@ -144,13 +144,16 @@ class OrderService {
 						name: full_name || name || 'Guest Lead',
 						phone: phone || null,
 						email: email || null,
-						source: 'web_checkout',
+						source: payload.campaign_id ? 'campaign' : 'web_checkout',
 						status: 'new',
 						tags: ['guest_checkout', 'order_pending'],
 						product_interest: productNames, // List of products
 						product_ids: productIds,        // Logic to create Interest records
 						note: `Khách đặt hàng.\nĐịa chỉ: ${payload.shipping_address || 'N/A'}.\nSP quan tâm: ${productNames}.\nGhi chú KH: ${payload.note || 'Không có'}`,
-						// We can store address in meta or note, Customer creation will use shipping_address later
+						campaign_id: payload.campaign_id,
+						last_campaign_id: payload.campaign_id,
+						last_channel_id: payload.channel_id,
+						channel_id: payload.channel_id, // Pass for creation logic
 					};
 					try {
 						// Requires LeadService instance or import

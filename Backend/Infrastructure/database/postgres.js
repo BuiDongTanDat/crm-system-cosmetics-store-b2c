@@ -13,7 +13,7 @@ class DataManager {
         DB_PORT = '5432',
         DB_LOGGING = 'false',
         DB_SSL = 'false',
-        NODE_ENV = 'development',   // Thêm
+        NODE_ENV = 'development',  
       } = process.env;
 
       this.env = NODE_ENV;
@@ -40,19 +40,17 @@ class DataManager {
     }
     return DataManager.instance;
   }
-
   async connect() {
     try {
       await this.sequelize.authenticate();
-      console.log('✅ Database connected');
+      console.log('Database connected');
     } catch (error) {
-      console.error('❌ Unable to connect to database:', error);
+      console.error('Unable to connect to database:', error);
       throw error;
     }
   }
 
   loadModels() {
-    // Import tất cả model của bạn
     require('../../Domain/Entities/User');
     require('../../Domain/Entities/Role');
     require('../../Domain/Entities/Product');
@@ -69,21 +67,18 @@ class DataManager {
     require('../../Domain/Entities/AutomationTrigger');
     require('../../Domain/Entities/AutomationAction');
   }
-
   async sync(options = { alter: true }) {
     try {
       this.loadModels();
       await this.sequelize.sync(options);
-      console.log('🧩 Database synced');
+      console.log('Database synced');
     } catch (error) {
-      console.error('❌ Sync error:', error);
+      console.error('Sync error:', error);
       throw error;
     }
   }
-
   async connectAndSync() {
     await this.connect();
-    // sau này chỉnh lại development cho đúng tại vì đang test mail
     if (this.env === 'production') {
       console.log('⚙️ Running in DEVELOPMENT mode (code-first)');
       await this.sync({ alter: true });
@@ -97,16 +92,13 @@ class DataManager {
       }
     } else {
       console.log('Running in PRODUCTION mode (database-first)');
-      this.loadModels(); // chỉ load model để dùng trong app
-
+      this.loadModels();
     }
   }
-
   getSequelize() {
     return this.sequelize;
   }
 }
-
 const instance = new DataManager();
 Object.freeze(instance);
 module.exports = instance;

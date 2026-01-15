@@ -44,8 +44,11 @@ Order.init(
             allowNull: true,
         },
         customer_id: { type: DataTypes.UUID, allowNull: true },
-        campaign_id: { type: DataTypes.UUID, allowNull: true },
-        channel_id: { type: DataTypes.UUID, allowNull: true },
+
+        // Attribution
+        campaign_id: { type: DataTypes.UUID, allowNull: true, comment: 'Campaign that generated this order' },
+        channel_id: { type: DataTypes.UUID, allowNull: true, comment: 'Specific channel (fb, email, banner) that generated this order' },
+
         order_date: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
         total_amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
         currency: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'VND' },

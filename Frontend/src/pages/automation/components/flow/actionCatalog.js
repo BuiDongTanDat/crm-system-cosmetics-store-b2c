@@ -27,6 +27,33 @@ export const normalizeSchema = (item) => {
 };
 
 export const ACTION_CATALOG = {
+  facebook_post: {
+    label: "Facebook Post",
+    help: {
+      when: "Đăng bài viết lên Facebook Page (yêu cầu cấu hình kênh Facebook).",
+      inputs: ["message: nội dung bài viết", "image_url: link ảnh (optional)", "link_url: link đính kèm (optional)"],
+      tips: ["Hệ thống sẽ tự động append UTM campaign_id vào link_url nếu có."]
+    },
+    fields: [
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Nhập nội dung..." },
+      { name: "image_url", label: "Image URL", type: "text", required: false, placeholder: "https://..." },
+      { name: "link_url", label: "Link URL", type: "text", required: false, placeholder: "https://..." },
+    ],
+  },
+
+  banner: {
+    label: "Banner / Google Form",
+    help: {
+      when: "Triển khai banner QR trỏ về Google Form.",
+      inputs: ["google_form_url: link form gốc", "spreadsheet_id: ID GG Sheet để track conversions"],
+      tips: ["Spreadsheet ID dùng để service 'sync' đếm số dòng (conversions)."]
+    },
+    fields: [
+      { name: "google_form_url", label: "Google Form URL", type: "text", required: true },
+      { name: "spreadsheet_id", label: "Spreadsheet ID", type: "text", required: true },
+    ],
+  },
+
   send_email: {
     label: "Send Email",
     help: {

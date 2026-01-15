@@ -49,7 +49,6 @@ const options = {
         }
     },
    apis: ['./API/routes/*.js'], // ✅ Đường dẫn tới tất cả route files
- // Nơi swagger-jsdoc tìm annotation
 };
 
 const swaggerSpec = swaggerJSDoc(options);

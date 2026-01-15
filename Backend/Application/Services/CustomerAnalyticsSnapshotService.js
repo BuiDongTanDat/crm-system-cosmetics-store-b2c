@@ -99,7 +99,7 @@ class CustomerAnalyticsSnapshotService {
         const r30 = this._rangeFromSnapshot(snap, 30);
         const r90 = this._rangeFromSnapshot(snap, 90);
 
-        const PAID_STATUSES = ['paid'];
+        const PAID_STATUSES = ['paid', 'completed', 'shipped', 'processing'];
 
         const countPaid7d = await this.orderRepo.count?.({
             where: {
@@ -234,6 +234,12 @@ class CustomerAnalyticsSnapshotService {
         const snapshotDate = snapshot_date ? new Date(snapshot_date) : new Date();
         const dateOnly = toDateOnlyISO(snapshotDate);
 
+        // Fetch existing snapshot to preserve metadata
+        const existing = await this.snapshotRepo.getLatest(customer_id);
+        const existingMetadata = (existing && toDateOnlyISO(existing.snapshot_date) === dateOnly)
+            ? (existing.metadata || {})
+            : {};
+
         const [orderAgg, interAgg] = await Promise.all([
             this._aggregateOrders(customer_id, snapshotDate),
             this._aggregateInteractions(customer_id, snapshotDate),
@@ -264,13 +270,11 @@ class CustomerAnalyticsSnapshotService {
             support_ticket_count_90d,
             discount_sensitivity_90d,
 
-            churn_score: 0,
-            segment_id: null,
-            segment_name: null,
-            clv_6m: 0,
-            clv_12m: 0,
+            return_rate_90d,
+            support_ticket_count_90d,
+            discount_sensitivity_90d,
 
-            metadata: {},
+            metadata: existingMetadata,
         };
     }
 

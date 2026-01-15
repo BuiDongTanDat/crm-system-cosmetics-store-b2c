@@ -60,6 +60,8 @@ export const rebuildCustomerSnapshot = (id, params = {}, body = {}) => {
     });
 };
 
+export const getCustomerSnapshot = (id) => request(`/customers/${id}/snapshot/latest`, { method: 'GET' });
+
 export const getCFMSummary = (snapshot_date) => request(`/customers/analytics/cfm/summary?snapshot_date=${snapshot_date || ''}`, { method: 'GET' });
 export const getCFMList = (params = {}) => {
     const qs = new URLSearchParams(params).toString();

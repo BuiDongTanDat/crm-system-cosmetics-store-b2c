@@ -162,6 +162,16 @@ class CustomerController {
     }
   }
 
+  static async getSnapshot(req, res) {
+    try {
+      const customerId = req.params.id;
+      const snap = await SnapshotService.getLatest(customerId);
+      return res.status(200).json({ ok: true, data: snap });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: { message: e.message } });
+    }
+  }
+
   // Dashboard Analytics
   static async getCFMSummary(req, res) {
     try {

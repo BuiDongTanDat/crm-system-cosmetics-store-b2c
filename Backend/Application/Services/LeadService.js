@@ -89,6 +89,8 @@ class LeadService {
         source: sourceNorm,
         status: (status ? String(status).trim().toLowerCase() : 'new'),
         campaign_id: leadData.campaign_id || null,
+        last_campaign_id: leadData.last_campaign_id || leadData.campaign_id || null, // New
+        last_channel_id: leadData.last_channel_id || leadData.channel_id || null,     // New
         tags: Array.isArray(tags) ? tags : [],
         lead_score: lead_score ?? 0,
         conversion_prob: conversion_prob ?? 0,

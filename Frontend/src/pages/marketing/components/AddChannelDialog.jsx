@@ -73,6 +73,11 @@ export default function AddChannelDialog({
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         status: "draft",
+        metrics_extra: {
+          page_id: form.page_id,
+          page_access_token: form.page_access_token,
+          spreadsheet_id: form.spreadsheet_id,
+        },
       };
 
       await createCampaignChannel(campaignId, payload);
@@ -151,6 +156,44 @@ export default function AddChannelDialog({
               className="col-span-3"
             />
           </div>
+
+          {(form.channel === "Facebook" || form.channel === "facebook_post") && (
+            <>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Page ID</Label>
+                <Input
+                  variant="normal"
+                  className="col-span-3"
+                  placeholder="Nhập Facebook Page ID"
+                  value={form.page_id || ""}
+                  onChange={handleChange("page_id")}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Access Token</Label>
+                <Input
+                  variant="normal"
+                  className="col-span-3"
+                  placeholder="Nhập Page Access Token"
+                  value={form.page_access_token || ""}
+                  onChange={handleChange("page_access_token")}
+                />
+              </div>
+            </>
+          )}
+
+          {form.channel === "Banner" && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Spreadsheet ID</Label>
+              <Input
+                variant="normal"
+                className="col-span-3"
+                placeholder="Google Sheet ID for tracking"
+                value={form.spreadsheet_id || ""}
+                onChange={handleChange("spreadsheet_id")}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>

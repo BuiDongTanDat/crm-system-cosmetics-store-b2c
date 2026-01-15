@@ -2,25 +2,31 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# ===============================
+# SYSTEM DEPS
+# ===============================
+# libgomp1 is needed for some AI libs (e.g. pytorch/sklearn)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # ===============================
-# Python deps
+# PYTHON DEPS
 # ===============================
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ===============================
-# App source
+# APP SOURCE
 # ===============================
 COPY . .
 
-# đảm bảo app là package
+# Ensure app is a package
 RUN touch app/__init__.py
+
+ENV ENV=production
 
 EXPOSE 8000
 
-# DEV mode (hot reload hoạt động khi có volumes)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app"]
+# Use direct uvicorn for simplicity as per user request, but without reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

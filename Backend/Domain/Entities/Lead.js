@@ -82,6 +82,19 @@ Lead.init(
       allowNull: true,
       references: { model: 'campaigns', key: 'campaign_id' },
       onDelete: 'SET NULL',
+      comment: 'Original campaign that created this lead (First Touch)',
+    },
+
+    // Last Touch Attribution
+    last_campaign_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Most recent campaign interaction',
+    },
+    last_channel_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Most recent channel interaction',
     },
 
     assigned_to: {
