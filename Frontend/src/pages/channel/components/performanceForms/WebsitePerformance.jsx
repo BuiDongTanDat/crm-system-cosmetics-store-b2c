@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default function WebsitePerformance({ data = {}, onSave = () => {} }) {
+export default function WebsitePerformance({ data = {}, onSave = () => {}, onCancel }) {
 	const payload = data.payload || data;
 	const initial = {
 		id: payload?.id || null,
@@ -37,6 +37,9 @@ export default function WebsitePerformance({ data = {}, onSave = () => {} }) {
 			</div>
 
 			<div className="flex justify-end gap-2">
+				{typeof onCancel === "function" && (
+					<Button variant="secondary" onClick={onCancel}>Huỷ</Button>
+				)}
 				<Button onClick={() => onSave(form)}>Lưu</Button>
 			</div>
 		</div>
