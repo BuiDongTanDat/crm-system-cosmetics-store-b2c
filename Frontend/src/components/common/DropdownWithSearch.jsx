@@ -7,6 +7,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Search, ChevronDown } from 'lucide-react';
+import { Virtuoso } from "react-virtuoso";
+
 
 export default function DropdownWithSearch({
   items = [],
@@ -50,8 +52,8 @@ export default function DropdownWithSearch({
         )}
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className={`w-[var(--radix-dropdown-menu-trigger-width)] p-2 ${contentClassName}`}>
-        <div className="relative mb-2">
+      <DropdownMenuContent className={`w-[var(--radix-dropdown-menu-trigger-width)] p-2 overflow-hidden ${contentClassName}`}>
+        <div className=" mb-2 sticky top-0 bg-white z-10">
           <Search className="w-4 h-4 text-gray-400 absolute left-2 top-3" />
           <Input
             value={search}
@@ -63,7 +65,7 @@ export default function DropdownWithSearch({
           />
         </div>
 
-        {(filtered || []).map((it, idx) => (
+        {/* {(filtered || []).map((it, idx) => (
           <DropdownMenuItem
             key={keyFor(it, idx)}
             onSelect={() => onSelect?.(it)}
@@ -75,6 +77,32 @@ export default function DropdownWithSearch({
 
         {(!filtered || filtered.length === 0) && (
           <div className="px-3 py-2 text-sm text-gray-500">Không tìm thấy</div>
+        )} */}
+
+        {/* Use Virtuoso to render large lists efficiently */}
+        <Virtuoso
+          style={{ height: Math.min(300, (filtered.length * 40) + 100) }}
+          totalCount={filtered.length}
+          itemContent={(index) => {
+            //Use render item
+            const it = filtered[index];
+            return (
+              <DropdownMenuItem
+                key={keyFor(it, index)}
+                onSelect={() => onSelect?.(it)}
+                className={className}
+              >
+                {renderItem ? renderItem(it) : (it.product_name || it.id)}
+              </DropdownMenuItem>
+            );
+          }}
+        >
+        </Virtuoso>
+        
+        {filtered.length === 0 && (
+          <div className="px-3 py-2 text-sm text-gray-500 w-full text-center">
+            Không tìm thấy dữ liệu
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

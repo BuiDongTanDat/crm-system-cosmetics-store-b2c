@@ -344,6 +344,8 @@ export default function CheckoutPage() {
           )}
         </div>
 
+       
+
         {/* Payment Info */}
         <div className="animate-fade-in transition duration-150 flex-1 bg-white rounded-xl shadow p-6">
           {/* Thông tin giao hàng */}

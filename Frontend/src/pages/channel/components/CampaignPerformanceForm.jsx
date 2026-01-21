@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
  onSave receives the perf object
 */
 
-export default function CampaignPerformanceForm({ data = {}, onSave }) {
+export default function CampaignPerformanceForm({ data = {}, onSave, onCancel }) {
   const existing = data?.payload || null;
   const [form, setForm] = useState({
     id: null,
@@ -73,6 +73,9 @@ export default function CampaignPerformanceForm({ data = {}, onSave }) {
       </div>
 
       <div className="flex justify-end gap-2">
+        {typeof onCancel === "function" && (
+          <Button type="button" variant="secondary" onClick={onCancel}>Huỷ</Button>
+        )}
         <Button type="submit" variant="actionCreate">Lưu</Button>
       </div>
     </form>

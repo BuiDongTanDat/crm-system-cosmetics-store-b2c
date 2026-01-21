@@ -10,6 +10,8 @@ import {
   Plus,
   RefreshCw,
   Search,
+  List,
+  Square,
 } from "lucide-react";
 import CountUp from "react-countup";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ import {
   getPipelineColumns,
   rescoreLead,
 } from "@/services/leads";
+import Loading from "@/components/common/Loading";
 
 // Replace STATUS_META with localized labels and include "new"
 const STATUS_META = {
@@ -69,6 +72,8 @@ export default function LeadsPage({
   onFilterChange,
   externalSearchQuery,
   onSearchChange,
+  externalViewMode, // new prop
+  onViewModeChange, // new prop
 }) {
   const [leads, setLeads] = useState([]);
   const [filterStatus, setFilterStatus] = useState("");
@@ -83,6 +88,7 @@ export default function LeadsPage({
   const [hoveredRow, setHoveredRow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [internalViewMode, setInternalViewMode] = useState("table"); // internal view mode state
 
   const [stats, setStats] = useState({
     totalDeals: 0,
@@ -113,6 +119,14 @@ export default function LeadsPage({
   const handleSearchChange = (v) => {
     if (onSearchChange) onSearchChange(v);
     if (!isControlledSearch) setSearchQuery(v);
+  };
+
+  // controlled vs uncontrolled viewMode
+  const isControlledViewMode = externalViewMode !== undefined;
+  const effectiveViewMode = isControlledViewMode ? externalViewMode : internalViewMode;
+  const handleViewModeChange = (mode) => {
+    if (onViewModeChange) onViewModeChange(mode);
+    if (!isControlledViewMode) setInternalViewMode(mode);
   };
 
   useEffect(() => {
@@ -373,7 +387,7 @@ export default function LeadsPage({
     setModal({ open: false, mode: "view", deal: null, loading: false });
 
   const handleSave = async (dealData) => {
-    if (dealData.id && !dealData.shouldRefresh) {
+    if (dealData.id) {
       // Updated existing lead - refresh data and switch to view mode
       try {
         const res = await getLeadDetailsById(dealData.id);
@@ -603,15 +617,39 @@ export default function LeadsPage({
   const handleNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
   const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 1));
 
+  if (loading && leads.length === 0) {
+    return <div><Loading/></div>
+  }
   return (
     <div className="flex flex-col">
       {/* Header + Stats: render only when showHeader is true */}
       {showHeader && (
         <div className=" z-20 px-6 py-3 bg-brand/10 backdrop-blur-lg rounded-md mb-2">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-bold text-gray-900">
-              Khách hàng tiềm năng
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-gray-900">
+                Khách hàng tiềm năng
+              </h1>
+              {/* View mode toggle */}
+              <div className="flex gap-0 ml-4">
+                <Button
+                  variant={effectiveViewMode === "card" ? "actionCreate" : "actionNormal"}
+                  size="icon"
+                  onClick={() => handleViewModeChange("card")}
+                  className="rounded-none rounded-tl-md rounded-bl-md h-8 w-8"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={effectiveViewMode === "table" ? "actionCreate" : "actionNormal"}
+                  size="icon"
+                  onClick={() => handleViewModeChange("table")}
+                  className="rounded-none rounded-tr-md rounded-br-md h-8 w-8"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
             <div className="flex gap-3">
               {/* Search bar */}
               <div className="relative w-64">
@@ -699,160 +737,279 @@ export default function LeadsPage({
         </div>
       )}
 
-      {/* Table + Pagination (always render) */}
+      {/* Content - Table or Card View */}
       <div className="flex-1 pt-4">
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Deal",
-                    "Khách hàng",
-                    "Email",
-                    "SĐT",
-                    "Giá trị",
-                    "Nguồn",
-                    "Ngày tạo",
-                    "Trạng thái",
-                    "",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {loading && (
+        {/* Table View */}
+        {effectiveViewMode === "table" && (
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={9} className="text-center text-gray-400 py-8">
-                      Đang tải…
-                    </td>
+                    {[
+                      "Deal",
+                      "Khách hàng",
+                      "Email",
+                      "SĐT",
+                      "Giá trị",
+                      "Nguồn",
+                      "Ngày tạo",
+                      "Trạng thái",
+                      "",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                )}
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {loading && (
+                    <tr>
+                      <td colSpan={9} className="text-center text-gray-400 py-8">
+                        Đang tải…
+                      </td>
+                    </tr>
+                  )}
 
-                {!loading && error && (
-                  <tr>
-                    <td colSpan={9} className="text-center text-red-500 py-8">
-                      {error}
-                    </td>
-                  </tr>
-                )}
+                  {!loading && error && (
+                    <tr>
+                      <td colSpan={9} className="text-center text-red-500 py-8">
+                        {error}
+                      </td>
+                    </tr>
+                  )}
 
-                {!loading &&
-                  !error &&
-                  current.map((lead) => (
-                    <tr
-                      key={lead.lead_id}
-                      className="group hover:bg-gray-50 transition-colors"
-                      onMouseEnter={() => setHoveredRow(lead.lead_id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
-                        <div className="flex flex-col items-start gap-2">
+                  {!loading &&
+                    !error &&
+                    current.map((lead) => (
+                      <tr
+                        key={lead.lead_id}
+                        className="group hover:bg-gray-50 transition-colors"
+                        onMouseEnter={() => setHoveredRow(lead.lead_id)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                      >
+                        <td className="px-6 py-2 text-sm font-medium text-gray-900 truncate">
+                          <div className="flex flex-col items-start gap-2">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(
+                                lead.priority
+                              )}`}
+                            >
+                              {getPriorityLabel(lead.priority)}
+                            </span>
+                            {lead.deal_name || "(Chưa đặt tên deal)"}
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                          {lead.name}
+                        </td>
+                        <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                          {lead.email}
+                        </td>
+                        <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                          {lead.phone}
+                        </td>
+                        <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">
+                          {formatCurrency(
+                            Math.round(Number(lead.predicted_value || 0))
+                          )}
+                        </td>
+                        <td className="px-6 py-2 text-sm text-gray-700 truncate">
+                          {lead.source || "-"}
+                        </td>
+                        <td className="px-6 py-2 text-xs text-gray-500">
+                          {formatDate(lead.created_at) || "-"}
+                        </td>
+                        <td className="px-6 py-2">
+                          {getStatusBadge(lead.status)}
+                        </td>
+                        <td className="px-6 py-2 text-center w-36">
+                          <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
+                            <Button
+                              variant="actionRead"
+                              size="icon"
+                              onClick={() => handleView(lead)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="actionUpdate"
+                              size="icon"
+                              onClick={() => handleEdit(lead)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="actionRead"
+                              size="icon"
+                              title="Tính lại điểm (Rescore)"
+                              onClick={() => handleRescore(lead)}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <ConfirmDialog
+                              title="Xác nhận xóa"
+                              description={
+                                <>
+                                  Bạn có chắc chắn muốn xóa lead{" "}
+                                  <span className="font-semibold">
+                                    {lead.deal_name || lead.name}
+                                  </span>
+                                  ?
+                                </>
+                              }
+                              confirmText="Xóa"
+                              cancelText="Hủy"
+                              onConfirm={() => handleDelete(lead.lead_id)}
+                            >
+                              <Button
+                                variant="actionDelete"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </ConfirmDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {!loading && !error && filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="text-center text-gray-400 py-8">
+                        Không có lead nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Card View */}
+        {effectiveViewMode === "card" && (
+          <div className="mb-6">
+            {!loading && !error && filtered.length === 0 ? (
+              <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                Không có lead nào.
+              </div>
+            ) : (
+              <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {current.map((lead) => (
+                  <div
+                    key={lead.lead_id}
+                    className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                  >
+                    <div className="p-4 flex flex-col h-full">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-base line-clamp-1 mb-1">
+                            {lead.deal_name || "(Chưa đặt tên deal)"}
+                          </h3>
                           <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full w-[80px] text-center inline-block ${getPriorityColor(
+                            className={`px-2 py-1 text-xs font-medium rounded-full inline-block ${getPriorityColor(
                               lead.priority
                             )}`}
                           >
                             {getPriorityLabel(lead.priority)}
                           </span>
-                          {lead.deal_name || "(Chưa đặt tên deal)"}
                         </div>
-                      </td>
-
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
-                        {lead.name}
-                      </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
-                        {lead.email}
-                      </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
-                        {lead.phone}
-                      </td>
-                      <td className="px-6 py-2 text-sm text-emerald-600 font-semibold">
-                        {formatCurrency(
-                          Math.round(Number(lead.predicted_value || 0))
-                        )}
-                      </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 truncate">
-                        {lead.source || "-"}
-                      </td>
-                      <td className="px-6 py-2 text-xs text-gray-500">
-                        {formatDate(lead.created_at) || "-"}
-                      </td>
-                      <td className="px-6 py-2">
                         {getStatusBadge(lead.status)}
-                      </td>
-                      <td className="px-6 py-2 text-center w-36">
-                        <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-1 transition-all duration-200">
-                          <Button
-                            variant="actionRead"
-                            size="icon"
-                            onClick={() => handleView(lead)}
-                            className="h-8 w-8"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="actionUpdate"
-                            size="icon"
-                            onClick={() => handleEdit(lead)}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="actionRead"
-                            size="icon"
-                            title="Tính lại điểm (Rescore)"
-                            onClick={() => handleRescore(lead)}
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </Button>
-                          <ConfirmDialog
-                            title="Xác nhận xóa"
-                            description={
-                              <>
-                                Bạn có chắc chắn muốn xóa lead{" "}
-                                <span className="font-semibold">
-                                  {lead.deal_name || lead.name}
-                                </span>
-                                ?
-                              </>
-                            }
-                            confirmText="Xóa"
-                            cancelText="Hủy"
-                            onConfirm={() => handleDelete(lead.lead_id)}
-                          >
-                            <Button
-                              variant="actionDelete"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </ConfirmDialog>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                      </div>
 
-                {!loading && !error && filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="text-center text-gray-400 py-8">
-                      Không có lead nào.
-                    </td>
-                  </tr>
+                      <div className="space-y-2 mb-4 flex-grow">
+                        <div className="text-sm text-gray-700">
+                          <span className="font-medium">Khách hàng:</span>{" "}
+                          {lead.name}
+                        </div>
+                        <div className="text-sm text-gray-600 truncate">
+                          <span className="font-medium">Email:</span>{" "}
+                          {lead.email}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">SĐT:</span>{" "}
+                          {lead.phone}
+                        </div>
+                        <div className="text-sm font-semibold text-emerald-600">
+                          {formatCurrency(
+                            Math.round(Number(lead.predicted_value || 0))
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Nguồn:</span>{" "}
+                          {lead.source || "-"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(lead.created_at) || "-"}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 w-full border-t pt-3 mt-auto">
+                        <Button
+                          variant="actionRead"
+                          size="icon"
+                          onClick={() => handleView(lead)}
+                          className="h-9 flex-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                         
+                        </Button>
+                        <Button
+                          variant="actionUpdate"
+                          size="icon"
+                          onClick={() => handleEdit(lead)}
+                          className="h-9 flex-1"
+                        >
+                          <Edit className="w-4 h-4" />
+                          
+                        </Button>
+                        <Button
+                          variant="actionRead"
+                          size="icon"
+                          title="Tính lại điểm (Rescore)"
+                          onClick={() => handleRescore(lead)}
+                          className="h-9  flex-1"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                        {/* <Button
+                          variant="actionDelete"
+                          size="icon"
+                          title="Xóa"
+                          onClick={() => handleDelete(lead)}
+                          className="h-9  flex-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button> */}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="col-span-full text-center text-gray-400 py-8">
+                    Đang tải…
+                  </div>
                 )}
-              </tbody>
-            </table>
+
+                {!loading && error && (
+                  <div className="col-span-full text-center text-red-500 py-8">
+                    {error}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Pagination */}
         <div className="mt-4">

@@ -301,6 +301,7 @@ const ChurnAnalysisPage = () => {
           />
         </div>
       </div>
+
     </div>
   );
 };

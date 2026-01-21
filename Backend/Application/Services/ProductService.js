@@ -84,6 +84,8 @@ class ProductService {
     return await ProductRepository.exportToCSV();
 
   }
+
+
 }
 
 module.exports = new ProductService();

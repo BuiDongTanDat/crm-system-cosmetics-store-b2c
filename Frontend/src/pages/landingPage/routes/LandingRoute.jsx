@@ -5,6 +5,7 @@ import AllProductPage from "../pages/AllProductPage";
 import CartPage from "../pages/CartPage";
 import OrderLookupPage from "../pages/OrderLookupPage";
 import CampaignLandingPage from "../pages/CampaignLandingPage";
+import AllCampaignPage from "../pages/AllCampaignPage";
 
 const LandingRoute = ({ onContact, onViewProducts, onSubmitInterest }) => {
   const navigate = useNavigate();
@@ -20,14 +21,14 @@ const LandingRoute = ({ onContact, onViewProducts, onSubmitInterest }) => {
           />
         }
       />
-      <Route 
-        path="/products" 
+      <Route
+        path="/products"
         element={
-          <AllProductPage 
+          <AllProductPage
             onContact={onContact}
             onSubmitInterest={onSubmitInterest}
           />
-        } 
+        }
       />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/order-lookup" element={<OrderLookupPage />} />
@@ -35,12 +36,7 @@ const LandingRoute = ({ onContact, onViewProducts, onSubmitInterest }) => {
       <Route
         path="/events"
         element={
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-gray-900">Sự kiện</h1>
-              <p className="text-gray-600">Chưa có sự kiện nào</p>
-            </div>
-          </div>
+          <AllCampaignPage />
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

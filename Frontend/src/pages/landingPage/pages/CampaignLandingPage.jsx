@@ -278,7 +278,7 @@ const CampaignLandingPage = ({ onContact, onCartChange }) => {
       </div>
 
       {/* Dynamic Hero Section */}
-      <div className="relative min-h-[85vh] lg:min-h-[90vh] flex flex-col items-center justify-center overflow-hidden">
+      <div className="relative min-h-[85vh] lg:min-h-[90vh] flex flex-col items-center justify-center overflow-hidden ">
         {/* Background Image with Parallax-like feel */}
         <div className="absolute inset-0 z-0">
           <img
@@ -292,7 +292,7 @@ const CampaignLandingPage = ({ onContact, onCartChange }) => {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/50"></div>
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
+        <div className="mt-10 relative z-15 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
           <div className="inline-block px-5 py-2 rounded-full bg-blue-600/95 backdrop-blur-md text-[9px] sm:text-[10px] font-black tracking-[0.25em] sm:tracking-[0.3em] mb-6 sm:mb-8 animate-bounce font-lexend border-2 border-white/30 shadow-2xl">
             EXCLUSIVE FLASH SALE
           </div>

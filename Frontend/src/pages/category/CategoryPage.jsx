@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2, Filter, LayoutGrid, LayoutList, List, Square, ClipboardList, Heading4 } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import CategoryForm from "@/pages/category/components/CategoryForm";
 import AppPagination from "@/components/pagination/AppPagination";
@@ -10,14 +10,20 @@ import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
+import { set } from "date-fns";
+import Loading from "@/components/common/Loading";
 
 export default function CategoryPage() {
     const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [modal, setModal] = useState({ open: false, mode: "view", category: null });
+    const [loading, setLoading] = useState(false);
 
     // hovered row for action buttons (like ProductPage)
     const [hoveredRow, setHoveredRow] = useState(null);
+
+    // View mode: 'table' or 'card'
+    const [viewMode, setViewMode] = useState("table");
 
     // Filtering
     const [filterStatus, setFilterStatus] = useState("");
@@ -59,6 +65,7 @@ export default function CategoryPage() {
 
     const fetchCategories = async () => {
         try {
+            setLoading(true);
             const result = await getCategories();
             if (result && result.ok) {
                 setCategories(result.data || []);
@@ -70,9 +77,16 @@ export default function CategoryPage() {
         } catch (err) {
             console.error("Lỗi tải danh mục:", err);
             setCategories([]);
+
+        }
+        finally {
+            setLoading(false);
         }
     };
 
+    if (loading) {
+        return <div><Loading/></div>;
+    }
 
     const handleView = (category) => setModal({ open: true, mode: "view", category });
     const handleEdit = (category) => setModal({ open: true, mode: "edit", category });
@@ -162,10 +176,29 @@ export default function CategoryPage() {
                 style={{ backdropFilter: 'blur' }}
             >
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-2 md:mb-0">
+                <div className="flex items-center gap-2 mb-2 md:mb-0 justify-between md:w-auto w-full">
                     <h1 className="text-lg font-bold text-gray-900 md:text-xl">
                         Quản lý Danh mục ({filteredCategories.length})
                     </h1>
+                    {/* View mode toggle */}
+                    <div className="flex gap-0">
+                        <Button
+                            variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                            size="icon"
+                            onClick={() => setViewMode("card")}
+                            className="rounded-none rounded-tl-md rounded-bl-md"
+                        >
+                            <Square className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            variant={viewMode === "table" ? "actionCreate" : "actionNormal"}
+                            size="icon"
+                            onClick={() => setViewMode("table")}
+                            className="rounded-none rounded-tr-md rounded-br-md"
+                        >
+                            <List className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
                     {/* Search */}
@@ -190,6 +223,8 @@ export default function CategoryPage() {
                         />
                     </div>
 
+                    
+
                     {/* Thêm Danh mục chỉ khi có quyền create */}
                     <PermissionGuard module="category" action="create">
                         <Button
@@ -204,97 +239,136 @@ export default function CategoryPage() {
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-md border overflow-hidden shadow mb-4">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                {["Tên danh mục", "Mô tả", "Trạng thái", ""].map((header, index) => (
-                                    <th
-                                        key={index}
-                                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase"
+            {/* Table View */}
+            {viewMode === "table" && (
+                <div className="animate-fade-in transition duration-150  bg-white rounded-md border overflow-hidden shadow mb-4">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[600px]">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    {["Tên danh mục", "Mô tả", "Trạng thái", ""].map((header, index) => (
+                                        <th
+                                            key={index}
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase"
+                                        >
+                                            {header}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {currentCategories.map((category, index) => (
+                                    <tr
+                                        key={`${category.category_id || category.id || 'cat'}-${index}`}
+                                        onMouseEnter={() => setHoveredRow(category.category_id || category.id)}
+                                        onMouseLeave={() => setHoveredRow(null)}
+                                        className="hover:bg-gray-50 transition-colors"
                                     >
-                                        {header}
-                                    </th>
+                                        <td className="px-6 py-2 text-sm font-medium text-gray-900">{category.name}</td>
+                                        <td className="px-6 py-2 text-sm text-gray-900">{category.description}</td>
+                                        <td className="px-6 py-2 text-center">
+                                            <span className={getStatusBadge(category.status)}>{category.status}</span>
+                                        </td>
+                                        <td className="px-6 py-2 text-center w-36">
+                                            <div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredRow === (category.category_id || category.id) ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
+                                                {/* Xem chi tiết chỉ khi có quyền read */}
+                                                <PermissionGuard module="category" action="read">
+                                                    <Button
+                                                        variant="actionRead"
+                                                        size="icon"
+                                                        onClick={() => handleView(category)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                                {/* Chỉnh sửa chỉ khi có quyền update */}
+                                                <PermissionGuard module="category" action="update">
+                                                    <Button
+                                                        variant="actionUpdate"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(category)}
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </PermissionGuard>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
+                                {/* Trạng thái rỗng */}
+                                {currentCategories.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="text-center py-8 text-gray-500">Không có Danh mục</td>
+                                    </tr>
+                                )}
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Card View */}
+            {viewMode === "card" && (
+                <div className="mb-4">
+                    {currentCategories.length === 0 ? (
+                        <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                            Không có Danh mục
+                        </div>
+                    ) : (
+                        <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {currentCategories.map((category, index) => (
-                                <tr
+                                <div
                                     key={`${category.category_id || category.id || 'cat'}-${index}`}
-                                    onMouseEnter={() => setHoveredRow(category.category_id || category.id)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-                                    className="hover:bg-gray-50 transition-colors"
+                                    className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
                                 >
-                                    <td className="px-6 py-2 text-sm font-medium text-gray-900">{category.name}</td>
-                                    <td className="px-6 py-2 text-sm text-gray-900">{category.description}</td>
-                                    <td className="px-6 py-2 text-center">
-                                        <span className={getStatusBadge(category.status)}>{category.status}</span>
-                                    </td>
-                                    <td className="px-6 py-2 text-center w-36">
-                                        <div className={`flex justify-center transition-all duration-200 gap-1 ${hoveredRow === (category.category_id || category.id) ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-1 pointer-events-none'}`}>
-                                            {/* Xem chi tiết chỉ khi có quyền read */}
+                                    <div className="p-4 flex flex-col h-full">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="flex font-semibold text-gray-900  line-clamp-1">
+                                                 {category.name}
+                                            </h3>
+                                            <span className={getStatusBadge(category.status)}>
+                                                {category.status}
+                                            </span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-gray-600 mb-4 flex-grow line-clamp-2">
+                                            {category.description || "Không có mô tả"}
+                                        </p>
+
+                                        <div className="flex gap-2 w-full border-t pt-2 mt-auto">
                                             <PermissionGuard module="category" action="read">
                                                 <Button
                                                     variant="actionRead"
-                                                    size="icon"
+                                                    size="sm"
                                                     onClick={() => handleView(category)}
-                                                    className="h-8 w-8"
+                                                    className="h-9 flex-1"
                                                 >
-                                                    <Eye className="w-4 h-4" />
+                                                    <Eye className="w-4 h-4 mr-1" />
+                                                    Xem
                                                 </Button>
                                             </PermissionGuard>
-                                            {/* Chỉnh sửa chỉ khi có quyền update */}
                                             <PermissionGuard module="category" action="update">
                                                 <Button
                                                     variant="actionUpdate"
-                                                    size="icon"
+                                                    size="sm"
                                                     onClick={() => handleEdit(category)}
-                                                    className="h-8 w-8"
+                                                    className="h-9 flex-1"
                                                 >
-                                                    <Edit className="w-4 h-4" />
+                                                    <Edit className="w-4 h-4 mr-1" />
+                                                    Sửa
                                                 </Button>
                                             </PermissionGuard>
-                                            {/* Xóa chỉ khi có quyền delete */}
-                                            {/* <PermissionGuard module="category" action="delete">
-                                                <ConfirmDialog
-                                                    title="Xác nhận xóa"
-                                                    description={
-                                                        <>
-                                                            Bạn có chắc chắn muốn xóa danh mục{" "}
-                                                            <span className="font-semibold text-black">{category.name}</span>?
-                                                        </>
-                                                    }
-                                                    confirmText="Xóa"
-                                                    cancelText="Hủy"
-                                                    onConfirm={() => handleDelete(category.category_id)}
-                                                >
-                                                    <Button
-                                                        variant="actionDelete"
-                                                        size="icon"
-                                                        className="h-8 w-8"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </ConfirmDialog>
-                                            </PermissionGuard> */}
                                         </div>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </div>
                             ))}
-                            {/* Trạng thái rỗng */}
-                            {currentCategories.length === 0 && (
-                                <tr>
-                                    <td colSpan={7} className="text-center py-8 text-gray-500">Không có Danh mục</td>
-                                </tr>
-                            )}
-                        </tbody>
-
-                    </table>
+                        </div>
+                    )}
                 </div>
-            </div>
+            )}
 
             <AppPagination
                 totalPages={totalPages}

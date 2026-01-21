@@ -14,7 +14,6 @@ import MarketingCard from "@/pages/marketing/components/MarketingCard";
 import AppDialog from "@/components/dialogs/AppDialog";
 import MarketingForm from "@/pages/marketing/components/MarketingForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import DateRangeButtonPicker from "@/components/common/DateRangeButtonPicker";
 import { getAll } from "@/services/campaign";
@@ -248,12 +247,20 @@ export default function MarketingPage() {
   // Sửa lại handleSave để đảm bảo cập nhật ngay
   const handleSave = async (apiData) => {
     try {
+
+      const isCreating = modal.mode === "add";
       // Reload toàn bộ danh sách
       await reloadCampaigns();
 
+      if (isCreating) {
+        closeModal();
+        //toast.success("Tạo chiến dịch mới thành công");
+        return;
+      }
       // Fetch lại campaign vừa lưu để có dữ liệu mới nhất
       let campaignId = apiData?.campaign_id || apiData?.id;
 
+      
       if (campaignId) {
         try {
           const { items } = await getAll();
@@ -391,8 +398,9 @@ export default function MarketingPage() {
                 </PermissionGuard>
               </div>
             </div>
-            <div className="flex gap-2 justify-end w-full lg:w-auto">
-              {/* Filter loại chiến dịch */}
+            <div className="flex flex-col md:flex-row gap-2 justify-end w-full lg:w-auto">
+              <div className="flex gap-2 w-full lg:w-auto">
+                {/* Filter loại chiến dịch */}
               <DropdownOptions
                 options={CAMPAIGN_TYPE_OPTIONS}
                 value={selectedType}
@@ -409,6 +417,7 @@ export default function MarketingPage() {
                 width="w-full flex-1 lg:w-44"
                 placeholder="Trạng thái"
               />
+              </div>
               {/* Thêm bộ lọc theo khoảng ngày */}
               <DateRangeButtonPicker
                 value={dateRange}

@@ -6,10 +6,10 @@ import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { getCustomers } from "@/services/customers";
 import { getQualifiedLeads } from "@/services/leads";
-import { getProducts } from "@/services/products";
 import { formatCurrency } from "@/utils/helper";
 import DropdownWithSearch from "@/components/common/DropdownWithSearch";
 import DropdownOptions from "@/components/common/DropdownOptions";
+
 
 export default function OrderForm({
   mode = "view",
@@ -22,6 +22,7 @@ export default function OrderForm({
   statusLabels = {},
   showRecommendations = false,
   recommendations = [],
+  products = [], // THÊM: nhận products từ props
 }) {
   const today = new Date().toISOString();
 
@@ -45,7 +46,6 @@ export default function OrderForm({
   const [customers, setCustomers] = useState([]);
   const [qualifiedLeads, setQualifiedLeads] = useState([]);
   const [peopleOptions, setPeopleOptions] = useState([]); // [{kind,id,name,email,phone,raw}]
-  const [products, setProducts] = useState([]);
   const [orderDetails, setOrderDetails] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const initialSnapshotRef = useRef(null);
@@ -80,7 +80,7 @@ export default function OrderForm({
 
   // ===== Hydrate from props.data =====
   useEffect(() => {
-    if (!data) return;
+    if (!data || !products.length) return; // Đảm bảo có list products để map inventory
 
     const newForm = {
       order_id: data.order_id || data.orderId || null,
@@ -105,13 +105,99 @@ export default function OrderForm({
     const newDetails =
       Array.isArray(data.items) && data.items.length
         ? data.items.map((it) => {
+          // Tìm sản phẩm để lấy tồn kho hiện tại
+          const pInfo = products.find(p => String(p.product_id || p.id) === String(it.product_id));
+          const quantity = Number(it.quantity ?? it.qty ?? 1);
+          const price = Number(
+            it.price ??
+            it.unit_price ??
+            it.price_unit ??
+            it.price_current ??
+            0
+          );
+          const subtotal = Number(
+            it.subtotal ?? it.total_price ?? quantity * price
+          );
+          let discount = Number(it.discount ?? it.discount_percent ?? 0) || 0;
+          if (discount > 1) discount = discount / 100;
+          const original_price =
+            Number(
+              it.price_original ?? it.original_price ?? it.price_list ?? 0
+            ) || computeOriginalPrice(price, discount);
+
+          return {
+            order_detail_id:
+              it.order_detail_id ||
+              it.id ||
+              `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            product_id: it.product_id || it.productId || "",
+            product_name: it.product_name || it.name || it.productName || "",
+            quantity,
+            price,
+            subtotal,
+            discount,
+            original_price,
+            inventory_qty: pInfo?.inventory_qty ?? 0,
+          };
+        })
+        : [];
+
+    setForm((prev) => ({ ...prev, ...newForm }));
+    setOrderDetails(newDetails);
+
+    // Lưu snapshot để so sánh "status-only"
+    initialSnapshotRef.current = {
+      form: {
+        order_id: newForm.order_id,
+        customer_id: newForm.customer_id || "",
+        lead_id: newForm.lead_id || "",
+        order_date: (newForm.order_date || "").split("T")[0],
+        payment_method: newForm.payment_method,
+        status: newForm.status,
+        channel: newForm.channel || "",
+        notes: newForm.notes || "",
+      },
+      items: normalizeItems(newDetails),
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, products]);
+
+  // Đảm bảo cập nhật lại state khi mode chuyển sang edit/view và trạng thái đơn hàng đã thay đổi (ví dụ vừa chuyển sang Paid)
+  useEffect(() => {
+    // Khi chuyển sang edit/view, cập nhật lại state từ data (nếu có)
+    if ((mode === "edit" || mode === "view") && data && products.length) {
+      const newForm = {
+        order_id: data.order_id || data.orderId || null,
+        customer_id: data.customer_id || "",
+        lead_id: data.lead_id || "",
+        customer_name: data.customer_name || "",
+        order_date: data.order_date
+          ? new Date(data.order_date).toISOString()
+          : today,
+        total_amount: data.total_amount || data.total || 0,
+        payment_method:
+          normalizePaymentCode(data.payment_method) || "cash_on_delivery",
+        status: normalizeStatusCode(data.status) || "pending",
+        channel: data.channel || "",
+        ai_suggested_crosssell: Array.isArray(data.ai_suggested_crosssell)
+          ? data.ai_suggested_crosssell.join(", ")
+          : data.ai_suggested_crosssell || "",
+        shipping_address: data.shipping_address || "",
+        notes: data.notes || "",
+      };
+
+      const newDetails =
+        Array.isArray(data.items) && data.items.length
+          ? data.items.map((it) => {
+            const pInfo = products.find(p => String(p.product_id || p.id) === String(it.product_id));
             const quantity = Number(it.quantity ?? it.qty ?? 1);
             const price = Number(
               it.price ??
-                it.unit_price ??
-                it.price_unit ??
-                it.price_current ??
-                0
+              it.unit_price ??
+              it.price_unit ??
+              it.price_current ??
+              0
             );
             const subtotal = Number(
               it.subtotal ?? it.total_price ?? quantity * price
@@ -135,30 +221,16 @@ export default function OrderForm({
               subtotal,
               discount,
               original_price,
+              inventory_qty: pInfo?.inventory_qty ?? 0,
             };
           })
-        : [];
+          : [];
 
-    setForm((prev) => ({ ...prev, ...newForm }));
-    setOrderDetails(newDetails);
-
-    // Lưu snapshot để so sánh "status-only"
-    initialSnapshotRef.current = {
-      form: {
-        order_id: newForm.order_id,
-        customer_id: newForm.customer_id || "",
-        lead_id: newForm.lead_id || "",
-        order_date: (newForm.order_date || "").split("T")[0],
-        payment_method: newForm.payment_method,
-        status: newForm.status,
-        channel: newForm.channel || "",
-        notes: newForm.notes || "",
-      },
-      items: normalizeItems(newDetails),
-    };
-
+      setForm((prev) => ({ ...prev, ...newForm }));
+      setOrderDetails(newDetails);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [mode, data?.status, products]);
 
   // ===== Fetches =====
   useEffect(() => {
@@ -182,19 +254,6 @@ export default function OrderForm({
         setQualifiedLeads(res?.data || res || []);
       })
       .catch(() => setQualifiedLeads([]));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    getProducts()
-      .then((res) => {
-        if (!mounted) return;
-        setProducts(res?.data || res || []);
-      })
-      .catch(() => setProducts([]));
     return () => {
       mounted = false;
     };
@@ -315,12 +374,12 @@ export default function OrderForm({
     // So sánh các field còn lại (ngoại trừ status)
     const sameOtherFields =
       String(currentComparableForm.customer_id) ===
-        String(snap.form.customer_id) &&
+      String(snap.form.customer_id) &&
       String(currentComparableForm.lead_id) === String(snap.form.lead_id) &&
       String(currentComparableForm.order_date) ===
-        String(snap.form.order_date) &&
+      String(snap.form.order_date) &&
       String(currentComparableForm.payment_method) ===
-        String(snap.form.payment_method) &&
+      String(snap.form.payment_method) &&
       String(currentComparableForm.channel) === String(snap.form.channel) &&
       String(currentComparableForm.notes) === String(snap.form.notes);
 
@@ -358,6 +417,7 @@ export default function OrderForm({
 
     const pid = product.product_id ?? product.id ?? "";
     const price = Number(product.price_current ?? product.price ?? 0);
+    const inventory_qty = Number(product.inventory_qty ?? 0);
     let prodDiscount =
       Number(product.discount ?? product.discount_percent ?? 0) || 0;
     if (prodDiscount > 1) prodDiscount = prodDiscount / 100;
@@ -373,11 +433,11 @@ export default function OrderForm({
         const updated = prev.map((d, i) =>
           i === idx
             ? {
-                ...d,
-                quantity: Number(d.quantity || 0) + 1,
-                subtotal:
-                  (Number(d.quantity || 0) + 1) * Number(d.price || price),
-              }
+              ...d,
+              quantity: Number(d.quantity || 0) + 1,
+              subtotal:
+                (Number(d.quantity || 0) + 1) * Number(d.price || price),
+            }
             : d
         );
         toast.info(`${product.name} đã có trong đơn, tăng số lượng lên 1`);
@@ -396,23 +456,39 @@ export default function OrderForm({
           subtotal: price,
           discount: prodDiscount,
           original_price,
+          inventory_qty: inventory_qty,
         },
       ];
     });
   };
 
+
+
   const removeOrderDetail = (index) => {
     setOrderDetails((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Block updating details for already-paid orders (client-side guard)
   const updateOrderDetail = (index, field, value) => {
+    if (isAlreadyPaid) {
+      toast.error("Không thể chỉnh sửa sản phẩm cho đơn hàng đã thanh toán.");
+      return;
+    }
     setOrderDetails((prev) =>
       prev.map((detail, i) => {
         if (i !== index) return detail;
         const updated = { ...detail };
 
         if (field === "quantity") {
-          updated.quantity = Math.max(1, Number(value) || 1);
+          const maxQty = Number(detail.inventory_qty ?? Infinity);
+          const nextQty = Math.max(1, Number(value) || 1);
+
+          if (nextQty > maxQty) {
+            //toast.error(`Chỉ còn ${maxQty} sản phẩm trong kho`);
+            updated.quantity = maxQty;
+          } else {
+            updated.quantity = nextQty;
+          }
         } else if (field === "price") {
           const p = Number(value) || 0;
           updated.price = p;
@@ -531,8 +607,7 @@ export default function OrderForm({
     }
   };
 
-  const handleSubmit = () => {
-    // YÊU CẦU: Cho phép order chỉ có lead (customer_id null) → validate tối thiểu: có lead_id hoặc customer_id
+  const handleSubmit = async () => {
     if (!form.customer_id && !form.lead_id) {
       toast.error("Vui lòng chọn Customer hoặc Lead (qualified)");
       return;
@@ -541,50 +616,99 @@ export default function OrderForm({
       toast.error("Vui lòng thêm ít nhất một sản phẩm");
       return;
     }
-    if (form.order_id && isStatusOnlyChange()) {
-      onSave?.({ order_id: form.order_id, status: form.status });
-      setMode?.("view");
-      return;
+
+    // 1. Kiểm tra xem có phải chỉ thay đổi trạng thái không
+    const isOnlyStatus = form.order_id && isStatusOnlyChange();
+
+    // 2. Kiểm tra xem trạng thái mới có phải là trạng thái "Hoàn kho" (Restock) không
+    const isChangingToRestock = isRestockStatus(form.status);
+
+    // 3. Guard cho đơn đã thanh toán (không cho đổi item)
+    if (form.order_id && isAlreadyPaid) {
+      const currentItems = normalizeItems(orderDetails);
+      const originalItems = initialSnapshotRef.current?.items || [];
+      if (JSON.stringify(currentItems) !== JSON.stringify(originalItems)) {
+        toast.error("Không thể thay đổi sản phẩm trên đơn hàng đã thanh toán.");
+        return;
+      }
     }
-    const payload = {
-      ...(form.order_id ? { order_id: form.order_id } : {}),
-      customer_id: form.customer_id || null, // luôn có key, null nếu chưa chọn
-      lead_id: form.lead_id || null, // gửi lead_id nếu có
-      order_date: form.order_date
-        ? new Date(form.order_date).toISOString()
-        : new Date().toISOString(),
-      status: form.status,
-      payment_method: form.payment_method,
-      channel: form.channel || "website",
-      shipping_address: form.shipping_address || "",
-      notes: form.notes || "",
-      total_amount: totalAmount,
-      currency: "VND",
-      items: orderDetails.map((d) => {
-        const unitPrice = Number(d.price || 0);
-        const qty = Number(d.quantity || 0);
-        const orig =
-          Number(
-            d.original_price ?? d.price_original ?? d.originalPrice ?? 0
-          ) || unitPrice;
-        return {
+
+    /**
+     * LOGIC KIỂM TRA TỒN KHO MỚI:
+     * Chỉ chặn nếu:
+     * - KHÔNG PHẢI chỉ đổi trạng thái (tức là có thay đổi sản phẩm/số lượng/tạo mới)
+     * - VÀ trạng thái mới KHÔNG PHẢI là trạng thái hoàn trả kho (Refund/Cancel)
+     * - VÀ có sản phẩm tồn kho = 0
+     */
+    if (!isOnlyStatus && !isChangingToRestock) {
+      const zeroInventoryItems = orderDetails.filter(d => Number(d.inventory_qty || 0) <= 0);
+      if (zeroInventoryItems.length > 0) {
+        toast.error("Có sản phẩm trong đơn hàng đã hết tồn kho, vui lòng xoá hoặc thay đổi sản phẩm.");
+        return;
+      }
+    }
+
+    // Chuẩn bị payload...
+    let payload;
+    if (isOnlyStatus) {
+      payload = { order_id: form.order_id, status: form.status };
+    } else {
+      payload = {
+        ...(form.order_id ? { order_id: form.order_id } : {}),
+        customer_id: form.customer_id || null,
+        lead_id: form.lead_id || null,
+        order_date: form.order_date ? new Date(form.order_date).toISOString() : new Date().toISOString(),
+        status: form.status,
+        payment_method: form.payment_method,
+        channel: form.channel || "website",
+        shipping_address: form.shipping_address || "",
+        notes: form.notes || "",
+        total_amount: totalAmount,
+        currency: "VND",
+        items: orderDetails.map((d) => ({
           product_id: d.product_id || null,
           product_name: d.product_name || null,
-          price_original: orig,
-          unit_price: unitPrice,
+          price_original: Number(d.original_price || d.price || 0),
+          unit_price: Number(d.price || 0),
           discount: Number(d.discount || 0),
-          quantity: qty,
-          total_price: Number(qty * unitPrice),
-        };
-      }),
-    };
-    // debug (tạm): console.log("[OrderForm] submit payload", payload);
-    onSave?.(payload);
+          quantity: Number(d.quantity || 0),
+          total_price: Number((d.quantity || 0) * (d.price || 0)),
+        })),
+      };
+    }
 
-    if (form.order_id) {
-      setMode?.("view");
+    try {
+      const result = await onSave?.(payload);
+      if (result !== false) {
+        setMode?.("view");
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
     }
   };
+
+  // ===== Hỗ trợ khóa action ở một số trạng thái =====
+  // Trạng thái đã trừ kho
+  const isPaidStatus = (status) => {
+    const paidStatuses = ['paid', 'processing', 'shipped', 'completed'];
+    return paidStatuses.includes(String(status || '').toLowerCase());
+  };
+
+  // Trạng thái sẽ hoàn kho
+  const isRestockStatus = (status) => {
+    const restockStatuses = [
+      'pending',
+      'cancelled',
+      'failed',
+      'refunded',
+      'draft_cart',
+      'awaiting_customer_confirmation'
+    ];
+    return restockStatuses.includes(String(status || '').toLowerCase());
+  };
+
+  // Kiểm tra xem đơn hàng gốc (từ DB) đã ở trạng thái Paid chưa
+  const isAlreadyPaid = data?.status && isPaidStatus(data.status);
 
   // ===== Render =====
   return (
@@ -600,7 +724,7 @@ export default function OrderForm({
                 <label className="block text-sm font-medium mb-1">
                   Khách hàng
                 </label>
-                {mode === "view" ? (
+                {mode === "view" || isAlreadyPaid ? (
                   <div className="text-sm w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
                     {form.customer_id || form.lead_id
                       ? form.customer_name || form.customer_id || form.lead_id
@@ -653,11 +777,10 @@ export default function OrderForm({
                         <div className="flex items-center justify-between">
                           <div className="font-medium truncate">{p.name}</div>
                           <span
-                            className={`text-[10px] px-2 py-[2px] rounded-full ${
-                              p.kind === "customer"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}
+                            className={`text-[10px] px-2 py-[2px] rounded-full ${p.kind === "customer"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-blue-100 text-blue-700"
+                              }`}
                           >
                             {p.kind === "customer"
                               ? "Customer"
@@ -690,7 +813,7 @@ export default function OrderForm({
                   Ngày đặt hàng
                 </label>
                 <Input
-                  disabled={mode === "view"}
+                  disabled={mode === "view" || isAlreadyPaid}
                   type="date"
                   value={form.order_date ? form.order_date.split("T")[0] : ""}
                   onChange={(e) =>
@@ -708,7 +831,7 @@ export default function OrderForm({
                   Phương thức thanh toán
                 </label>
 
-                {/* REPLACED: use DropdownOptions */}
+                {/* Keep payment editable for paid orders if needed */}
                 <DropdownOptions
                   options={PAYMENT_METHODS.map((pm) => ({
                     value: pm,
@@ -732,7 +855,7 @@ export default function OrderForm({
                   Trạng thái
                 </label>
 
-                {/* REPLACED: use DropdownOptions */}
+                {/* Status should remain editable (allow status-only updates even for paid orders) */}
                 <DropdownOptions
                   options={ORDER_STATUSES.map((st) => ({
                     value: st,
@@ -821,7 +944,7 @@ export default function OrderForm({
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Chi tiết đơn hàng</h3>
-              {(mode === "edit" || mode === "create") && (
+              {(mode === "edit" || mode === "create") && !isAlreadyPaid && (
                 <DropdownWithSearch
                   items={products}
                   itemKey={(p) => p.product_id ?? p.id}
@@ -832,6 +955,10 @@ export default function OrderForm({
                       .includes((s || "").toLowerCase())
                   }
                   onSelect={(p) => {
+                    if (isAlreadyPaid) {
+                      toast.error("Không thể thêm sản phẩm cho đơn hàng đã thanh toán.");
+                      return;
+                    }
                     if (!isProductAvailable(p)) {
                       toast.error(
                         `Không thể chọn sản phẩm "${p.name}". Sản phẩm đã ngừng bán hoặc hết hàng.`
@@ -846,47 +973,56 @@ export default function OrderForm({
                     const available = isProductAvailable(product);
                     return (
                       <div
-                        className={`w-full ${
-                          !available ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
+                        className={`w-full space-y-1 ${!available ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                          }`}
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="truncate">{product.name}</span>
-                          <div className="flex items-center gap-2">
-                            {!available && (
-                              <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">
-                                {(product.status || "").toUpperCase() ===
-                                "DISCONTINUED"
-                                  ? "Ngừng bán"
-                                  : "Hết hàng"}
+                        {/* Product name – 2 lines */}
+                        <div className="text-sm font-normal  line-clamp-2 justify-between flex items-center gap-2">
+                          {product.name}
+                          {!available && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-[10px]">
+                              {(product.status || "").toUpperCase() === "DISCONTINUED"
+                                ? "Ngừng bán"
+                                : "Hết hàng"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+
+                          <div className="flex items-center gap-2 text-gray-500">
+                            {product.inventory_qty != null && (
+                              <span className="text-blue-600 text-[10px] px-2 py-0.5 bg-blue-100/50 rounded">
+                                Còn: {product.inventory_qty}
                               </span>
                             )}
-                            <span className="text-xs text-gray-700">
-                              {product.price_current
-                                ? formatCurrency(product.price_current)
-                                : ""}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex justify-between gap-1 items-center text-xs text-gray-500 mt-1">
-                          <div>
-                            {product.discount_percent ?? product.discount ? (
-                              <span className="text-amber-600 font-medium">
-                                Giảm{" "}
-                                {product.discount_percent ?? product.discount}%
+
+                            {(product.discount_percent) ? (
+                              <span className="px-2 py-0.5 text-amber-600 text-[10px] bg-amber-300/30 rounded">
+                                Giảm {product.discount_percent ?? product.discount}%
                               </span>
                             ) : null}
+
+
                           </div>
-                          <div>
-                            {product.price_original ? (
-                              <span className="line-through">
+
+                          {/* Right: prices */}
+                          <div className="flex items-center gap-2 shrink-0 text-gray-700">
+                            {product.price_original && (
+                              <span className="line-through text-gray-400">
                                 {formatCurrency(product.price_original)}
                               </span>
-                            ) : null}
+                            )}
+
+                            {product.price_current && (
+                              <span className="font-semibold">
+                                {formatCurrency(product.price_current)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     );
+
                   }}
                 >
                   <Button variant="actionCreate">
@@ -925,10 +1061,10 @@ export default function OrderForm({
                           )
                         }
                         placeholder="Nhập tên sản phẩm hoặc dùng 'Thêm sản phẩm' để chọn"
-                        disabled={Boolean(detail.product_id)}
+                        disabled={Boolean(detail.product_id) || isAlreadyPaid}
                         variant="normal"
                         className={
-                          detail.product_id
+                          detail.product_id || isAlreadyPaid
                             ? "bg-gray-50 cursor-not-allowed h-9"
                             : ""
                         }
@@ -954,10 +1090,10 @@ export default function OrderForm({
                       Giá bán
                     </label>
                     <Input
-                      disabled={mode === "view" || Boolean(detail.product_id)}
-                      type="number"
+                      disabled={mode === "view" || Boolean(detail.product_id) || isAlreadyPaid}
+                      type="text"
                       min="0"
-                      value={Number(detail.price || 0)}
+                      value={formatCurrency(Number(detail.price || 0))}
                       onChange={(e) =>
                         updateOrderDetail(
                           index,
@@ -967,7 +1103,7 @@ export default function OrderForm({
                       }
                       variant="normal"
                       className={
-                        mode === "view" || detail.product_id
+                        mode === "view" || detail.product_id || isAlreadyPaid
                           ? "bg-gray-50 cursor-not-allowed"
                           : ""
                       }
@@ -980,7 +1116,7 @@ export default function OrderForm({
                       CK (%)
                     </label>
                     <Input
-                      disabled={mode === "view" || Boolean(detail.product_id)}
+                      disabled={mode === "view" || Boolean(detail.product_id) || isAlreadyPaid}
                       type="number"
                       min="0"
                       max="100"
@@ -994,7 +1130,7 @@ export default function OrderForm({
                       }
                       variant="normal"
                       className={
-                        mode === "view" || detail.product_id
+                        mode === "view" || detail.product_id || isAlreadyPaid
                           ? "bg-gray-50 cursor-not-allowed"
                           : ""
                       }
@@ -1002,14 +1138,20 @@ export default function OrderForm({
                   </div>
 
                   {/* Quantity */}
-                  <div className="col-span-1">
+                  <div className="col-span-1 ">
                     <label className="block text-sm font-medium mb-1">
-                      Số lượng
+                      SL
+                      <span className="ml-1">
+                        {detail.inventory_qty != null
+                          ? `(${detail.inventory_qty})`
+                          : ""}
+                      </span>
                     </label>
                     <Input
-                      disabled={mode === "view"}
+                      disabled={mode === "view" || isAlreadyPaid}
                       type="number"
                       min="1"
+                      max={detail.inventory_qty && !isNaN(detail.inventory_qty) ? Number(detail.inventory_qty) : undefined}
                       value={Number(detail.quantity || 1)}
                       onChange={(e) =>
                         updateOrderDetail(
@@ -1042,7 +1184,7 @@ export default function OrderForm({
 
                   {/* Delete */}
                   <div className="col-span-1">
-                    {(mode === "edit" || mode === "create") && (
+                    {(mode === "edit" || mode === "create") && !isAlreadyPaid && (
                       <Button
                         type="button"
                         variant="actionDelete"
@@ -1081,11 +1223,10 @@ export default function OrderForm({
                   return (
                     <div
                       key={idx}
-                      className={`bg-white p-3 rounded-md border border-blue-100 transition-colors ${
-                        available
-                          ? "hover:border-blue-300 cursor-pointer"
-                          : "opacity-60 cursor-not-allowed"
-                      }`}
+                      className={`bg-white p-3 rounded-md border border-blue-100 transition-colors ${available
+                        ? "hover:border-blue-300 cursor-pointer"
+                        : "opacity-60 cursor-not-allowed"
+                        }`}
                       {...(available && {
                         onClick: () => {
                           // Add product to orderDetails (not form.items)
@@ -1116,7 +1257,7 @@ export default function OrderForm({
                             {!available && (
                               <span className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded">
                                 {(product.status || "").toUpperCase() ===
-                                "DISCONTINUED"
+                                  "DISCONTINUED"
                                   ? "Ngừng bán"
                                   : "Hết hàng"}
                               </span>
@@ -1130,7 +1271,7 @@ export default function OrderForm({
                             </p>
                             {product.price_original &&
                               product.price_original >
-                                product.price_current && (
+                              product.price_current && (
                                 <p className="text-xs text-gray-500 line-through">
                                   {formatCurrency(product.price_original)}
                                 </p>

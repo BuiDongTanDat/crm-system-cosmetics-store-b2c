@@ -79,6 +79,40 @@ class ProductRepository {
     return product;
   }
 
+  // Giảm số lượng tồn kho
+  async decreaseInventory(productId, qty, transaction = null) {
+    const product = await Product.findByPk(productId, { transaction });
+    if (!product) return false;
+    if (product.inventory_qty < qty) return false;
+    product.inventory_qty -= qty;
+
+    // Kieemr tra nếu tồn kho còn về 0
+    if (product.inventory_qty <= 0) {
+      product.status = 'OUT_OF_STOCK';
+    }
+    await product.save({ transaction });
+    return true;
+  }
+
+  async increaseInventory(productId, qty, transaction = null) {
+    const product = await Product.findByPk(productId, { transaction });
+    if (!product) return false;
+
+    // Tăng tồn kho, tránh dùng save trực tiếp để tránh race condition
+    await product.increment('inventory_qty', { by: qty, transaction });
+
+    // reload để lấy giá trị mới
+    await product.reload({ transaction });
+
+    if (product.inventory_qty > 0) {
+      product.status = 'AVAILABLE';
+      await product.save({ transaction });
+    }
+
+    return true;
+  }
+
+
   // Import from CSV file (filePath provided inside dto.filePath)
   // Mục đích cua hàm này cần trả về chi tiết lỗi để người dùng biết mà sửa
   async importFromCSV(dto) {

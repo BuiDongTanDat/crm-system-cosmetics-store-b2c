@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getOrdersByDateRange } from "@/services/orders";
-import { formatDate, getRollingStartDate } from "@/utils/helper";
+import { formatDate, getRollingStartDate, formatLocalDate } from "@/utils/helper";
 import CalendarRangePicker from "@/components/common/calendar-range-picker";
 import {
   Popover,
@@ -31,7 +31,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
 const chartConfig = {
   orders: {
     label: "Đơn hàng",
@@ -47,17 +46,22 @@ const chartConfig = {
 // Gom nhóm đơn hàng theo ngày (YYYY-MM-DD)
 const groupOrdersByDate = (ordersRaw) => {
   const map = {};
+
   ordersRaw.forEach((order) => {
-    // Sửa foreach -> forEach
-    const date = new Date(order.order_date).toISOString().slice(0, 10);
-    if (!map[date]) map[date] = 0;
-    map[date] += 1;
+    const d = new Date(order.order_date);
+
+    const dateKey = `${d.getFullYear()}-${String(
+      d.getMonth() + 1
+    ).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    map[dateKey] = (map[dateKey] || 0) + 1;
   });
-  // Trả về mảng [{date, total}]
+
   return Object.entries(map)
     .map(([date, total]) => ({ date, total }))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 };
+
 
 export function OrdersChart() {
   const isMobile = useIsMobile();
@@ -97,17 +101,20 @@ export function OrdersChart() {
 
   // Hàm fetch cho custom range
   const fetchCustomOrders = async (range) => {
-    setLoading(true);
     if (!range?.from || !range?.to) return;
-    // Format date: yyyy-mm-dd
-    const from = range.from.toISOString().slice(0, 10);
-    const to = range.to.toISOString().slice(0, 10);
-    // Gọi API với format mới
+
+    setLoading(true);
+
+    const from = formatLocalDate(range.from);
+    const to = formatLocalDate(range.to);
+
     const res = await getOrdersByDateRange(from, to);
     const groupedData = groupOrdersByDate(res || []);
+
     setOrderData(groupedData);
     setLoading(false);
   };
+
 
   // Khi chọn custom range
   useEffect(() => {
@@ -124,26 +131,24 @@ export function OrdersChart() {
           <span className="@[540px]/card:block hidden">
             {timeRange === "custom" && customRange?.from && customRange?.to
               ? `Từ ${formatDate(customRange.from)} đến ${formatDate(customRange.to)}`
-              : `Tổng đơn hàng trong ${
-                  timeRange === "7d"
-                    ? "7 ngày gần đây"
-                    : timeRange === "30d"
-                    ? "30 ngày gần đây"
-                    : "3 tháng gần đây"
-                }`}
+              : `Tổng đơn hàng trong ${timeRange === "7d"
+                ? "7 ngày gần đây"
+                : timeRange === "30d"
+                  ? "30 ngày gần đây"
+                  : "3 tháng gần đây"
+              }`}
           </span>
           <span className="@[540px]/card:hidden">
             {timeRange === "custom" && customRange?.from && customRange?.to
               ? `Từ ${customRange.from.toLocaleDateString(
-                  "vi-VN"
-                )} đến ${customRange.to.toLocaleDateString("vi-VN")}`
-              : ` ${
-                  timeRange === "7d"
-                    ? "7 ngày gần đây"
-                    : timeRange === "30d"
-                    ? "30 ngày gần đây"
-                    : "3 tháng gần đây"
-                }`}
+                "vi-VN"
+              )} đến ${customRange.to.toLocaleDateString("vi-VN")}`
+              : ` ${timeRange === "7d"
+                ? "7 ngày gần đây"
+                : timeRange === "30d"
+                  ? "30 ngày gần đây"
+                  : "3 tháng gần đây"
+              }`}
           </span>
         </CardDescription>
         <div className="absolute right-4 top-4 flex items-center gap-2">
@@ -154,7 +159,7 @@ export function OrdersChart() {
           >
             {/* PopoverTrigger ẩn để chỉ dùng Select làm trigger */}
             <PopoverTrigger asChild>
-              <div className="invisible absolute" /> 
+              <div className="invisible absolute" />
             </PopoverTrigger>
 
             <Select
@@ -183,13 +188,13 @@ export function OrdersChart() {
                 <SelectItem value="90d">3 tháng gần đây</SelectItem>
                 <SelectItem value="30d">30 ngày gần đây</SelectItem>
                 <SelectItem value="7d">7 ngày gần đây</SelectItem>
-                
+
                 {/* Dùng onPointerUp hoặc logic onSelect của Radix để bắt cú click lại */}
-                <SelectItem 
-                  value="custom" 
+                <SelectItem
+                  value="custom"
                   onPointerUp={(e) => {
                     if (timeRange === "custom") {
-                        setCalendarOpen(true);
+                      setCalendarOpen(true);
                     }
                   }}
                 >
@@ -209,6 +214,12 @@ export function OrdersChart() {
                   setCustomRange(range);
                   // Nếu muốn đóng ngay sau khi chọn xong cả 2 ngày:
                   // if (range?.from && range?.to) setCalendarOpen(false);
+                  if (range == null) {
+                    setCalendarOpen(false);
+                    setCustomRange(null);
+                    setTimeRange("90d"); // Quay về mặc định 90d khi hủy chọn
+                  }
+
                 }}
               />
             </PopoverContent>

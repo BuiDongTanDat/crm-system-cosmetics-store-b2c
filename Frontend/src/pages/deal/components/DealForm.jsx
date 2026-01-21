@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import DropdownOptions from "@/components/common/DropdownOptions";
 import { Input } from "@/components/ui/input";
-import { Edit, Save, Trash2, Loader2 } from "lucide-react";
+import { Edit, Save, Trash2, Loader2, ClosedCaptionIcon, X } from "lucide-react";
 import { mockEmployees } from "@/lib/data";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 import { createLead, updateLead } from "@/services/leads";
 import { formatCurrency } from "@/utils/helper";
+import { Close } from "@radix-ui/react-dialog";
 
 const priorityOptions = [
   { value: "high", label: "Cao" },
@@ -27,13 +28,23 @@ const sourceOptions = [
 ];
 
 const statusOptions = [
-  { value: "leads", label: "Leads", stage: "leads" },
-  { value: "contacted", label: "Contacted", stage: "contacted" },
-  { value: "qualified", label: "Qualified", stage: "qualified" },
-  { value: "nurturing ", label: "Nurturing", stage: "nurturing " },
-  { value: "converted", label: "Converted", stage: "converted" },
-  { value: "closed-lost", label: "Closed-Lost", stage: "closed-lost" },
+  { value: "new", label: "NEW", stage: "new" },
+  { value: "contacted", label: "CONTACTED", stage: "contacted" },
+  { value: "qualified", label: "QUALIFIED", stage: "qualified" },
+  { value: "nurturing", label: "NURTURING", stage: "nurturing" },
+  { value: "converted", label: "CONVERTED", stage: "converted" },
+  { value: "closed-lost", label: "CLOSED-LOST", stage: "closed-lost" },
 ];
+
+// Define valid state transitions 
+const stateTransitions = {
+  new: [ "contacted", "closed-lost"],
+  contacted: [ "qualified", "closed-lost"],
+  qualified: [ "nurturing", "converted", "closed-lost"],
+  nurturing: ["qualified", "converted", "closed-lost"],
+  converted: [],
+  "closed-lost": [],
+};
 
 export function DealForm({
   mode = "view",
@@ -68,6 +79,8 @@ export function DealForm({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showStatusTransition, setShowStatusTransition] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
 
   const isProductAvailable = (product) => {
     const status = (product?.status || product?.product_status || "").toUpperCase();
@@ -156,16 +169,32 @@ export function DealForm({
         interactions: data.interactions || [],
       });
     }
+    setShowStatusTransition(false);
+    setPendingStatusChange(null);
     setMode?.("view");
   };
 
   const handleStatusChange = (newStatus) => {
     const statusOption = statusOptions.find((s) => s.value === newStatus);
-    setForm((prev) => ({
-      ...prev,
-      status: newStatus,
-      stage: statusOption?.stage || newStatus,
-    }));
+    setPendingStatusChange(newStatus);
+    setShowStatusTransition(false);
+    //toast.info(`Sẽ chuyển trạng thái sang ${statusOption?.label || newStatus} khi lưu`);
+  };
+
+  const cancelStatusChange = () => {
+    setPendingStatusChange(null);
+    //toast.info("Đã hủy thay đổi trạng thái");
+  };
+
+  const getNextValidStates = () => {
+    const currentStatus = form.status || "new";
+    const validNextStates = stateTransitions[currentStatus] || [];
+    return statusOptions.filter((s) => validNextStates.includes(s.value));
+  };
+
+  const canTransitionStatus = () => {
+    const currentStatus = form.status || "new";
+    return stateTransitions[currentStatus]?.length > 0;
   };
 
   const handleSubmit = async () => {
@@ -196,6 +225,7 @@ export function DealForm({
         toast.success("Tạo lead thành công!");
         onSave?.({ ...form, shouldRefresh: true });
       } else {
+        const updatedStatus = pendingStatusChange || form.status; // Thêm trạng thái cập nhật nếu có
         // Updating existing lead - call API
         const payload = {
           name: form.name,
@@ -206,21 +236,18 @@ export function DealForm({
           notes: form.notes || null,
           deal_name: form.title,
           assigned_to: form.assigneeId || null,
+          status: updatedStatus, 
         };
 
         await updateLead(data.id, payload);
         toast.success("Cập nhật lead thành công!");
 
-        const updated = {
-          ...form,
-          value: Number(form.value) || 0,
+        setPendingStatusChange(null);
+        onSave?.({ 
+          ...form, 
           id: data.id,
-          createdDate: data.createdDate || new Date().toISOString().split("T")[0],
-          lastActivity: new Date().toISOString().split("T")[0],
-        };
-
-        // Don't call setMode here - let parent handle it
-        onSave?.(updated);
+          status: updatedStatus, 
+          shouldRefresh: true });
       }
     } catch (error) {
       console.error("Failed to save lead:", error);
@@ -322,14 +349,69 @@ export function DealForm({
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">
                   Trạng thái
-                  <span className="text-xs text-gray-500 ml-1"></span>
                 </label>
-                <Input
-                  variant="normal"
-                  value={form.status.toUpperCase()}
-                  //onChange={(val) => handleStatusChange(val)}
-                  disabled={true}
-                />
+                <div className="flex gap-2">
+                  {!pendingStatusChange ? (
+                    <Input
+                      variant="normal"
+                      value={(statusOptions.find(s => s.value === form.status)?.label || form.status).toUpperCase()}
+                      disabled={true}
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          {(statusOptions.find(s => s.value === form.status)?.label || form.status).toUpperCase()}
+                        </span>
+                        <span className="text-blue-600">→</span>
+                        <span className="text-sm font-semibold text-blue-700">
+                          {(statusOptions.find(s => s.value === pendingStatusChange)?.label || pendingStatusChange).toUpperCase()}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className ="!p-1 !w-6 !h-6 text-red-600"
+                        onClick={cancelStatusChange}
+                      >
+                        <X size={16} />
+                      </Button>
+                    </div>
+                  )}
+                  {mode === "edit" && canTransitionStatus() && !pendingStatusChange && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowStatusTransition(!showStatusTransition)}
+                      className="whitespace-nowrap"
+                    >
+                      Chuyển trạng thái
+                    </Button>
+                  )}
+                </div>
+                {pendingStatusChange && mode === "edit" && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                   </p>
+                )}
+                {showStatusTransition && mode === "edit" && (
+                  <div className="animate-fade-in transition duration-150 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                    <p className="text-xs text-blue-700 font-medium">Chọn trạng thái tiếp theo:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {getNextValidStates().map((status) => (
+                        <Button
+                          key={status.value}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStatusChange(status.value)}
+                          className="text-xs"
+                        >
+                          {status.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

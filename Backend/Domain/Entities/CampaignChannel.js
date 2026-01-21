@@ -42,6 +42,7 @@ CampaignChannel.init({
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   settings: { type: DataTypes.JSONB, defaultValue: {} },
+  // Click-Through Rate
   ctr: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -50,6 +51,7 @@ CampaignChannel.init({
       return imp > 0 ? clk / imp : 0;
     }
   },
+  //Cost Per Click
   cpc: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -58,6 +60,7 @@ CampaignChannel.init({
       return clk > 0 ? cost / clk : 0;
     }
   },
+  //Cost Per Acquisition/Action)
   cpa: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -66,6 +69,7 @@ CampaignChannel.init({
       return cv > 0 ? cost / cv : 0;
     }
   },
+  // Return On Ad Spend 
   roas: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -74,6 +78,7 @@ CampaignChannel.init({
       return cost > 0 ? rev / cost : 0;
     }
   },
+  // Tỷ lệ mở mail
   open_rate: {
     type: DataTypes.VIRTUAL,
     get() {
@@ -82,6 +87,7 @@ CampaignChannel.init({
       return delivered > 0 ? opensU / delivered : 0;
     }
   },
+  // Tỷ lệ click email
   click_rate: {
     type: DataTypes.VIRTUAL,
     get() {

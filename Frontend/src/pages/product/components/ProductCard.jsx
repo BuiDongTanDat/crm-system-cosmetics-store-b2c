@@ -33,7 +33,7 @@ const ProductCard = ({ product, onView, onEdit, onDelete }) => {
 
           <span
             className={`ml-3 px-2 py-1 text-[10px] font-medium rounded-full whitespace-nowrap ${((product.status || '').toString().toUpperCase() === 'AVAILABLE')
-              ? 'bg-cyan-100 text-brand'
+              ? 'bg-green-100 text-green-800'
               : 'bg-red-100 text-destructive'
               }`}
           >

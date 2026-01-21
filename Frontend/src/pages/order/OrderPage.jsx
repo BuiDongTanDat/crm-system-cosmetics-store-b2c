@@ -6,17 +6,12 @@ import {
   Eye,
   Edit,
   Trash2,
-  Filter,
-  PackagePlus,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Loader,
+  List,
+  Square,
 } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import OrderForm from "@/pages/order/components/OrderForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 
@@ -37,6 +32,7 @@ import DropdownWithSearch from "@/components/common/DropdownWithSearch";
 import { Input } from "@/components/ui/input";
 import PermissionGuard from "@/components/auth/PermissionGuard";
 import DateRangeButtonPicker from "@/components/common/DateRangeButtonPicker";
+import Loading from "@/components/common/Loading";
 
 export default function OrderPage() {
   const [orders, setOrders] = useState([]);
@@ -44,6 +40,11 @@ export default function OrderPage() {
   const [products, setProducts] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [dateRange, setDateRange] = useState({ from: null, to: null });
+  const [loading, setLoading] = useState(false);
+
+  // View mode: 'table' or 'card'
+  const [viewMode, setViewMode] = useState("table");
+
   // Nhãn tiếng Việt cho payment methods
   const PAYMENT_LABELS = {
     credit_card: "Thẻ tín dụng",
@@ -68,33 +69,41 @@ export default function OrderPage() {
   // Danh sách trạng thái đơn hàng bind từ status_labels
   const ORDER_STATUSES_LIST = Object.keys(STATUS_LABELS);
 
+  // 1. Tách hàm fetch sản phẩm để có thể tái sử dụng
+  const fetchProducts = async () => {
+    try {
+      const productsRes = await getProducts();
+      const freshProducts = productsRes?.data || productsRes || [];
+      setProducts(freshProducts);
+      return freshProducts;
+    } catch (err) {
+      console.error("Load products failed:", err);
+      return [];
+    }
+  };
+
+  // 2. Cập nhật useEffect ban đầu
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
 
-    Promise.all([getOrders(), getProducts(), getCustomers()])
-      .then(([ordersRes, productsRes, customersRes]) => {
+    Promise.all([getOrders(), fetchProducts(), getCustomers()])
+      .then(([ordersRes, freshProducts, customersRes]) => {
         if (!mounted) return;
 
-        const ordersList = Array.isArray(ordersRes)
-          ? ordersRes
-          : ordersRes?.data || [];
-
-        const products = productsRes?.data || productsRes || [];
-        setProducts(products);
-
-        // Thêm phần xử lý customers
-        const customers = customersRes?.data || customersRes || [];
-        setCustomers(customers);
+        const ordersList = Array.isArray(ordersRes) ? ordersRes : ordersRes?.data || [];
+        const customersList = customersRes?.data || customersRes || [];
+        setCustomers(customersList);
 
         const productMap = Object.fromEntries(
-          products.map((p) => [p.product_id || p.id, p])
+          freshProducts.map((p) => [String(p.product_id || p.id), p])
         );
 
         const enrichedOrders = ordersList.map((o) => ({
           ...o,
-          customer_name: o.customer_name || o.customer_id, // dùng trực tiếp
+          customer_name: o.customer_name || o.customer_id,
           items: (o.items || []).map((it) => {
-            const prod = productMap[it.product_id];
+            const prod = productMap[String(it.product_id)];
             let disc = Number(it.discount ?? it.discount_percent ?? 0);
             if (disc > 1) disc = disc / 100;
 
@@ -105,18 +114,18 @@ export default function OrderPage() {
               discount: disc,
             };
           }),
-        }));
+        })).sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
 
         setOrders(enrichedOrders);
       })
       .catch((err) => {
         console.error("Load orders failed:", err);
-        setOrders([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -170,10 +179,17 @@ export default function OrderPage() {
     let matchesDate = true;
     if (dateRange?.from && dateRange?.to) {
       const orderDate = new Date(order.order_date);
+
       const filterStart = new Date(dateRange.from);
+      filterStart.setHours(0, 0, 0, 0);
+
       const filterEnd = new Date(dateRange.to);
-      matchesDate = orderDate >= filterStart && orderDate <= filterEnd;
+      filterEnd.setHours(23, 59, 59, 999); // Cuối ngày
+
+      matchesDate =
+        orderDate >= filterStart && orderDate <= filterEnd;
     }
+
 
     return matchesSearch && matchesStatus && matchesCustomer && matchesDate;
   });
@@ -249,148 +265,78 @@ export default function OrderPage() {
   };
   const handleSave = async (payload) => {
     const customerMap = Object.fromEntries(
-      (customers || []).map((c) => [
-        c.customer_id || c.id,
-        c.full_name || c.fullName || c.name || "",
-      ])
-    );
-    const productMap = Object.fromEntries(
-      (products || []).map((p) => [p.product_id || p.id, p])
+      (customers || []).map((c) => [String(c.customer_id || c.id), c.full_name || c.name || ""])
     );
 
     try {
+      let savedOrder;
+      let isStatusOnly = false;
+
       if (payload.order_id) {
-        const original = orders.find(
-          (o) => String(o.order_id) === String(payload.order_id)
-        );
+        const original = orders.find(o => String(o.order_id) === String(payload.order_id));
+
         if (original && isOnlyStatusUpdate(original, payload)) {
-          const res = await updateOrderStatus(payload.order_id, {
-            status: payload.status,
-          });
-          const saved = res?.data ||
-            res || { ...original, status: payload.status };
-          // Update state tối thiểu cho bảng
-          setOrders((prev) =>
-            prev.map((o) =>
-              String(o.order_id) === String(payload.order_id)
-                ? { ...o, status: saved.status, _updatedAt: Date.now() }
-                : o
-            )
-          );
-          toast.success("Cập nhật trạng thái đơn hàng thành công!");
-          return;
+          isStatusOnly = true;
+          const res = await updateOrderStatus(payload.order_id, { status: payload.status });
+          savedOrder = { ...original, ...res?.data, status: payload.status };
+        } else {
+          const res = await updateOrder(payload.order_id, payload);
+          savedOrder = res?.data || res;
         }
-        // Update
-        const res = await updateOrder(payload.order_id, payload);
-        const saved = res?.data || res || payload;
-        console.log("Saved order response:", saved);
-
-        const enrichedForTable = {
-          ...saved,
-          order_id: String(saved.order_id),
-          customer_name:
-            customerMap[saved.customer_id] ||
-            saved.customer_name ||
-            saved.customer_id,
-          items: (saved.items || []).map((it) => {
-            const prod = productMap[it.product_id];
-            const qty = Number(it.quantity ?? it.qty ?? 0);
-            const unit = Number(
-              it.unit_price ?? it.price ?? prod?.price_current ?? 0
-            );
-            let rawDisc = it.discount ?? it.discount_percent ?? 0;
-            let disc = Number(rawDisc) || 0;
-            if (disc > 1) disc = disc / 100;
-            const original_price =
-              Number(
-                it.price_original ??
-                  it.original_price ??
-                  prod?.price_original ??
-                  0
-              ) || unit;
-            return {
-              order_detail_id:
-                it.order_detail_id || it.id || `local-${Date.now()}`,
-              product_id: it.product_id || null,
-              product_name: it.product_name || prod?.name || "",
-              quantity: qty,
-              price: unit,
-              original_price,
-              discount: disc,
-              subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
-            };
-          }),
-        };
-
-        setOrders((prev) =>
-          prev.map((o) =>
-            String(o.order_id) === String(enrichedForTable.order_id)
-              ? { ...enrichedForTable, _updatedAt: Date.now() } // force re-render
-              : o
-          )
-        );
-        console.log("Enriched updated order:", enrichedForTable);
-
-        toast.success("Cập nhật đơn hàng thành công!");
-        return;
+      } else {
+        const res = await createOrder(payload);
+        savedOrder = res?.data || res;
       }
 
-      // Create
-      const res = await createOrder(payload);
-      const created = res?.data || res || payload;
-      const newId =
-        created.order_id ||
-        created.id ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `local-${Date.now()}`);
+      // --- CẬP NHẬT TỒN KHO SAU KHI LƯU THÀNH CÔNG ---
+      const freshProducts = await fetchProducts();
+      const freshProductMap = Object.fromEntries(
+        freshProducts.map((p) => [String(p.product_id || p.id), p])
+      );
 
+      // --- ENRICH DỮ LIỆU MỚI ---
       const enriched = {
-        ...created,
-        order_id: newId,
+        ...savedOrder,
+        order_id: String(savedOrder.order_id || payload.order_id),
         customer_name:
-          customerMap[created.customer_id] ||
-          created.customer_name ||
-          created.customer_id,
-        items: (created.items || payload.items || []).map((it) => {
-          const prod = productMap[it.product_id];
+          customerMap[String(savedOrder.customer_id)] ||
+          savedOrder.customer_name ||
+          payload.customer_name ||
+          "Khách hàng",
+        items: (savedOrder.items || payload.items || []).map((it) => {
+          const prod = freshProductMap[String(it.product_id)];
           const qty = Number(it.quantity ?? it.qty ?? 0);
-          const unit = Number(
-            it.unit_price ?? it.price ?? prod?.price_current ?? 0
-          );
-          let rawDisc = it.discount ?? it.discount_percent ?? 0;
-          let disc = Number(rawDisc) || 0;
+          const unit = Number(it.unit_price || it.price || prod?.price_current || 0);
+          let disc = Number(it.discount ?? it.discount_percent ?? 0);
           if (disc > 1) disc = disc / 100;
-          const original_price =
-            Number(
-              it.price_original ??
-                it.original_price ??
-                prod?.price_original ??
-                0
-            ) || unit;
+
           return {
-            order_detail_id:
-              it.order_detail_id || it.id || `local-${Date.now()}`,
-            product_id: it.product_id || null,
+            ...it,
             product_name: it.product_name || prod?.name || "",
             quantity: qty,
             price: unit,
-            original_price,
             discount: disc,
-            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
+            subtotal: qty * unit,
+            inventory_qty: prod?.inventory_qty ?? 0 // Cập nhật luôn tồn kho vào item
           };
         }),
+        _updatedAt: Date.now(),
       };
 
-      setOrders((prev) => [enriched, ...prev]);
+      if (payload.order_id) {
+        setOrders(prev => prev.map(o => String(o.order_id) === String(payload.order_id) ? enriched : o));
+      } else {
+        setOrders(prev => [enriched, ...prev]);
+      }
 
-      // Reset modal state to trigger table re-render
-      setModal({ open: false, mode: "view", order: null });
+      setModal(prev => ({ ...prev, order: enriched }));
 
-      toast.success("Thêm đơn hàng thành công!");
+      toast.success(payload.order_id ? "Cập nhật thành công!" : "Tạo đơn hàng thành công!");
+      return true;
     } catch (err) {
       console.error("Lỗi khi lưu đơn hàng:", err);
-      toast.error("Có lỗi khi lưu đơn hàng");
+      toast.error(err.response?.data?.error || "Có lỗi khi lưu đơn hàng");
+      throw err;
     }
   };
 
@@ -469,6 +415,14 @@ export default function OrderPage() {
     return statusMap[status] || `${baseClass} bg-gray-100 text-gray-800`;
   };
 
+  if (loading && orders.length === 0) {
+    return (
+      <div>
+        <Loading />
+      </div>
+    );
+  }
+
   return (
     <div className=" flex flex-col">
       {/* Sticky header*/}
@@ -478,15 +432,35 @@ export default function OrderPage() {
       >
         {/* Header: */}
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          {/* Cụm trái: Tiêu đề */}
-          <div className="flex items-center gap-2 mb-2 lg:mb-0">
+          {/* Cụm trái: Tiêu đề và toggle */}
+          <div className="flex items-center gap-2 mb-2 lg:mb-0 justify-between w-full lg:w-auto">
             <h1 className="text-xl font-bold text-gray-900 lg:text-xl">
               Danh sách đơn hàng ({filteredOrders.length})
             </h1>
+
+            {/* View mode toggle */}
+            <div className="flex gap-0">
+              <Button
+                variant={viewMode === "card" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("card")}
+                className="rounded-none rounded-tl-md rounded-bl-md"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "actionCreate" : "actionNormal"}
+                size="icon"
+                onClick={() => setViewMode("table")}
+                className="rounded-none rounded-tr-md rounded-br-md"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
+
           {/* Cụm phải: Search, Filter, Thêm, Import/Export */}
-          <div className="flex flex-col gap-2 w-full   lg:gap-2 lg:w-auto">
-            <div></div>
+          <div className="flex flex-col gap-2 w-full lg:gap-2 lg:w-auto">
             <div className="flex flex-row gap-2 w-full justify-end ">
               {/* Search */}
               <div className="relative w-full lg:w-56">
@@ -510,22 +484,11 @@ export default function OrderPage() {
                     <span className="">Thêm Đơn hàng</span>
                   </Button>
                 </PermissionGuard>
-                {/* Import/Export Dropdown */}
-                {/* <ImportExportDropdown
-                                data={orders}
-                                filename="orders"
-                                fieldMapping={orderFieldMapping}
-                                onImportSuccess={handleImportSuccess}
-                                onImportError={handleImportError}
-                                trigger="icon"
-                                variant="actionNormal"
-                                className="w-10 h-10 shrink"
-                            /> */}
               </div>
             </div>
 
             {/* Filter row: Trạng thái + Khách hàng + Ngày */}
-            <div className="flex flex-row gap-2 w-full">
+            <div className="flex flex-col md:flex-row gap-2 w-full">
               <DropdownOptions
                 options={[
                   { value: "", label: "Tất cả trạng thái" },
@@ -562,19 +525,19 @@ export default function OrderPage() {
                 placeholder={
                   selectedCustomer
                     ? customers.find(
-                        (c) => (c.customer_id || c.id) === selectedCustomer
-                      )?.full_name || selectedCustomer
+                      (c) => (c.customer_id || c.id) === selectedCustomer
+                    )?.full_name || selectedCustomer
                     : "Tất cả khách hàng"
                 }
                 searchPlaceholder="Tìm kiếm khách hàng..."
-                contentClassName="max-h-64 overflow-y-auto"
+                contentClassName="cursor-pointer"
               >
                 <div className="h-9 lg:w-auto flex flex-1 items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
                   <div className="text-sm truncate">
                     {selectedCustomer
                       ? customers.find(
-                          (c) => (c.customer_id || c.id) === selectedCustomer
-                        )?.full_name || selectedCustomer
+                        (c) => (c.customer_id || c.id) === selectedCustomer
+                      )?.full_name || selectedCustomer
                       : "Tất cả khách hàng"}
                   </div>
                   <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -591,96 +554,223 @@ export default function OrderPage() {
 
       {/* Scrollable content: */}
       <div className="flex-1 p-0 ">
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="w-full">
-            <table className="w-full table-fixed">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Người đặt hàng",
-                    "Ngày đặt hàng",
-                    "Tổng giá trị",
-                    "Phương thức thanh toán",
-                    "Trạng thái",
-                    "",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" /* reduced vertical padding */
+        {/* Table View */}
+        {viewMode === "table" && (
+          <div className="animate-fade-in transition duration-150 bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full  ">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "Người đặt hàng",
+                      "Ngày đặt hàng",
+                      "Tổng giá trị",
+                      "Phương thức thanh toán",
+                      "Trạng thái",
+                      "",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" /* reduced vertical padding */
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentOrders.map((order) => (
+                    <tr
+                      key={order.order_id}
+                      className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
+                      onMouseEnter={() => setHoveredRow(order.order_id)}
+                      onMouseLeave={() => setHoveredRow(null)}
                     >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentOrders.map((order) => (
-                  <tr
-                    key={order.order_id}
-                    className="group relative hover:bg-gray-50 transition-colors cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(order.order_id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                  >
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {/* API returns customer_id; if customer_name exists prefer that */}
-                      {order.customer_name || order.customer_id || "N/A"}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {formatDateTime(order.order_date)}{" "}
-                      {/* Ensure correct timezone */}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {formatCurrency(order.total_amount || order.total || 0)}
-                    </td>
-                    <td className="px-4 py-2 text-center text-sm text-gray-900">
-                      {" "}
-                      {/* reduced padding */}
-                      {PAYMENT_LABELS[order.payment_method] ||
-                        order.payment_method}
-                    </td>
-                    <td className="px-4 py-2 text-center w-32">
-                      {" "}
-                      {/* reduced padding */}
-                      <span className={getStatusBadge(order.status)}>
-                        {STATUS_LABELS[order.status] ||
-                          String(order.status || "").toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-center w-36">
-                      {" "}
-                      {/* reduced padding */}
-                      <div
-                        className={`flex justify-center gap-1 transition-all duration-200 ${
-                          hoveredRow === order.order_id
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {/* API returns customer_id; if customer_name exists prefer that */}
+                        {order.customer_name || order.customer_id || "N/A"}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {formatDateTime(order.order_date)}{" "}
+                        {/* Ensure correct timezone */}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {formatCurrency(order.total_amount || order.total || 0)}
+                      </td>
+                      <td className="px-4 py-2 text-center text-sm text-gray-900">
+                        {" "}
+                        {/* reduced padding */}
+                        {PAYMENT_LABELS[order.payment_method] ||
+                          order.payment_method}
+                      </td>
+                      <td className="px-4 py-2 text-center w-32">
+                        {" "}
+                        {/* reduced padding */}
+                        <span className={getStatusBadge(order.status)}>
+                          {STATUS_LABELS[order.status] ||
+                            String(order.status || "").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-center w-36">
+                        {" "}
+                        {/* reduced padding */}
+                        <div
+                          className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.order_id
                             ? "opacity-100 translate-y-0 pointer-events-auto"
                             : "opacity-0 translate-y-1 pointer-events-none"
-                        }`}
-                      >
+                            }`}
+                        >
+                          <PermissionGuard module="order" action="read">
+                            <Button
+                              variant="actionRead"
+                              size="icon"
+                              onClick={() => handleView(order)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="order" action="update">
+                            <Button
+                              variant="actionUpdate"
+                              size="icon"
+                              onClick={() => handleEdit(order)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard module="order" action="delete">
+                            <ConfirmDialog
+                              title="Xác nhận xóa"
+                              description={
+                                <>
+                                  Bạn có chắc chắn muốn xóa đơn hàng{" "}
+                                  <span className="font-semibold">
+                                    {order.order_id}
+                                  </span>
+                                  ?
+                                </>
+                              }
+                              confirmText="Xóa"
+                              cancelText="Hủy"
+                              onConfirm={() => handleDelete(order.order_id)}
+                            >
+                              <Button
+                                variant="actionDelete"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </ConfirmDialog>
+                          </PermissionGuard>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Trạng thái rỗng */}
+                  {currentOrders.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="text-center py-8 text-gray-500">
+                        Không có Đơn hàng
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Card View */}
+        {viewMode === "card" && (
+          <div className="mb-4">
+            {currentOrders.length === 0 ? (
+              <div className="bg-white rounded-md border p-8 text-center text-gray-500">
+                Không có đơn hàng
+              </div>
+            ) : (
+              <div className="animate-fade-in transition duration-150 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {currentOrders.map((order) => (
+                  <div
+                    key={order.order_id}
+                    className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                  >
+                    <div className="p-4 flex flex-col h-full">
+                      {/* Header: Mã đơn và Badge Trạng thái */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900  line-clamp-1 mb-1">
+                            #{order.order_id}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {order.customer_name || order.customer_id || "N/A"}
+                          </p>
+                        </div>
+                        <span className={getStatusBadge(order.status)}>
+                          {STATUS_LABELS[order.status] ||
+                            String(order.status || "").toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Thông tin chi tiết */}
+                      <div className="flex-grow space-y-2 mb-4 text-sm">
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Ngày đặt:
+                          </span>
+                          <span className="text-gray-900">
+                            {formatDateTime(order.order_date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Tổng giá trị:
+                          </span>
+                          <span className="text-gray-900 font-semibold">
+                            {formatCurrency(order.total_amount || order.total || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-start text-gray-600">
+                          <span className="font-medium min-w-[100px]">
+                            Thanh toán:
+                          </span>
+                          <span className="text-gray-900 break-all line-clamp-1">
+                            {PAYMENT_LABELS[order.payment_method] ||
+                              order.payment_method}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons - Hiển thị đầy đủ như table */}
+                      <div className="flex gap-2 w-full border-t pt-2 mt-auto">
                         <PermissionGuard module="order" action="read">
                           <Button
                             variant="actionRead"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleView(order)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4 mr-1" />
+                            Xem
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="order" action="update">
                           <Button
                             variant="actionUpdate"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleEdit(order)}
-                            className="h-8 w-8"
+                            className="h-9 flex-1"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-4 h-4 mr-1" />
+                            Sửa
                           </Button>
                         </PermissionGuard>
                         <PermissionGuard module="order" action="delete">
@@ -701,29 +791,22 @@ export default function OrderPage() {
                           >
                             <Button
                               variant="actionDelete"
-                              size="icon"
-                              className="h-8 w-8"
+                              size="sm"
+                              className="h-9 flex-1"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Xóa
                             </Button>
                           </ConfirmDialog>
                         </PermissionGuard>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-                {/* Trạng thái rỗng */}
-                {currentOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-500">
-                      Không có Đơn hàng
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Pagination */}
         <AppPagination
@@ -741,8 +824,8 @@ export default function OrderPage() {
             modal.mode === "create"
               ? "create"
               : modal.mode === "edit"
-              ? "update"
-              : "read"
+                ? "update"
+                : "read"
           }
         >
           <AppDialog
@@ -760,6 +843,7 @@ export default function OrderPage() {
             onDelete={handleDelete}
             paymentLabels={PAYMENT_LABELS}
             statusLabels={STATUS_LABELS}
+            products={products} 
             maxWidth="sm:max-w-5xl"
             setMode={(m) =>
               setModal((prev) => {
@@ -776,3 +860,4 @@ export default function OrderPage() {
     </div>
   );
 }
+

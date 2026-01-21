@@ -61,7 +61,7 @@ class YouTubeService {
     }
 
     async saveTokens(tokens) {
-        await fs.writeFile(this.tokenFile, JSON.stringify(tokens, null, 2));
+        //await fs.writeFile(this.tokenFile, JSON.stringify(tokens, null, 2));
         console.log('Tokens saved');
     }
 
