@@ -6,19 +6,12 @@ import {
   Eye,
   Edit,
   Trash2,
-  Filter,
-  PackagePlus,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Loader,
   List,
   Square,
 } from "lucide-react";
 import AppDialog from "@/components/dialogs/AppDialog";
 import OrderForm from "@/pages/order/components/OrderForm";
 import AppPagination from "@/components/pagination/AppPagination";
-import ImportExportDropdown from "@/components/common/ImportExportDropdown";
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 import { toast } from "sonner";
 
@@ -76,34 +69,41 @@ export default function OrderPage() {
   // Danh sách trạng thái đơn hàng bind từ status_labels
   const ORDER_STATUSES_LIST = Object.keys(STATUS_LABELS);
 
+  // 1. Tách hàm fetch sản phẩm để có thể tái sử dụng
+  const fetchProducts = async () => {
+    try {
+      const productsRes = await getProducts();
+      const freshProducts = productsRes?.data || productsRes || [];
+      setProducts(freshProducts);
+      return freshProducts;
+    } catch (err) {
+      console.error("Load products failed:", err);
+      return [];
+    }
+  };
+
+  // 2. Cập nhật useEffect ban đầu
   useEffect(() => {
     let mounted = true;
     setLoading(true);
 
-    Promise.all([getOrders(), getProducts(), getCustomers()])
-      .then(([ordersRes, productsRes, customersRes]) => {
+    Promise.all([getOrders(), fetchProducts(), getCustomers()])
+      .then(([ordersRes, freshProducts, customersRes]) => {
         if (!mounted) return;
 
-        const ordersList = Array.isArray(ordersRes)
-          ? ordersRes
-          : ordersRes?.data || [];
-
-        const products = productsRes?.data || productsRes || [];
-        setProducts(products);
-
-        // Thêm phần xử lý customers
-        const customers = customersRes?.data || customersRes || [];
-        setCustomers(customers);
+        const ordersList = Array.isArray(ordersRes) ? ordersRes : ordersRes?.data || [];
+        const customersList = customersRes?.data || customersRes || [];
+        setCustomers(customersList);
 
         const productMap = Object.fromEntries(
-          products.map((p) => [p.product_id || p.id, p])
+          freshProducts.map((p) => [String(p.product_id || p.id), p])
         );
 
         const enrichedOrders = ordersList.map((o) => ({
           ...o,
-          customer_name: o.customer_name || o.customer_id, // dùng trực tiếp
+          customer_name: o.customer_name || o.customer_id,
           items: (o.items || []).map((it) => {
-            const prod = productMap[it.product_id];
+            const prod = productMap[String(it.product_id)];
             let disc = Number(it.discount ?? it.discount_percent ?? 0);
             if (disc > 1) disc = disc / 100;
 
@@ -114,21 +114,18 @@ export default function OrderPage() {
               discount: disc,
             };
           }),
-        }));
+        })).sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
 
         setOrders(enrichedOrders);
       })
       .catch((err) => {
         console.error("Load orders failed:", err);
-        setOrders([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);
       });
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -182,10 +179,17 @@ export default function OrderPage() {
     let matchesDate = true;
     if (dateRange?.from && dateRange?.to) {
       const orderDate = new Date(order.order_date);
+
       const filterStart = new Date(dateRange.from);
+      filterStart.setHours(0, 0, 0, 0);
+
       const filterEnd = new Date(dateRange.to);
-      matchesDate = orderDate >= filterStart && orderDate <= filterEnd;
+      filterEnd.setHours(23, 59, 59, 999); // Cuối ngày
+
+      matchesDate =
+        orderDate >= filterStart && orderDate <= filterEnd;
     }
+
 
     return matchesSearch && matchesStatus && matchesCustomer && matchesDate;
   });
@@ -261,148 +265,78 @@ export default function OrderPage() {
   };
   const handleSave = async (payload) => {
     const customerMap = Object.fromEntries(
-      (customers || []).map((c) => [
-        c.customer_id || c.id,
-        c.full_name || c.fullName || c.name || "",
-      ])
-    );
-    const productMap = Object.fromEntries(
-      (products || []).map((p) => [p.product_id || p.id, p])
+      (customers || []).map((c) => [String(c.customer_id || c.id), c.full_name || c.name || ""])
     );
 
     try {
+      let savedOrder;
+      let isStatusOnly = false;
+
       if (payload.order_id) {
-        const original = orders.find(
-          (o) => String(o.order_id) === String(payload.order_id)
-        );
+        const original = orders.find(o => String(o.order_id) === String(payload.order_id));
+
         if (original && isOnlyStatusUpdate(original, payload)) {
-          const res = await updateOrderStatus(payload.order_id, {
-            status: payload.status,
-          });
-          const saved = res?.data ||
-            res || { ...original, status: payload.status };
-          // Update state tối thiểu cho bảng
-          setOrders((prev) =>
-            prev.map((o) =>
-              String(o.order_id) === String(payload.order_id)
-                ? { ...o, status: saved.status, _updatedAt: Date.now() }
-                : o
-            )
-          );
-          toast.success("Cập nhật trạng thái đơn hàng thành công!");
-          return;
+          isStatusOnly = true;
+          const res = await updateOrderStatus(payload.order_id, { status: payload.status });
+          savedOrder = { ...original, ...res?.data, status: payload.status };
+        } else {
+          const res = await updateOrder(payload.order_id, payload);
+          savedOrder = res?.data || res;
         }
-        // Update
-        const res = await updateOrder(payload.order_id, payload);
-        const saved = res?.data || res || payload;
-        console.log("Saved order response:", saved);
-
-        const enrichedForTable = {
-          ...saved,
-          order_id: String(saved.order_id),
-          customer_name:
-            customerMap[saved.customer_id] ||
-            saved.customer_name ||
-            saved.customer_id,
-          items: (saved.items || []).map((it) => {
-            const prod = productMap[it.product_id];
-            const qty = Number(it.quantity ?? it.qty ?? 0);
-            const unit = Number(
-              it.unit_price ?? it.price ?? prod?.price_current ?? 0
-            );
-            let rawDisc = it.discount ?? it.discount_percent ?? 0;
-            let disc = Number(rawDisc) || 0;
-            if (disc > 1) disc = disc / 100;
-            const original_price =
-              Number(
-                it.price_original ??
-                  it.original_price ??
-                  prod?.price_original ??
-                  0
-              ) || unit;
-            return {
-              order_detail_id:
-                it.order_detail_id || it.id || `local-${Date.now()}`,
-              product_id: it.product_id || null,
-              product_name: it.product_name || prod?.name || "",
-              quantity: qty,
-              price: unit,
-              original_price,
-              discount: disc,
-              subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
-            };
-          }),
-        };
-
-        setOrders((prev) =>
-          prev.map((o) =>
-            String(o.order_id) === String(enrichedForTable.order_id)
-              ? { ...enrichedForTable, _updatedAt: Date.now() } // force re-render
-              : o
-          )
-        );
-        console.log("Enriched updated order:", enrichedForTable);
-
-        toast.success("Cập nhật đơn hàng thành công!");
-        return;
+      } else {
+        const res = await createOrder(payload);
+        savedOrder = res?.data || res;
       }
 
-      // Create
-      const res = await createOrder(payload);
-      const created = res?.data || res || payload;
-      const newId =
-        created.order_id ||
-        created.id ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `local-${Date.now()}`);
+      // --- CẬP NHẬT TỒN KHO SAU KHI LƯU THÀNH CÔNG ---
+      const freshProducts = await fetchProducts();
+      const freshProductMap = Object.fromEntries(
+        freshProducts.map((p) => [String(p.product_id || p.id), p])
+      );
 
+      // --- ENRICH DỮ LIỆU MỚI ---
       const enriched = {
-        ...created,
-        order_id: newId,
+        ...savedOrder,
+        order_id: String(savedOrder.order_id || payload.order_id),
         customer_name:
-          customerMap[created.customer_id] ||
-          created.customer_name ||
-          created.customer_id,
-        items: (created.items || payload.items || []).map((it) => {
-          const prod = productMap[it.product_id];
+          customerMap[String(savedOrder.customer_id)] ||
+          savedOrder.customer_name ||
+          payload.customer_name ||
+          "Khách hàng",
+        items: (savedOrder.items || payload.items || []).map((it) => {
+          const prod = freshProductMap[String(it.product_id)];
           const qty = Number(it.quantity ?? it.qty ?? 0);
-          const unit = Number(
-            it.unit_price ?? it.price ?? prod?.price_current ?? 0
-          );
-          let rawDisc = it.discount ?? it.discount_percent ?? 0;
-          let disc = Number(rawDisc) || 0;
+          const unit = Number(it.unit_price || it.price || prod?.price_current || 0);
+          let disc = Number(it.discount ?? it.discount_percent ?? 0);
           if (disc > 1) disc = disc / 100;
-          const original_price =
-            Number(
-              it.price_original ??
-                it.original_price ??
-                prod?.price_original ??
-                0
-            ) || unit;
+
           return {
-            order_detail_id:
-              it.order_detail_id || it.id || `local-${Date.now()}`,
-            product_id: it.product_id || null,
+            ...it,
             product_name: it.product_name || prod?.name || "",
             quantity: qty,
             price: unit,
-            original_price,
             discount: disc,
-            subtotal: Number(it.total_price ?? it.subtotal ?? qty * unit),
+            subtotal: qty * unit,
+            inventory_qty: prod?.inventory_qty ?? 0 // Cập nhật luôn tồn kho vào item
           };
         }),
+        _updatedAt: Date.now(),
       };
 
-      setOrders((prev) => [enriched, ...prev]);
+      if (payload.order_id) {
+        setOrders(prev => prev.map(o => String(o.order_id) === String(payload.order_id) ? enriched : o));
+      } else {
+        setOrders(prev => [enriched, ...prev]);
+      }
 
-      // Reset modal state to trigger table re-render
-      setModal({ open: false, mode: "view", order: null });
+      setModal(prev => ({ ...prev, order: enriched }));
 
-      toast.success("Thêm đơn hàng thành công!");
+      toast.success(payload.order_id ? "Cập nhật thành công!" : "Tạo đơn hàng thành công!");
+      return true;
     } catch (err) {
       console.error("Lỗi khi lưu đơn hàng:", err);
-      toast.error("Có lỗi khi lưu đơn hàng");
+      toast.error(err.response?.data?.error || "Có lỗi khi lưu đơn hàng");
+      throw err;
     }
   };
 
@@ -591,19 +525,19 @@ export default function OrderPage() {
                 placeholder={
                   selectedCustomer
                     ? customers.find(
-                        (c) => (c.customer_id || c.id) === selectedCustomer
-                      )?.full_name || selectedCustomer
+                      (c) => (c.customer_id || c.id) === selectedCustomer
+                    )?.full_name || selectedCustomer
                     : "Tất cả khách hàng"
                 }
                 searchPlaceholder="Tìm kiếm khách hàng..."
-                contentClassName="max-h-64 overflow-y-auto"
+                contentClassName="cursor-pointer"
               >
                 <div className="h-9 lg:w-auto flex flex-1 items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
                   <div className="text-sm truncate">
                     {selectedCustomer
                       ? customers.find(
-                          (c) => (c.customer_id || c.id) === selectedCustomer
-                        )?.full_name || selectedCustomer
+                        (c) => (c.customer_id || c.id) === selectedCustomer
+                      )?.full_name || selectedCustomer
                       : "Tất cả khách hàng"}
                   </div>
                   <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -687,11 +621,10 @@ export default function OrderPage() {
                         {" "}
                         {/* reduced padding */}
                         <div
-                          className={`flex justify-center gap-1 transition-all duration-200 ${
-                            hoveredRow === order.order_id
-                              ? "opacity-100 translate-y-0 pointer-events-auto"
-                              : "opacity-0 translate-y-1 pointer-events-none"
-                          }`}
+                          className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === order.order_id
+                            ? "opacity-100 translate-y-0 pointer-events-auto"
+                            : "opacity-0 translate-y-1 pointer-events-none"
+                            }`}
                         >
                           <PermissionGuard module="order" action="read">
                             <Button
@@ -891,8 +824,8 @@ export default function OrderPage() {
             modal.mode === "create"
               ? "create"
               : modal.mode === "edit"
-              ? "update"
-              : "read"
+                ? "update"
+                : "read"
           }
         >
           <AppDialog
@@ -910,6 +843,7 @@ export default function OrderPage() {
             onDelete={handleDelete}
             paymentLabels={PAYMENT_LABELS}
             statusLabels={STATUS_LABELS}
+            products={products} 
             maxWidth="sm:max-w-5xl"
             setMode={(m) =>
               setModal((prev) => {
@@ -926,3 +860,4 @@ export default function OrderPage() {
     </div>
   );
 }
+

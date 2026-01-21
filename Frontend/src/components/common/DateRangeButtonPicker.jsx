@@ -26,6 +26,7 @@ export default function DateRangeButtonPicker({ value, onChange }) {
   const handleSelect = (range) => {
     onChange?.(range);
     if (range?.from && range?.to && range.from.getTime() !== range.to.getTime()) setOpen(false);
+   
   };
 
   return (

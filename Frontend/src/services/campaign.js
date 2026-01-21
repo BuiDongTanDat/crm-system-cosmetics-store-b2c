@@ -285,3 +285,10 @@ export const getPublicCampaignById = async (id) => {
     if (!res.ok) throw new Error(res.error?.message || 'API error');
     return res.data;
 }
+
+// Lây danh sách chiến dịch công khai
+export const getPublicCampaigns = async (params = {}) => {
+    const res = await request('/campaign/running-public', {method: 'GET', isPublicRoute: true });
+    if (!res.ok) throw new Error(res.error?.message || 'API error');
+    return res.data || { items: [], total: 0 };
+}

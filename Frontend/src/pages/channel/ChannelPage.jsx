@@ -88,7 +88,7 @@ export default function ChannelPage() {
         const found = statsMap[mock.id];
         return {
           ...mock,
-          apiChannel: found?.channel ?? mock.id.toUpperCase(), // 🔥
+          apiChannel: found?.channel ?? mock.id.toUpperCase(), //
           count: Number(found?.campaign_count || 0),
           totalCost: Number(found?.total_cost || 0),
         };
@@ -566,87 +566,89 @@ export default function ChannelPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {campaigns.map((item) => {
-                            const camp = item.campaign || {};
-                            const chData = item.channel || {};
-                            const rates = item.rates || {};
+                          {campaigns
+                            .filter(item => item.channel !== null) // <-- Bỏ channel null
+                            .map((item) => {
+                              const camp = item.campaign || {};
+                              const chData = item.channel || {};
+                              const rates = item.rates || {};
 
-                            return (
-                              <tr
-                                key={camp.campaign_id || camp.id}
-                                onMouseEnter={() =>
-                                  setHoveredCampaign(camp.campaign_id)
-                                }
-                                onMouseLeave={() => setHoveredCampaign(null)}
-                                className="transition-colors hover:bg-gray-50"
-                              >
-                                <td className="px-4 py-3 text-left">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {camp.name}
-                                  </div>
-                                  <div className="text-xs text-blue-500">
-                                    {camp.campaign_id?.slice(0, 8)}...
-                                  </div>
-                                </td>
-                                <td className="text-center">
-                                  {(() => {
-                                    const badge = getStatusBadge(camp.status);
-                                    return (
-                                      <span
-                                        className={`px-2 py-0.5 rounded text-xs border ${badge.className}`}
-                                      >
-                                        {badge.label}
-                                      </span>
-                                    );
-                                  })()}
-                                </td>
-                                <td className="text-xs p-2 text-center">
-                                  {formatCurrency(Number(camp.budget || 0))}
-                                </td>
-                                <td className="text-xs p-2 text-center whitespace-nowrap">
-                                  {(camp.start_date || "").slice(0, 10)}
-                                </td>
-                                <td className="text-xs p-2 text-center">
-                                  {Number(chData.sent || 0)}
-                                </td>
-                                <td className="text-xs p-2 text-center">
-                                  {(Number(rates.open_rate || 0) * 100).toFixed(
-                                    1
-                                  )}
-                                  %
-                                </td>
-                                <td className="text-xs p-2 text-center">
-                                  {(
-                                    Number(rates.click_rate || 0) * 100
-                                  ).toFixed(1)}
-                                  %
-                                </td>
-                                <td className="text-xs p-2 text-center">
-                                  {Number(chData.conversions || 0)}
-                                </td>
-                                <td className="text-xs p-2 text-center font-medium text-gray-700">
-                                  {formatCurrency(Number(chData.cost || 0))}
-                                </td>
-                                <td className="text-xs p-2 text-center w-24">
-                                  <div
-                                    className={`flex justify-center gap-1 transition-opacity duration-200 ${
-                                      hoveredCampaign ===
-                                      (camp.campaign_id || camp.id)
-                                        ? "opacity-100"
-                                        : "opacity-0 pointer-events-none"
-                                    }`}
-                                  >
-                                    <Button
-                                      variant="actionUpdate"
-                                      size="icon"
-                                      onClick={() => openEditPerformance(item)}
+                              return (
+                                <tr
+                                  key={camp.campaign_id || camp.id}
+                                  onMouseEnter={() =>
+                                    setHoveredCampaign(camp.campaign_id)
+                                  }
+                                  onMouseLeave={() => setHoveredCampaign(null)}
+                                  className="transition-colors hover:bg-gray-50"
+                                >
+                                  <td className="px-4 py-3 text-left">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {camp.name}
+                                    </div>
+                                    <div className="text-xs text-blue-500">
+                                      {camp.campaign_id?.slice(0, 8)}...
+                                    </div>
+                                  </td>
+                                  <td className="text-center">
+                                    {(() => {
+                                      const badge = getStatusBadge(camp.status);
+                                      return (
+                                        <span
+                                          className={`px-2 py-0.5 rounded text-xs border ${badge.className}`}
+                                        >
+                                          {badge.label}
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="text-xs p-2 text-center">
+                                    {formatCurrency(Number(camp.budget || 0))}
+                                  </td>
+                                  <td className="text-xs p-2 text-center whitespace-nowrap">
+                                    {(camp.start_date || "").slice(0, 10)}
+                                  </td>
+                                  <td className="text-xs p-2 text-center">
+                                    {Number(chData.sent || 0)}
+                                  </td>
+                                  <td className="text-xs p-2 text-center">
+                                    {(Number(rates.open_rate || 0) * 100).toFixed(
+                                      1
+                                    )}
+                                    %
+                                  </td>
+                                  <td className="text-xs p-2 text-center">
+                                    {(
+                                      Number(rates.click_rate || 0) * 100
+                                    ).toFixed(1)}
+                                    %
+                                  </td>
+                                  <td className="text-xs p-2 text-center">
+                                    {Number(chData.conversions || 0)}
+                                  </td>
+                                  <td className="text-xs p-2 text-center font-medium text-gray-700">
+                                    {formatCurrency(Number(chData.cost || 0))}
+                                  </td>
+                                  <td className="text-xs p-2 text-center w-24">
+                                    <div
+                                      className={`flex justify-center gap-1 transition-opacity duration-200 ${
+                                        hoveredCampaign ===
+                                        (camp.campaign_id || camp.id)
+                                          ? "opacity-100"
+                                          : "opacity-0 pointer-events-none"
+                                      }`}
                                     >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
+                                      <Button
+                                        variant="actionUpdate"
+                                        size="icon"
+                                        onClick={() => openEditPerformance(item)}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
                           })}
 
                           {!loadingCampaigns && campaigns.length === 0 && (
@@ -696,113 +698,113 @@ export default function ChannelPage() {
                     ) : (
                       <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {campaigns.map((item) => {
-                            const camp = item.campaign || {};
-                            const chData = item.channel || {};
-                            const rates = item.rates || {};
+                          {campaigns
+                            .filter(item => item.channel !== null) // <-- Bỏ channel null
+                            .map((item) => {
+                              const camp = item.campaign || {};
+                              const chData = item.channel || {};
+                              const rates = item.rates || {};
 
-                            return (
-                              <div
-                                key={camp.campaign_id || camp.id}
-                                className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
-                              >
-                                <div className="p-4 flex flex-col h-full">
-                                  <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1 min-w-0">
-                                      <h3 className="font-semibold text-gray-900 text-base line-clamp-1 mb-1">
-                                        {camp.name}
-                                      </h3>
-                                      <p className="text-xs text-blue-500 truncate">
-                                        {camp.campaign_id?.slice(0, 8)}...
-                                      </p>
+                              return (
+                                <div
+                                  key={camp.campaign_id || camp.id}
+                                  className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                                >
+                                  <div className="p-4 flex flex-col h-full">
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold text-gray-900 text-base line-clamp-1 mb-1">
+                                          {camp.name}
+                                        </h3>
+                                        <p className="text-xs text-blue-500 truncate">
+                                          {camp.campaign_id?.slice(0, 8)}...
+                                        </p>
+                                      </div>
+                                      <span
+                                        className={`px-2 py-1 rounded text-xs border whitespace-nowrap ml-2 ${
+                                          getStatusBadge(camp.status).className
+                                        }`}
+                                      >
+                                        {getStatusBadge(camp.status).label}
+                                      </span>
                                     </div>
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs border whitespace-nowrap ml-2 ${
-                                        getStatusBadge(camp.status).className
-                                      }`}
-                                    >
-                                      {getStatusBadge(camp.status).label}
-                                    </span>
-                                  </div>
 
-                                  <div className="space-y-2 mb-4 flex-grow">
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Ngân sách:
-                                      </span>
-                                      <span className="font-semibold text-gray-900">
-                                        {formatCurrency(
-                                          Number(camp.budget || 0)
-                                        )}
-                                      </span>
+                                    <div className="space-y-2 mb-4 flex-grow">
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">
+                                          Ngân sách:
+                                        </span>
+                                        <span className="font-semibold text-gray-900">
+                                          {formatCurrency(
+                                            Number(camp.budget || 0)
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">
+                                          Chi phí:
+                                        </span>
+                                        <span className="font-semibold text-emerald-600">
+                                          {formatCurrency(
+                                            Number(chData.cost || 0)
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Sent:</span>
+                                        <span className="text-gray-900">
+                                          {Number(chData.sent || 0)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">
+                                          Open Rate:
+                                        </span>
+                                        <span className="text-gray-900">
+                                          {(
+                                            Number(rates.open_rate || 0) * 100
+                                          ).toFixed(1)}
+                                          %
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">
+                                          Click Rate:
+                                        </span>
+                                        <span className="text-gray-900">
+                                          {(
+                                            Number(rates.click_rate || 0) * 100
+                                          ).toFixed(1)}
+                                          %
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">
+                                          Conversions:
+                                        </span>
+                                        <span className="text-gray-900">
+                                          {Number(chData.conversions || 0)}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-gray-500 pt-1 border-t">
+                                        {(camp.start_date || "").slice(0, 10)}
+                                      </div>
                                     </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Chi phí:
-                                      </span>
-                                      <span className="font-semibold text-emerald-600">
-                                        {formatCurrency(
-                                          Number(chData.cost || 0)
-                                        )}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Sent:
-                                      </span>
-                                      <span className="text-gray-900">
-                                        {Number(chData.sent || 0)}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Open Rate:
-                                      </span>
-                                      <span className="text-gray-900">
-                                        {(
-                                          Number(rates.open_rate || 0) * 100
-                                        ).toFixed(1)}
-                                        %
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Click Rate:
-                                      </span>
-                                      <span className="text-gray-900">
-                                        {(
-                                          Number(rates.click_rate || 0) * 100
-                                        ).toFixed(1)}
-                                        %
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">
-                                        Conversions:
-                                      </span>
-                                      <span className="text-gray-900">
-                                        {Number(chData.conversions || 0)}
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-gray-500 pt-1 border-t">
-                                      {(camp.start_date || "").slice(0, 10)}
-                                    </div>
-                                  </div>
 
-                                  <div className="flex gap-2 w-full border-t pt-3 mt-auto">
-                                    <Button
-                                      variant="actionUpdate"
-                                      size="sm"
-                                      onClick={() => openEditPerformance(item)}
-                                      className="h-9 flex-1"
-                                    >
-                                      <Edit className="w-4 h-4 mr-1" />
-                                      Chi tiết
-                                    </Button>
+                                    <div className="flex gap-2 w-full border-t pt-3 mt-auto">
+                                      <Button
+                                        variant="actionUpdate"
+                                        size="sm"
+                                        onClick={() => openEditPerformance(item)}
+                                        className="h-9 flex-1"
+                                      >
+                                        <Edit className="w-4 h-4 mr-1" />
+                                        Chi tiết
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
+                              );
                           })}
                         </div>
 
