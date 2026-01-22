@@ -291,22 +291,9 @@ class OrderService {
 		}
 		// Lấy details từ đơn hàng này
 		let details = await OrderDetailService.getByOrderId(orderId);
-		// Lấy product_name cho từng detail
-		details = await Promise.all(
-			details.map(async (detail) => {
-				if (detail.product_id) {
-					const product = await productRepository.findNameAndImageById(detail.product_id);
-					if (product) {
-						detail.product_name = product.name; // gán lại
-						detail.image = product.image || null;
-					}
-				}
-				return detail;
-			})
-		);
-		// Lấy image
+		details = await this.enrichOrderDetails(details);
 
-		console.log('Details after adding product_name:', details);
+		//console.log('Details after adding product_name:', details);
 		return OrderResponseDTO.fromEntity(order, details);
 	}
 
@@ -323,10 +310,12 @@ class OrderService {
 					const orderId = o.order_id;
 					// Lấy customer name
 					const res = await customerRepository.findById(o.customer_id);
+					console.log('Customer fetch result:', res);
 					if (res) {
 						o.customer_name = res.full_name;
 					}
-					const details = await OrderDetailService.getByOrderId(orderId);
+					let details = await OrderDetailService.getByOrderId(orderId);
+					details = await this.enrichOrderDetails(details);
 					return OrderResponseDTO.fromEntity(o, details);
 				})
 			);
@@ -337,30 +326,57 @@ class OrderService {
 		}
 	}
 
+	//Hàm hỗ trợ lấy product_name cho từng detail
+	async enrichOrderDetails(details) {
+		return Promise.all(
+			details.map(async (detail) => {
+				if (!detail.product_id) return detail;
+
+				const product = await productRepository.findNameAndImageById(
+					detail.product_id
+				);
+
+				if (product) {
+					detail.product_name = product.name;
+					detail.image = product.image || null;
+				}
+
+				return detail;
+			})
+		);
+	}
+
+
 	// Cập nhật order (có thể kèm items để đồng bộ)
 	async updateOrder(orderId, patch) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
 		const found = await OrderRepo.findById(orderId);
 		if (!found) throw new Error('Mã đơn hàng không tồn tại');
-		let items = patch.items || [];
-		let total = patch.total_amount || 0;
 
-		if (Array.isArray(items) && items.length > 0) {
-			items = items.map(i => OrderDetailService._normalizeDetail(i));
-			if (!total) {
-				throw new Error('Thiếu tổng tiền (total_amount) khi cập nhật kèm items');
-			}
+
+		// determine status transition
+		const preStatus = found.status || '';
+		const newStatus = patch.status || preStatus;
+		const items = patch.items || [];
+
+		// Chặn nếu đơn đã thanh toán thì không được sửa sản phẩm
+		if (this._isPaidStatus(preStatus) && items.length > 0) {
+			throw new Error('Không thể cập nhật sản phẩm trên đơn hàng đã thanh toán');
 		}
+
+		// 2. XÁC ĐỊNH LOGIC KHO (Để thực hiện trừ hoặc hoàn kho)
+		const isTransitioningToPaid = !this._isPaidStatus(preStatus) && this._isPaidStatus(newStatus);
+		const isTransitioningToRestock = this._isPaidStatus(preStatus) && this._isRestockStatus(newStatus);
+
 
 		const transaction = await OrderRepo.sequelize.transaction();
 		try {
 			await OrderRepo.update(
 				orderId, {
 				...patch,
-				total_amount: total,
 			}, transaction);
 
-			// Để tiện thì xóa item cũ rồi add lại hết
+			// Để tiện thì xóa item cũ rồi add lại hết (nếu có)
 			if (items.length > 0) {
 				await OrderDetailService.deleteByOrderId(orderId, transaction);
 				const itemsWithOrderId = items.map(i => ({
@@ -368,6 +384,16 @@ class OrderService {
 					order_id: orderId,
 				}));
 				await OrderDetailService.createMany(itemsWithOrderId, transaction);
+			}
+
+			// XỬ LÝ KHO
+			if (isTransitioningToPaid) {
+				// Trường hợp chuyển sang Paid -> Trừ kho
+				// Truyền mảng rỗng [] để tránh items không tồn tại, trong hàm có logic tự query DB
+				await this._handleInventoryDeduction(orderId, items, transaction);
+			} else if (isTransitioningToRestock) {
+				// Trường hợp chuyển sang Cancelled/Failed (từ trạng thái đã Paid) -> Hoàn kho
+				await this._handleInventoryRestock(orderId, transaction);
 			}
 			await transaction.commit();
 
@@ -393,13 +419,27 @@ class OrderService {
 		const order = await OrderRepo.findByLeadIdLatest(leadId);
 		return order ? OrderResponseDTO.fromEntity(order) : null;
 	}
+
 	// Cập nhật trạng thái nhanh
 	async updateStatus(orderId, newStatus, extraData = {}) {
 		if (!orderId) throw new Error('Thiếu mã đơn hàng');
+
+		// 1. Lấy trạng thái đơn hàng hiện tại trước khi update
+		const existingOrder = await OrderRepo.findById(orderId);
+		if (!existingOrder) throw new Error('Mã đơn hàng không tồn tại');
+
+		const preStatus = existingOrder.status || '';
+
+		// 2. XÁC ĐỊNH LOGIC KHO (Để thực hiện trừ hoặc hoàn kho)
+		const isTransitioningToPaid = !this._isPaidStatus(preStatus) && this._isPaidStatus(newStatus);
+		// Trạng thái restock là trạng thái khi đơn hàng đã thanh toán rồi và bị hủy/hoàn tiền
+		const isTransitioningToRestock = this._isPaidStatus(preStatus) && this._isRestockStatus(newStatus);
+
+
 		const transaction = await OrderRepo.sequelize.transaction();
 
 		try {
-			// Update other fields if provided
+			// Cập nhật các thông tin cơ bản
 			const updatePayload = { status: newStatus };
 			if (extraData.payment_method) updatePayload.payment_method = extraData.payment_method;
 			if (extraData.shipping_address) updatePayload.shipping_address = extraData.shipping_address;
@@ -409,8 +449,18 @@ class OrderService {
 			// If OrderRepo.updateStatus is specific, we might need OrderRepo.update
 			await OrderRepo.update(orderId, updatePayload, transaction);
 
+			// XỬ LÝ KHO
+			if (isTransitioningToPaid) {
+				// Truyền mảng rỗng [] thay vì items không tồn tại. 
+				// Hàm _handleInventoryDeduction đã có logic tự query DB nếu mảng rỗng.
+				await this._handleInventoryDeduction(orderId, [], transaction);
+			} else if (isTransitioningToRestock) {
+				await this._handleInventoryRestock(orderId, transaction);
+			}
+
 			await transaction.commit();
 
+			// 4. XỬ LÝ SAU KHI CẬP NHẬT: Publish event nếu cần
 			const updated = await OrderRepo.findById(orderId);
 
 			try {
@@ -609,6 +659,86 @@ class OrderService {
 		);
 		return results;
 	}
+
+
+	// Hàm hỗ trợ trừ tồn kho
+	async _handleInventoryDeduction(orderId, items = [], transaction) {
+		// 1. Nếu không có items truyền vào, lấy từ database
+		let details = items;
+		if (!details || details.length === 0) {
+			details = await OrderDetailService.getByOrderId(orderId, { transaction });
+		}
+
+		if (!Array.isArray(details) || details.length === 0) return;
+
+		// 2. Kiểm tra tồn kho trước cho tất cả sản phẩm
+		for (const d of details) {
+			if (!d.product_id) continue;
+			const qtyNeeded = Number(d.quantity || 0);
+			const product = await productRepository.findById(d.product_id);
+			const avail = Number(product?.inventory_qty || 0);
+
+			if (avail < qtyNeeded) {
+				throw new Error(`Sản phẩm ${product?.name || d.product_id} chỉ còn ${avail}, yêu cầu ${qtyNeeded}`);
+			}
+		}
+
+		// 3. Thực hiện trừ kho
+		for (const d of details) {
+			if (!d.product_id) continue;
+			const qtyNeeded = Number(d.quantity || 0);
+
+			// Gọi repo để trừ 
+			const success = await productRepository.decreaseInventory(d.product_id, qtyNeeded, transaction);
+			if (!success) {
+				throw new Error(`DECREASE_FAILED: Không thể trừ tồn kho cho sản phẩm ${d.product_id}`);
+			}
+		}
+	}
+
+	//Hàm hỗ trợ hoàn kho
+	async _handleInventoryRestock(orderId, transaction) {
+		const details = await OrderDetailService.getByOrderId(orderId, { transaction });
+		if (!details || details.length === 0) return;
+
+		for (const d of details) {
+			if (!d.product_id) continue;
+			const qtyToRestore = Number(d.quantity || 0);
+
+			// Gọi repo để cộng lại tồn kho (Atomic update: qty = qty + x)
+			// Bạn cần đảm bảo productRepository có hàm increaseInventory
+			const success = await productRepository.increaseInventory(d.product_id, qtyToRestore, transaction);
+
+			if (!success) {
+				console.error(`Không thể cộng lại kho cho SP ${d.product_id}`);
+				// Thường thì restock nên cố gắng thực hiện hết các item
+			}
+		}
+		console.log(`Đã hoàn tồn kho cho đơn hàng: ${orderId}`);
+	}
+
+
+	// Kiểm tra xem trạng thái có được coi là "Đã thanh toán/Hợp lệ" để trừ kho không
+	_isPaidStatus(status) {
+		const paidStatuses = ['paid', 'shipped', 'completed', 'processing'];
+		return paidStatuses.includes(String(status).toLowerCase());
+	}
+
+	// Kiểm tra trạng thái có cần restock không
+	_isRestockStatus(status) {
+		// Nếu đơn bị hủy, trả hàng (refunded), hoặc thanh toán thất bại sau khi đã trừ kho
+		// Nghĩa là chỉ cần đơn hàng rời khỏi nhóm trạng thái "đã thanh toán" thì cứ hoàn kho
+		const restockStatuses = [
+			'pending',
+			'cancelled',
+			'failed',
+			'refunded',
+			'draft_cart',
+			'awaiting_customer_confirmation'
+		];
+		return restockStatuses.includes(String(status || '').toLowerCase());
+	}
 }
+
 
 module.exports = new OrderService();

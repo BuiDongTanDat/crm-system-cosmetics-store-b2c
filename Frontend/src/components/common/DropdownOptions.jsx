@@ -41,6 +41,7 @@ export default function DropdownOptions({
           <DropdownMenuItem
             key={option.value || option.id}
             onSelect={() => onChange?.(option.value || option.id)}
+            className={`cursor-pointer`}
           >
             {option.label || option.name}
           </DropdownMenuItem>

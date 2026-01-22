@@ -78,13 +78,22 @@ class OrderRepository {
 	}
 	//Lấy order theo khoảng thời gian
 	async getOrdersByDateRange(from, to) {
+		const fromDate = new Date(from);
+		fromDate.setHours(0, 0, 0, 0);
+
+		const toDate = new Date(to);
+		toDate.setHours(0, 0, 0, 0);
+		toDate.setDate(toDate.getDate() + 1);
+
 		return await this.Order.findAll({
 			where: {
 				order_date: {
-					[Op.between]: [new Date(from), new Date(to)],
+					[Op.gte]: fromDate, // Greater than or equal to fromDate
+					[Op.lt]: toDate, // Less than toDate
 				},
 			},
 		});
+
 	}
 
 	async findByConditions(params = {}) {

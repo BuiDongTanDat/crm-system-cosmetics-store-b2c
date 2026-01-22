@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getOrdersByDateRange } from "@/services/orders";
-import { formatDate, getRollingStartDate } from "@/utils/helper";
+import { formatDate, getRollingStartDate, formatLocalDate } from "@/utils/helper";
 import {
   Popover,
   PopoverContent,
@@ -89,8 +89,8 @@ export function RevenueChart() {
     setLoading(true);
     if (!range?.from || !range.to) return;
     //Formate date to YYYY-MM-DD
-    const from = range.from.toISOString().slice(0, 10);
-    const to = range.to.toISOString().slice(0, 10);
+    const from = formatLocalDate(range.from);
+    const to = formatLocalDate(range.to);
     //Call API
     const res = await getOrdersByDateRange(from, to);
     const groupedData = groupRevenueByDate(res || []);
@@ -200,6 +200,11 @@ export function RevenueChart() {
                   setCustomRange(range);
                   // Nếu muốn đóng ngay sau khi chọn xong cả 2 ngày:
                   // if (range?.from && range?.to) setCalendarOpen(false);
+                  if (range == null) {
+                    setCalendarOpen(false);
+                    setCustomRange(null);
+                    setTimeRange("90d"); // Quay về mặc định 90d khi hủy chọn
+                  }
                 }}
               />
             </PopoverContent>
