@@ -59,13 +59,25 @@ class CustomerService {
 
   async deleteCustomer(customerId) {
     try {
-      const deleted = await this.repo.delete(customerId);
-      if (!deleted) throw new AppError('Customer not found', { status: 404, code: 'CUSTOMER_NOT_FOUND' });
-      return ok({ deleted: true });
+      const deletedCount = await this.repo.delete(customerId);
+
+      if (deletedCount === 0) {
+        throw new AppError('Customer not found', {
+          status: 404,
+          code: 'CUSTOMER_NOT_FOUND'
+        });
+      }
+
+      return ok({ message: 'Customer deleted successfully' });
+
     } catch (err) {
-      return fail(asAppError(err, { status: 500, code: 'DELETE_CUSTOMER_FAILED' }));
+      return fail(asAppError(err, {
+        status: 500,
+        code: 'DELETE_CUSTOMER_FAILED'
+      }));
     }
   }
+
   async deleteCustomers(customerIds = []) {
     try {
       if (!Array.isArray(customerIds) || customerIds.length === 0) {

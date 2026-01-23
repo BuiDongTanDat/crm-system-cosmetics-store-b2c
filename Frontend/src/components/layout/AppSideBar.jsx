@@ -15,7 +15,8 @@ import {
   ReceiptText,
   BadgeDollarSign,
   Megaphone,
-  UserRoundPen
+  UserRoundPen,
+  Bell
 } from "lucide-react";
 import { useSidebar } from "@/context/SidebarContext";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,11 @@ const othersItems = [
     name: "Cá nhân",
     path: "/profile",
   },
+  {
+    icon: <Bell className="w-5 h-5" />,
+    name: "Thông báo",
+    path: "/notification",
+  },
   // {
   //   icon: <Settings className="w-5 h-5" />,
   //   name: "Cài đặt",
@@ -106,6 +112,7 @@ export function AppSidebar() {
   const [subMenuHeight, setSubMenuHeight] = useState({});
   const subMenuRefs = useRef({}); // Tham chiếu đến các phần tử submenu
 
+  
   const isActive = useCallback(
     (path) => location.pathname === path,
     [location.pathname]

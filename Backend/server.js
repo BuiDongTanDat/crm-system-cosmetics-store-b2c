@@ -21,17 +21,21 @@ const paymentRoutes = require('./API/routes/paymentRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 const StreamingRoutes = require('./API/routes/streamingRoutes');
 const YoutubeRoutes = require('./API/routes/youtubeRoutes');
+const NotificationRoutes = require('./API/routes/NotificationRoutes');
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
 const automationCronJobRoutes = require('./API/routes/automationCronJobRoutes');
 const protectedRoute = require('./API/Middleware/authMiddleware');
+
 // cron utils & domain events
 require('./Domain/Events/LeadEvents');
 require('./Domain/Events/OrderEvents');
 require('./Domain/Events/EngagementEvents');
 
+const {setupSocketServer} = require('./Infrastructure/Socket/SocketSetup');
 const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
 const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
+const { set } = require('mongoose');
 const app = express();
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
@@ -63,6 +67,7 @@ app.use('/orders', OrderRoutes);
 app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/campaign', CampaignRoute);
+app.use('/notifications', NotificationRoutes);
 
 app.use(protectedRoute);
 
@@ -163,7 +168,8 @@ async function main() {
       console.log(`Automation mode: ${process.env.AUTOMATION_MODE || 'tick'}`);
       console.log('------------------------------------------');
     });
-
+    // 5) Setup Socket.io server
+    setupSocketServer(server);
   } catch (err) {
     console.error('[BOOT] Failed to start application:', err);
     process.exit(1);

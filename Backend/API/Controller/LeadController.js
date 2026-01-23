@@ -3,6 +3,7 @@ const LeadService = require('../../Application/Services/LeadService');
 const { ok, fail, asAppError } = require('../../Application/helpers/errors');
 const { CreateRequestLeadDTO } = require('../../Application/DTOs/LeadDTO');
 const LeadScoringService = require('../../Application/Services/LeadScoringService');
+const NotificationService = require('../../Application/Services/NotificationService');
 class LeadController {
 
   static async importLeads(req, res) {
@@ -106,9 +107,20 @@ class LeadController {
         meta: req.body?.meta ?? dto.meta ?? {},
       };
       const result = await LeadService.createLead(leadData);
-      return res
-        .status(result.ok ? 201 : (result.error?.status || 400))
-        .json(result);
+      // Trả về kết quả cho client trước
+      res.status(result.ok ? 201 : (result.error?.status || 400)).json(result);
+
+      // Gửi notification sau, không chờ kết quả
+      if (result.ok) {
+        NotificationService.sendNotification({
+          title: 'Lead mới đã được tạo',
+          message: `Lead ${result.data.name} vừa được tạo trong hệ thống.`,
+          type: 'LEAD',
+        }).catch(err => {
+          // Log lỗi, không ảnh hưởng tới client
+          console.error('Lỗi gửi notification:', err);
+        });
+      }
     } catch (err) {
       const e = asAppError(err, { status: 400, code: 'CREATE_LEAD_FAILED' });
       return res

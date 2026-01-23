@@ -3,6 +3,7 @@ const CustomerService = require('../../Application/Services/CustomerService');
 const CustomerAnalyticsService = require('../../Application/Services/CustomerAnalyticsService');
 const CustomerInteractionService = require('../../Application/Services/CustomerInteractionService');
 const SnapshotService = require('../../Application/Services/CustomerAnalyticsSnapshotService');
+const NotificationService = require('../../Application/Services/NotificationService');
 
 class CustomerController {
   // CRUD
@@ -33,7 +34,20 @@ class CustomerController {
     try {
       const result = await CustomerService.createCustomer(req.body);
       if (result?.ok === false) return res.status(result.error?.status || 400).json(result);
-      return res.status(201).json(result);
+
+      // Trả về kết quả cho client trước
+      res.status(201).json(result);
+
+      // Gửi notification sau, không chờ kết quả
+      NotificationService.sendNotification({
+        title: 'Khách hàng mới đã được thêm vào hệ thống',
+        message: `Khách hàng ${result.data.full_name} vừa được thêm vào hệ thống.`,
+        type: 'CUSTOMER',
+      }).catch(err => {
+        // Log lỗi, không ảnh hưởng tới client
+        console.error('Lỗi gửi notification:', err);
+      });
+
     } catch (err) {
       return res.status(500).json({ ok: false, error: { message: err.message } });
     }

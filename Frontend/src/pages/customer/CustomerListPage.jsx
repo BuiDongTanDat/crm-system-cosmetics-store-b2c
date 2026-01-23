@@ -268,7 +268,7 @@ export default function CustomerListPage() {
         console.log("Create customer response:", res);
         if (res?.ok) {
           const added = mapApiToUi(res.data ?? payload);
-          setCustomers((prev) => [...prev, added]);
+          setCustomers((prev) => [added, ...prev]);
           closeModal();
           toast.success("Thêm khách hàng thành công!");
         } else {

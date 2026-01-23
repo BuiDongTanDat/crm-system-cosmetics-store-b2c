@@ -172,9 +172,9 @@ export default function ProfilePage() {
       {/* 2 columns bằng chiều cao */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-6 items-stretch">
         {/* Left column */}
-        <div className="flex flex-col gap-3 h-full lg:col-span-1 ">
+        <div className="animate-fade-in transition duration-150  flex flex-col gap-3 h-full lg:col-span-1 ">
           {/* Avatar card */}
-          <Card className="flex-1 rounded-md">
+          <Card className="animate-fade-in transition duration-150  flex-1 rounded-md">
             <CardHeader className="text-center">
               <CardTitle>Ảnh đại diện</CardTitle>
             </CardHeader>
@@ -207,7 +207,7 @@ export default function ProfilePage() {
           </Card>
 
           {/* Actions card */}
-          <Card className="flex-1 rounded-md">
+          <Card className="animate-fade-in transition duration-150  flex-1 rounded-md">
             <CardHeader>
               <CardTitle>Thao tác</CardTitle>
             </CardHeader>

@@ -43,7 +43,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const res = await signIn(form.email, form.password);
-      console.log('LoginPage signIn result:', res);
+      //console.log('LoginPage signIn result:', res);
       if (!res) return; // Tránh điều hướng nếu đăng nhập thất bại
       navigate("/");
     } catch (err) {

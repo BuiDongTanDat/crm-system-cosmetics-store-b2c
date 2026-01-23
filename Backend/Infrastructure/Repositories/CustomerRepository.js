@@ -25,7 +25,7 @@ class CustomerRepository {
     });
   }
   async delete(customerId) {
-    await Customer.destroy({ where: { customer_id: customerId } });
+    return await Customer.destroy({ where: { customer_id: customerId } });
   }
   async findByEmail(email) {
     return await Customer.findOne({ where: { email } });

@@ -23,7 +23,7 @@ async function protectedRoute(req, res, next) {
     let user;
     try {
         user = await UserRepository.findUserInSafeWay(decodeUser.id); // Trường trả về là "id"
-        //console.log('User found:', user);
+        console.log('User found:', user);
     } catch (err) {
         console.error('Lỗi khi truy vấn user:', err);
         return res.status(500).json({ error: 'Lỗi hệ thống' });

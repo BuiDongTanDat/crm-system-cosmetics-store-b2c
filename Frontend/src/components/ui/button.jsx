@@ -31,10 +31,14 @@ const buttonVariants = cva(
           "w-full justify-start rounded-0 text-muted-foreground hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand data-[active=true]:text-white  active:scale-95",
 
         //Variant action button
-        // Thêm variant mới cho action button
-        actionNormal:
-          "active:bg-brand active:text-white bg-white hover:border-brand hover:text-brand transition-colors border border-white text-gray-700",
-
+      actionNormal: `
+        bg-white text-gray-700 border border-white 
+        transition-all duration-300 ease-in-out
+        hover:border-blue-500 hover:text-brand hover:bg-white
+        data-[state=open]:border-blue-500 data-[state=open]:text-brand data-[state=open]:bg-white
+        focus:outline-none focus:ring-0 focus-visible:ring-0 
+        active:bg-white
+      `,
         // CRUD Action Variants
         actionCreate: "bg-blue-600 text-white hover:bg-blue-700",
         actionRead:
@@ -45,7 +49,7 @@ const buttonVariants = cva(
           "bg-red-100 text-destructive hover:bg-red-500 hover:text-white",
 
         actionMore:
-          " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0",
+          " text-gray hover:text-brand hover:bg-brand-50 rounded-sm focus:outline-none focus:ring-0 focus-visible:ring-0 data-[state=open]:border data-[state=open]:border-brand data-[state=open]:text-brand transition-colors",
 
         actionAI:
           "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white transition-all duration-300 ease-in-out transform-gpu hover:bg-gradient-to-l hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500 hover:shadow-lg hover:opacity-95 active:scale-95",
@@ -59,7 +63,7 @@ const buttonVariants = cva(
         actionHoverPage:
           "hover:bg-accent/90 hover:shadow hover:text-accent-foreground dark:hover:bg-accent/50 active:scale-95 active:dark:hover:bg-accent/90 ",
         actionStar: "bg-yellow-100 text-yellow-600 border border-yellow-300 hover:bg-yellow-200 hover:text-yellow-700",
-      
+
         actionApprove: "bg-green-600 text-white hover:bg-green-700",
         actionWarning: "border-amber-500 text-amber-700 bg-amber-100 hover:bg-amber-200 hover:text-amber-800",
         actionShowMore: "bg-white-100 text-gray-700 border hover:bg-gray-200 hover:text-black",
