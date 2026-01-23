@@ -1366,6 +1366,7 @@ export default function KanbanPage() {
                   shipped: "Đã giao hàng",
                   completed: "Hoàn tất",
                 }}
+                products={products} 
               />
             )}
             maxWidth="sm:max-w-5xl"

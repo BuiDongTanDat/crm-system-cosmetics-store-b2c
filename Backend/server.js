@@ -68,7 +68,7 @@ app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/campaign', CampaignRoute);
 app.use('/notifications', NotificationRoutes);
-
+app.use('/leads', LeadRoutes);
 app.use(protectedRoute);
 
 app.use('/automation-event', automationCatalogRoutes);
@@ -76,7 +76,7 @@ app.use('/automation', flowRoutes);
 
 app.use('/users', userRoutes);
 
-app.use('/leads', LeadRoutes);
+
 app.use('/Ai', AiRoutes);
 app.use('/roles', roleRoutes);
 

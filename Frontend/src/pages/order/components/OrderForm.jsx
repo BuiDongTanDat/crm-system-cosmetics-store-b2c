@@ -80,7 +80,7 @@ export default function OrderForm({
 
   // ===== Hydrate from props.data =====
   useEffect(() => {
-    if (!data || !products.length) return; // Đảm bảo có list products để map inventory
+    if (!data) return; // Bỏ điều kiện !products.length ở đây để điền info khách trước // Đảm bảo có list products để map inventory
 
     const newForm = {
       order_id: data.order_id || data.orderId || null,
@@ -771,9 +771,9 @@ export default function OrderForm({
                       "Chọn khách hàng"
                     }
                     searchPlaceholder="Tìm theo tên, email, số điện thoại..."
-                    contentClassName="max-h-72 overflow-y-auto p-2"
+                    contentClassName=" p-2"
                     renderItem={(p) => (
-                      <div className="w-full ">
+                      <div className="w-full cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="font-medium truncate">{p.name}</div>
                           <span

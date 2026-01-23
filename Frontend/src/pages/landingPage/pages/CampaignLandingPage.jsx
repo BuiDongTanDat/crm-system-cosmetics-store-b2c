@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/helper";
 import { getPublicProductByID } from "@/services/products";
 import Loading from "@/components/common/Loading";
+import { trackProductInterest } from "@/services/leads";
 
 // Trust Badges Section
 const TrustBadges = () => {
@@ -67,6 +68,25 @@ const TrustBadges = () => {
       </div>
     </div>
   );
+};
+
+// Helper function để tạo UUID v4 chuẩn
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Helper function để tạo hoặc lấy anon_id (UUID format)
+const getOrCreateAnonId = () => {
+  let anonId = localStorage.getItem("anon_id");
+  if (!anonId) {
+    anonId = generateUUID();
+    localStorage.setItem("anon_id", anonId);
+  }
+  return anonId;
 };
 
 const CampaignLandingPage = ({ onContact, onCartChange }) => {
@@ -214,17 +234,46 @@ const CampaignLandingPage = ({ onContact, onCartChange }) => {
     toast.success("Đã thêm vào giỏ hàng");
   };
 
-  const handleToggleLike = (product) => {
+  const handleToggleLike = async (product) => {
     const pid = product.product_id || product.id;
     setLikedProducts((prev) => {
       const isLiked = prev.some((item) => (item.product_id || item.id) === pid);
       let next;
       if (isLiked) {
         next = prev.filter((item) => (item.product_id || item.id) !== pid);
+        localStorage.setItem("likedProducts", JSON.stringify(next));
+        toast.success("Đã bỏ quan tâm sản phẩm.");
       } else {
         next = [...prev, product];
+        localStorage.setItem("likedProducts", JSON.stringify(next));
+        // Gọi API trackProductInterest cho anon, ignore lỗi xác thực
+        (async () => {
+          try {
+            const anonId = getOrCreateAnonId();
+            await trackProductInterest({
+              anon_id: anonId,
+              product_id: product.product_id || product.id,
+              product_name: product.name,
+              source: "inbound",
+              campaign_id: campaign?.id ?? null,
+              meta: {
+                page: "campaign_landing",
+                campaign_id: campaign?.id ?? null,
+                timestamp: new Date().toISOString(),
+              },
+            });
+            toast.success("Đã thêm sản phẩm vào danh sách quan tâm.");
+          } catch (err) {
+            // Nếu lỗi xác thực (401/403) thì vẫn không redirect, chỉ log
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+              // ignore
+            } else {
+              console.error("Failed to track interest:", err);
+            }
+            toast.success("Đã thêm sản phẩm vào danh sách quan tâm.");
+          }
+        })();
       }
-      localStorage.setItem("likedProducts", JSON.stringify(next));
       return next;
     });
   };
