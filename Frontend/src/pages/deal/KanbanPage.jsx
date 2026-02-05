@@ -623,15 +623,31 @@ export default function KanbanPage() {
       const detailData = res?.data?.data ?? res?.data ?? res;
 
       // Lấy danh sách product_id từ productInterests
-      const productInterests = detailData?.product_interests || [];
-      const productIds = productInterests.map((pi) => {
-        return String(pi.product_id || pi);
-      });
+      // 1. Get List IDs from relation
+      let productIds = (detailData?.product_interests || []).map((pi) =>
+        String(pi.product_id || pi)
+      );
 
-      console.log("Product IDs from lead details:", productIds);
-      console.log("Available products:", products);
+      console.log("Product IDs from relation:", productIds);
+      console.log("Lead product_interest string:", detailData.product_interest);
 
-      // Lọc sản phẩm từ danh sách products dựa trên productIds
+      // 2. Fallback: Identify by name if relation is empty
+      if (productIds.length === 0 && detailData.product_interest) {
+        const pName = detailData.product_interest.toLowerCase().trim();
+        const found = products.find(
+          (p) =>
+            (p.name || p.product_name || "").toLowerCase().trim() === pName ||
+            (p.name || p.product_name || "")
+              .toLowerCase()
+              .includes(pName)
+        );
+        if (found) {
+          console.log("Found product by string matching:", found);
+          productIds.push(String(found.product_id || found.id));
+        }
+      }
+
+      // 3. Filter products
       const recommendedProducts = products
         .filter((p) => {
           const pid = String(p.product_id || p.id);
@@ -649,8 +665,7 @@ export default function KanbanPage() {
         }));
 
       console.log(
-        "Recommended products for lead",
-        leadCard.id,
+        "Final recommended products:",
         recommendedProducts
       );
       setRecommendedProducts(recommendedProducts);
@@ -818,10 +833,10 @@ export default function KanbanPage() {
             prev.map((c) =>
               c.id === dealData.id
                 ? {
-                    ...c,
-                    ...dealData,
-                    stage: dealData.status || dealData.stage,
-                  }
+                  ...c,
+                  ...dealData,
+                  stage: dealData.status || dealData.stage,
+                }
                 : c
             )
           );
@@ -951,11 +966,11 @@ export default function KanbanPage() {
       prev.map((c) =>
         c.id === cardId
           ? {
-              ...c,
-              stage: newStageUI,
-              status: newStageUI,
-              lastActivity: new Date().toISOString().slice(0, 10),
-            }
+            ...c,
+            stage: newStageUI,
+            status: newStageUI,
+            lastActivity: new Date().toISOString().slice(0, 10),
+          }
           : c
       )
     );
@@ -1088,11 +1103,11 @@ export default function KanbanPage() {
       toast.info("Đang tính điểm lại...");
       const res = await rescoreLead(card.id, { trigger: "manual" });
       console.log("Rescore response:", res);
-      
+
       if (res?.ok) {
         const newScore = Number(res.data?.prediction?.raw_score || 0).toFixed(2);
         toast.success(`Rescore thành công! (Điểm mới: ${newScore})`);
-        
+
         // Reload pipeline columns to get updated data
         try {
           const colRes = await getPipelineColumns();
@@ -1215,7 +1230,7 @@ export default function KanbanPage() {
             </div>
 
             {/* Filter dropdown (only in list mode) */}
-            {(viewMode === "list" || viewMode==="card") && (
+            {(viewMode === "list" || viewMode === "card") && (
               <div className="w-full items-center gap-3">
                 <DropdownOptions
                   options={FILTER_OPTIONS}
@@ -1399,7 +1414,7 @@ export default function KanbanPage() {
           />
         </div>
       )}
-      
+
     </div>
   );
 }

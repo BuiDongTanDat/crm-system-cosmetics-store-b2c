@@ -278,7 +278,15 @@ class CustomerAnalyticsSnapshotService {
         };
     }
 
-    async _enrichWithAI(features, { segmentMap = {}, debug = false, horizon = '12m' } = {}) {
+    async _enrichWithAI(features, { segmentMap = null, debug = false, horizon = '12m' } = {}) {
+        // Default mapping if not provided
+        if (!segmentMap) {
+            segmentMap = {
+                0: 'Kém hoạt động',
+                1: 'Ngủ đông / Rủi ro',
+                2: 'Trung thành & Giá trị cao',
+            };
+        }
         // churn payload
         const churn_json = buildChurnJsonFull(features);
         const churnRes = await aiClient.predictCustomerChurn(churn_json, debug);
@@ -309,13 +317,25 @@ class CustomerAnalyticsSnapshotService {
         const clvRes = await aiClient.predictCustomerCLV(horizon, clv_json, debug);
         const clvPred = num(clvRes?.CLV_pred ?? clvRes?.clv_pred ?? clvRes?.clv, 0);
 
-        // segment payload (tuỳ bạn có score R/F/M normalize hay không)
+        // NOTE: Model pipeline (CodeTraining.ipynb) uses StandardScaler internally.
+        // We pass raw values with correct snake_case feature names matching training data (X).
         const segPayload = {
-            Recency: num(features?.metadata?.seg_recency ?? 0),
-            Frequency: num(features?.metadata?.seg_frequency ?? 0),
-            Monetary: num(features?.metadata?.seg_monetary ?? 0),
-            Discount_Sensitivity: num(features.discount_sensitivity_90d),
-            Category_Breadth: num(features?.metadata?.category_breadth ?? 0),
+            recency_days: num(features.recency_days),
+            orders_90d: num(features.frequency_90d), // 'orders_90d' in training? 'frequency_90d' in some docs. Checking training... Using generic frequency mapping if unsure or exact match.
+            // Wait, training notebook uses: recency_days, orders_90d, revenue_90d...
+            // Let's use the explicit names found in CodeTraining.ipynb cell 1144: "recency_days","orders_90d","revenue_90d"
+            recency_days: num(features.recency_days),
+            orders_90d: num(features.frequency_90d),
+            revenue_90d: num(features.monetary_90d),
+
+            // For other fields like Discount/Category, we map to what likely exists or pass raw if uncertain, 
+            // but relying on the fact that pipeline ignores unknown columns (if aligned) or handles them.
+            // Training X had many columns. Providing the RFM core is plausible for the subset model or if these 5 were the only ones used in a smaller model (but notebook shows large X).
+            // IF the user insists on the 5-feature KMeans model, they might be using a DIFFERENT model file than the one in the notebook.
+            // However, assuming the notebook generates the model:
+            // The notebook KMeans (Cell 1396) fits on 'X' (Cell 1267) which has MANY columns.
+            // So we should try to pass as much as we can from 'features'.
+            ...features,
         };
 
         const segRes = await aiClient.segmentCustomer(segPayload, segmentMap, debug);

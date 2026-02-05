@@ -19,7 +19,7 @@ class CustomerRepository {
     const limit = params.limit != null ? Number(params.limit) : undefined;
     const offset = params.offset != null ? Number(params.offset) : undefined;
     return await Customer.findAll({
-      order: [['created_at', 'DESC']],
+      order: [[Customer.sequelize.col('Customer.created_at'), 'DESC']],
       ...(Number.isFinite(limit) ? { limit } : {}),
       ...(Number.isFinite(offset) ? { offset } : {}),
     });
@@ -41,11 +41,11 @@ class CustomerRepository {
   }
   async getCustomersByDateRange(from, to) {
     const fromDate = new Date(from);
-		fromDate.setHours(0, 0, 0, 0);
+    fromDate.setHours(0, 0, 0, 0);
 
-		const toDate = new Date(to);
-		toDate.setHours(0, 0, 0, 0);
-		toDate.setDate(toDate.getDate() + 1);
+    const toDate = new Date(to);
+    toDate.setHours(0, 0, 0, 0);
+    toDate.setDate(toDate.getDate() + 1);
 
     return await Customer.findAll({
       where: {
@@ -125,7 +125,6 @@ class CustomerRepository {
 
       // search / other
       search,
-      is_active,
       source,
       email,
       phone,
@@ -176,7 +175,7 @@ class CustomerRepository {
       where[Op.and].push({ [Op.or]: ors });
     }
 
-    if (is_active != null) where.is_active = !!is_active;
+
     if (source) where.source = String(source);
     if (email) where.email = String(email);
     if (phone) where.phone = String(phone);
@@ -220,10 +219,9 @@ class CustomerRepository {
         where[Op.and].push({ [Op.not]: { [Op.or]: nors } });
       }
     }
-
     return Customer.findAll({
       where,
-      order: [['created_at', 'DESC']],
+      order: [[Customer.sequelize.col('Customer.created_at'), 'DESC']],
       limit: Number(limit) || 5000,
       offset: Number(offset) || 0,
     });
@@ -238,7 +236,6 @@ class CustomerRepository {
   }
   async findEmailsByConditions(cond = {}, { limit = 5000 } = {}) {
     const where = {};
-    if (cond.is_active != null) where.is_active = !!cond.is_active;
     const rows = await Customer.findAll({
       attributes: ['email'],
       where,

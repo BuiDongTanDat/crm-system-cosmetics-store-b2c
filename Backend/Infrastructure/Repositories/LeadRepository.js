@@ -108,7 +108,7 @@ class LeadRepository {
     const { transaction } = options;
     return await this.Lead.findAll({
       where: { status },
-      order: [['updated_at', 'DESC']],
+      order: [['created_at', 'DESC']],
       transaction,
     });
   }
@@ -118,7 +118,7 @@ class LeadRepository {
     if (source_detail) where.source_detail = source_detail;
     return await this.Lead.findAll({
       where,
-      order: [['updated_at', 'DESC']],
+      order: [['created_at', 'DESC']],
       transaction,
     });
   }
@@ -134,7 +134,7 @@ class LeadRepository {
           { notes: { [Op.iLike]: `%${q}%` } },
         ]
       },
-      order: [['updated_at', 'DESC']],
+      order: [['created_at', 'DESC']],
       limit,
       transaction,
     });
@@ -330,11 +330,11 @@ class LeadRepository {
     });
   }
   normalizeOrder(order) {
-    if (!order) return [['updated_at', 'DESC']];
+    if (!order) return [['created_at', 'DESC']];
     if (typeof order === 'string') {
       const s = order.trim();
       const [fieldRaw, dirRaw] = s.split(':');
-      const field = (fieldRaw || 'updated_at').trim();
+      const field = (fieldRaw || 'created_at').trim();
       const dir = String(dirRaw || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
       return [[field, dir]];
     }
@@ -345,7 +345,7 @@ class LeadRepository {
       const dir = String(order.dir || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
       return [[order.field, dir]];
     }
-    return [['updated_at', 'DESC']];
+    return [['created_at', 'DESC']];
   }
   async findByAnonId(anonId, options = {}) {
     const { transaction } = options;

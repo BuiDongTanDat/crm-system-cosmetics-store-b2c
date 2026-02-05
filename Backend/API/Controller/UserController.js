@@ -1,6 +1,7 @@
 const UserService = require('../../Application/Services/UserService');
 const userService = new UserService();
 const RoleService = require('../../Application/Services/RoleService');
+const NotificationService = require('../../Application/Services/NotificationService');
 
 class UserController {
   static async getAll(req, res) {
@@ -27,6 +28,14 @@ class UserController {
 
       const newUser = await userService.createUser(req.body);
       res.status(201).json(newUser);
+
+      // Gửi thông báo khi có user mới được tạo
+      await NotificationService.sendNotification({
+        title: 'Nhân viên mới đã được thêm vào hệ thống',
+        message: `Người dùng ${newUser.full_name} vừa được thêm vào hệ thống với vai trò ${newUser.role_name}.`,
+        type: 'USER',
+      });
+
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

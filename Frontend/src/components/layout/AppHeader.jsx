@@ -11,6 +11,7 @@ import {
   KeyRound,
   LogOut,
   LogOutIcon,
+  Dot,
 } from "lucide-react";
 import { useSidebar } from "@/context/SidebarContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -28,9 +29,14 @@ import { Input } from "../ui/input";
 // ADDED: Confirm dialog for logout confirmation
 import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 
+
 // State
 import { useAuthStore } from "@/store/useAuthStore";
-import { getInitials } from "@/utils/helper";
+import { useSocketStore } from "@/store/useSocketStore";
+import { useNotificationStore } from "@/store/useNotificationStore";
+import { formatDateTime, getInitials } from "@/utils/helper";
+import { set } from "date-fns";
+
 // Danh sách các trang từ sidebar để tìm kiếm
 const searchablePages = [
   {
@@ -110,10 +116,18 @@ const searchablePages = [
   },
 ];
 
+const formartNotification = (notif) => ({
+  id: notif.notification_id,
+  title: notif.title,
+  message: notif.message,
+  time: formatDateTime(notif.createdAt),
+  read: notif.isRead,
+});
+
 export default function AppHeader() {
   // Lấy user và signOut từ store
   const { user, signOut } = useAuthStore();
-
+  const { socket } = useSocketStore();
   const {
     isMobileOpen,
     toggleSidebar,
@@ -131,9 +145,10 @@ export default function AppHeader() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   // control confirm logout dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   // notifications list (mock data)
-  const [notifList, setNotifList] = useState(mockNotifications || []);
-
+  const [notifList, setNotifList] = useState([]);
+  const { notifications, fetchNotifications, markAsRead, listenSocket, loading } = useNotificationStore();
   // Detect scroll position
   useEffect(() => {
     const handleScroll = () => {
@@ -150,8 +165,47 @@ export default function AppHeader() {
     if (isMobileOpen) toggleMobileSidebar();
     setSearchQuery("");
     setShowSearchResults(false);
+
+    // Đóng tất cả các menu/hộp thoại khi chuyển trang
+    setOpen(false);      // Dropdown Profile
+    setNotifOpen(false); // Dropdown Thông báo (MỚI THÊM)
+    setConfirmOpen(false); // Dialog Logout
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+
+
+  // Load danh sách thông báo đã có từ API khi component mount trước
+  useEffect(() => {
+    fetchNotifications();
+    const cleanup = listenSocket();
+    return () => {
+      if (cleanup) { cleanup(); };
+    }
+  }, []);
+
+
+  // Xử lý socket nhận thông báo mới
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewNotification = (notification) => {
+      console.log("Received new notification via socket:", notification);
+
+      const formattedNotification = formartNotification(notification);
+      setNotifList((prev) => {
+        const newList = [formattedNotification, ...prev];
+        return newList.slice(0, 10); // Chỉ giữ lại 10 tin mới nhất
+      });
+    };
+
+    socket.on("new_notification", handleNewNotification); // Tín hiệu bên backend là 'new_notification'
+
+
+    // Cleanup để tránh trùng lặp sự kiện khi component unmount hoặc socket thay đổi
+    return () => {
+      socket.off("new_notification", handleNewNotification);
+    }
+
+  }, [socket]);
 
   // Xử lý tìm kiếm
   const handleSearch = (query) => {
@@ -226,12 +280,7 @@ export default function AppHeader() {
     navigate("/profile");
   };
 
-  const markAsRead = (id) =>
-    setNotifList((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  const deleteNotification = (id) =>
-    setNotifList((prev) => prev.filter((n) => n.id !== id));
+
 
   return (
     <header
@@ -308,63 +357,80 @@ export default function AppHeader() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-3">
-        <DropdownMenu>
+        <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="actionNormal"
               aria-label="Notifications"
-              className="relative  data-[state=open]:shadow-none"
+              className="relative outline-none"
             >
-              <Bell className="w-5 h-5" />
-              {/*Badge nếu có thông báo chưa đọc */}
-              {notifList.some((n) => !n.read) && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white" />
+              <Bell className="!w-5 !h-5" />
+              {/* Hiện badge chỉ khi còn thông báo chưa đọc */}
+              {notifications.some((n) => !n.read) && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-1 ring-white" />
               )}
             </Button>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-96 p-0 overflow-hidden"
+            className="max-w-96 p-0 overflow-hidden "
             align="end"
             sideOffset={8}
+            onCloseAutoFocus={(e) => e.preventDefault()}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b bg-white">
               <h3 className="font-semibold text-sm">Thông báo</h3>
               <button
-                className="text-xs text-destructive px-2 hover:underline"
-                onClick={() => setNotifList([])}
+                className="cursor-pointer text-xs text-brand px-2 hover:underline"
+                onClick={() => {
+                  setNotifOpen(false);
+                  navigate("/notification");
+                  
+                }}
               >
-                Xóa tất cả
+                Xem tất cả thông báo
               </button>
             </div>
 
             {/* List */}
             <div className="max-h-[60vh] overflow-auto divide-y">
-              {notifList.length === 0 ? (
+              {notifications.slice(0, 10).length === 0 ? (
                 <div className="p-4 text-sm text-gray-500 text-center">
                   Không có thông báo mới
                 </div>
               ) : (
-                notifList.map((n) => (
+                notifications.slice(0, 10).map((n) => (
                   <div
                     key={n.id}
-                    className={`px-3 py-2 flex items-start gap-2 transition-colors duration-150 cursor-pointer 
-              ${
-                n.read
-                  ? "bg-white hover:bg-gray-50"
-                  : "bg-blue-50 hover:bg-blue-100"
-              }`}
-                    onClick={() => markAsRead(n.id)}
+                    className={`px-4 py-2 flex items-start gap-2 transition-colors duration-150 cursor-pointer 
+            ${n.read
+                        ? "bg-white hover:bg-gray-50"
+                        : "bg-blue-50 hover:bg-blue-100"
+                      }`}
+                    onClick={() => {
+                      if (!n.read) markAsRead(n.id);
+                    }}
                   >
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-medium text-gray-900">
-                          {n.title}
+                      <div className="flex items-center justify-between gap-2">
+                        <div
+                          className={`flex items-center text-sm text-gray-900 min-w-0 ${n.read ? "opacity-70" : "font-semibold"
+                            }`}
+                        >
+                          {/* Chỉ hiển thị Dot khi chưa đọc */}
+                          {!n.read && (
+                            <span className="flex-shrink-0 w-2 h-2 mr-2 bg-blue-600 rounded-full" />
+                          )}
+
+                          <span className="line-clamp-1">{n.title}</span>
                         </div>
-                        <div className="text-xs text-gray-400">{n.time}</div>
+
+                        <div className="text-[10px] text-gray-400 whitespace-nowrap">
+                          {n.time}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-2 break-words">
                         {n.message}
                       </div>
                       <div className="mt-2 flex gap-2">
@@ -374,20 +440,11 @@ export default function AppHeader() {
                               e.stopPropagation();
                               markAsRead(n.id);
                             }}
-                            className="text-xs text-blue-600 hover:underline"
+                            className="cursor-pointer text-xs text-blue-600 hover:underline"
                           >
                             Đánh dấu đã đọc
                           </button>
                         )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(n.id);
-                          }}
-                          className="text-xs text-red-600 hover:underline"
-                        >
-                          Xóa
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -400,11 +457,10 @@ export default function AppHeader() {
         <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
             <div
-              className={`flex items-center gap-2 rounded-xl px-2 py-1 cursor-pointer hover:border-brand transition-colors border border-transparent ${
-                open
-                  ? "bg-white/90 dark:bg-gray-800/90"
-                  : "bg-white dark:bg-gray-800/60 backdrop-blur"
-              }`}
+              className={`flex items-center gap-2 rounded-xl px-2 py-1 cursor-pointer hover:border-brand transition-colors border border-transparent ${open
+                ? "bg-white/90 dark:bg-gray-800/90"
+                : "bg-white dark:bg-gray-800/60 backdrop-blur"
+                }`}
             >
               {user?.avatar_url ? (
                 <img
@@ -429,9 +485,8 @@ export default function AppHeader() {
                 </span>
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                  open ? "rotate-180" : ""
-                }`}
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""
+                  }`}
               />
             </div>
           </DropdownMenuTrigger>

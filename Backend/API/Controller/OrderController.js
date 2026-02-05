@@ -23,16 +23,28 @@ const VALID_TRANSITIONS = {
   failed: [],
   pending: ['processing', 'cancelled'],
 };
+const NotificationService = require('../../Application/Services/NotificationService');
+
 class OrderController {
   async createQuick(req, res, next) {
     try {
       console.log('OrderController.createQuick body =', req.body);
       const created = await OrderService.createQuickOrder(req.body);
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
         message: 'Tạo đơn hàng nhanh thành công',
         data: created,
       });
+
+      //Gửi thông báo
+      await NotificationService.sendNotification({
+        title: 'Đơn hàng nhanh đã được tạo',
+        message: `Đơn hàng nhanh với mã ${created.order_id} vừa được tạo thành công.`,
+        type: 'ORDER',
+      }).catch(err => {
+        console.error('Lỗi gửi notification:', err);
+      }
+      );
     } catch (err) {
       console.error('Error creating quick order:', err);
       return res.status(400).json({
@@ -48,7 +60,17 @@ class OrderController {
       console.log('OrderController.create body =', req.body);
       const created = await OrderService.createOrder(req.body);
       // createOrder đã trả về OrderResponseDTO sẵn
-      return res.status(201).json(created);
+      res.status(201).json(created);
+
+      //Gửi thông báo
+      await NotificationService.sendNotification({
+        title: 'Đơn hàng mới đã được tạo',
+        message: `Đơn hàng với mã ${created.order_id} vừa được tạo thành công.`,
+        type: 'ORDER',
+      }).catch(err => {
+        console.error('Lỗi gửi notification:', err);
+      }
+      );
     } catch (err) {
       console.error('Error creating order:', err);
       return next(err);

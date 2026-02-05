@@ -6,7 +6,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { SidebarProvider } from "./context/SidebarContext";
-import { useEffect } from "react";
+import { use, useEffect } from "react";
 
 function AttributionListener() {
   const [params] = useSearchParams();
@@ -65,7 +65,20 @@ import DashBoard from "./pages/dashboard/DashBoard";
 import CheckoutPage from "./pages/checkout/CheckoutPage";
 import NavigateGuard from "./components/auth/NavigateGuard";
 import OrderLookupPage from "./pages/landingPage/pages/OrderLookupPage";
+import NotificationPage from "./pages/notification/NotificationPage";
+import { useAuthStore } from "./store/useAuthStore";
+import { useSocketStore } from "./store/useSocketStore";
 function App() {
+  const {accessToken} = useAuthStore();
+  const {connectSocket, disconnectSocket} = useSocketStore();
+
+  useEffect(() => {
+    if (accessToken) {
+      connectSocket();
+    }
+    // Dòng này để cleanup khi component unmount
+    return () => disconnectSocket();
+  }, [accessToken]);
   return (
     <div className="min-h-screen w-full relative ">
       {/* Background Image */}
@@ -121,7 +134,8 @@ function App() {
 
                   <Route path="/" element={<DashBoard />} />
                   <Route path="/profile" element={<ProfilePage />} />
-
+                  <Route path="/notification" element={<NotificationPage />} />
+                  
                   {/* Sản phẩm */}
                   <Route
                     path="/categories"

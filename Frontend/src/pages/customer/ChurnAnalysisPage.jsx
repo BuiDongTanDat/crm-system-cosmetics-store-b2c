@@ -147,7 +147,7 @@ const ChurnAnalysisPage = () => {
               </div>
 
               <p className="mt-1 text-xs text-orange-600">
-               có thể mất trong 12 tháng
+                có thể mất trong 12 tháng
               </p>
             </div>
           </div>
@@ -243,13 +243,12 @@ const ChurnAnalysisPage = () => {
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-16 bg-gray-200 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full ${
-                              it.risk_level === "HIGH"
+                            className={`h-2 rounded-full ${it.risk_level === "HIGH"
                                 ? "bg-red-500"
                                 : it.risk_level === "MEDIUM"
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                            }`}
+                                  ? "bg-yellow-500"
+                                  : "bg-green-500"
+                              }`}
                             style={{ width: `${it.churn_score * 100}%` }}
                           ></div>
                         </div>
@@ -258,21 +257,23 @@ const ChurnAnalysisPage = () => {
                         </span>
                       </div>
                     </td>
+                    <td className="px-6 py-2 text-center text-sm font-semibold text-indigo-600">
+                      {it.segment_name || "—"}
+                    </td>
                     <td className="px-6 py-2 text-center">
                       <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${
-                          it.risk_level === "HIGH"
+                        className={`px-2 py-1 rounded text-xs font-bold ${it.risk_level === "HIGH"
                             ? "bg-red-100 text-red-600"
                             : it.risk_level === "MEDIUM"
-                            ? "bg-yellow-100 text-yellow-600"
-                            : "bg-green-100 text-green-600"
-                        }`}
+                              ? "bg-yellow-100 text-yellow-600"
+                              : "bg-green-100 text-green-600"
+                          }`}
                       >
                         {it.risk_level === "HIGH"
                           ? "CAO"
                           : it.risk_level === "MEDIUM"
-                          ? "TRUNG BÌNH"
-                          : "THẤP"}
+                            ? "TRUNG BÌNH"
+                            : "THẤP"}
                       </span>
                     </td>
                     <td className="px-6 py-2 text-center text-gray-600">

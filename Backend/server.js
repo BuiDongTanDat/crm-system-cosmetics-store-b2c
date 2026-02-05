@@ -21,17 +21,21 @@ const paymentRoutes = require('./API/routes/paymentRoutes');
 const CustomerRoutes = require('./API/routes/CustomerRoutes');
 const StreamingRoutes = require('./API/routes/streamingRoutes');
 const YoutubeRoutes = require('./API/routes/youtubeRoutes');
+const NotificationRoutes = require('./API/routes/NotificationRoutes');
 // Middlewares
 const AutomationService = require('./Application/Services/AutomationService');
 const automationCronJobRoutes = require('./API/routes/automationCronJobRoutes');
 const protectedRoute = require('./API/Middleware/authMiddleware');
+
 // cron utils & domain events
 require('./Domain/Events/LeadEvents');
 require('./Domain/Events/OrderEvents');
 require('./Domain/Events/EngagementEvents');
 
+const { setupSocketServer } = require('./Infrastructure/Socket/SocketSetup');
 const TriggerRegistry = require('./Domain/valueObjects/TriggerRegistry');
 const RabbitConsumer = require('./Infrastructure/Bus/RabbitMQConsumer');
+const { set } = require('mongoose');
 const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
@@ -73,13 +77,31 @@ app.use('/auth', authRoutes);
    */
 
 // YouTube OAuth routes (không cần bảo vệ)
-app.use('/youtube', YoutubeRoutes); 
+app.use('/youtube', YoutubeRoutes);
 app.use('/stream', StreamingRoutes);
 app.use('/orders', OrderRoutes);
 app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/campaign', CampaignRoute);
-app.use('/payment', paymentRoutes);
+app.use('/notifications', NotificationRoutes);
+app.use('/leads', LeadRoutes);
+app.use(protectedRoute);
+
+app.use('/automation-event', automationCatalogRoutes);
+app.use('/automation', flowRoutes);
+
+app.use('/users', userRoutes);
+
+
+app.use('/Ai', AiRoutes);
+app.use('/roles', roleRoutes);
+
+
+app.use('/customers', CustomerRoutes);
+
+app.use('/payment', paymentRoutes);// Diagnostics
+app.get('/triggers', (_req, res) => res.json(TriggerRegistry.getAll()));
+app.get('/', (_req, res) => res.send('CRM API is running successfully!'));
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 app.get('/readyz', (_req, res) => res.status(200).json({ ready: true }));
 
@@ -170,7 +192,8 @@ async function main() {
       console.log(`Automation mode: ${process.env.AUTOMATION_MODE || 'tick'}`);
       console.log('------------------------------------------');
     });
-
+    // 5) Setup Socket.io server
+    setupSocketServer(server);
   } catch (err) {
     console.error('[BOOT] Failed to start application:', err);
     process.exit(1);

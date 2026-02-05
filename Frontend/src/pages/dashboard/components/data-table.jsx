@@ -245,11 +245,9 @@ export function DataTable() {
             variant="outline"
             className="px-2 py-1 rounded-full text-xs font-medium w-[100px] text-center inline-block bg-blue-100 text-blue-800 border-none"
           >
-            {row.status === "pending"
-              ? "Chờ xử lý"
-              : row.status === "processing"
-              ? "Đang xử lý"
-              : ""}
+            {row.status === "running"
+              ? "Đang chạy"
+              : "Chờ xử lý"}
           </Badge>
         </td>
       </tr>

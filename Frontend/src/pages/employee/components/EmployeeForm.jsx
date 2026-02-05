@@ -27,6 +27,9 @@ export function EmployeeForm({
   });
 
   useEffect(() => {
+    // Chỉ nạp dữ liệu từ data vào form khi:
+    // 1. data tồn tại (chế độ View hoặc Edit nhân viên cũ)
+    // 2. data thay đổi (người dùng chọn nhân viên khác)
     if (data) {
       setForm({
         name: data.name || "",
@@ -34,19 +37,14 @@ export function EmployeeForm({
         phone: data.phone || "",
         role: data.role || "Sales",
         status: (data.status || "active").toUpperCase(),
-        password: "",
+        password: "", // Luôn để trống password khi load dữ liệu cũ
       });
-    } else {
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
-        role: "Sales",
-        status: "ACTIVE",
-        password: "",
-      });
+    } else if (mode === "create") {
+      // Nếu là create mới hoàn toàn, và form hiện đang có dữ liệu (do người dùng đã nhập)
+      // thì KHÔNG reset. Chỉ reset nếu form đang trống (lần đầu mở).
+      // Cách an toàn nhất là chỉ reset khi component này "Mount" (lần đầu xuất hiện)
     }
-  }, [data, mode]);
+  }, [data]);
 
 
   const handleCancel = () => {
@@ -86,7 +84,7 @@ export function EmployeeForm({
       const errorMessage =
         error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi lưu nhân viên.";
       toast.error(errorMessage);
-      // Không setMode ở đây nữa
+      // Không reset form ở đây nữa, giữ nguyên dữ liệu người dùng vừa nhập
     }
   };
 

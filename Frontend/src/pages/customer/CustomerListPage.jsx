@@ -268,7 +268,7 @@ export default function CustomerListPage() {
         console.log("Create customer response:", res);
         if (res?.ok) {
           const added = mapApiToUi(res.data ?? payload);
-          setCustomers((prev) => [...prev, added]);
+          setCustomers((prev) => [added, ...prev]);
           closeModal();
           toast.success("Thêm khách hàng thành công!");
         } else {
@@ -311,7 +311,7 @@ export default function CustomerListPage() {
         // Xử lý lỗi (ví dụ: 400 Bad Request, 404 Not Found, 500 Internal Server Error)
         toast.error(
           res?.error ||
-            "Xóa thất bại. Khách hàng không tồn tại hoặc lỗi server."
+          "Xóa thất bại. Khách hàng không tồn tại hoặc lỗi server."
         );
       }
     } catch (e) {
@@ -356,9 +356,9 @@ export default function CustomerListPage() {
   // Helper function to display gender in Vietnamese
   const getGenderDisplay = (gender) => {
     const genderMap = {
-        male: "Nam",
-        female: "Nữ",
-        other: "Khác"
+      male: "Nam",
+      female: "Nữ",
+      other: "Khác"
     }
     return genderMap[gender] || "Khác";
   };
@@ -502,13 +502,15 @@ export default function CustomerListPage() {
                           {customer.type}
                         </span>
                       </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-center text-sm font-semibold text-indigo-600">
+                        {customer.segment}
+                      </td>
                       <td className="px-6 py-2 text-center w-36">
                         <div
-                          className={`flex justify-center gap-1 transition-all duration-200 ${
-                            hoveredRow === customer.id
+                          className={`flex justify-center gap-1 transition-all duration-200 ${hoveredRow === customer.id
                               ? "opacity-100 translate-y-0 pointer-events-auto"
                               : "opacity-0 translate-y-1 pointer-events-none"
-                          }`}
+                            }`}
                         >
                           <PermissionGuard module="customer" action="read">
                             <Button

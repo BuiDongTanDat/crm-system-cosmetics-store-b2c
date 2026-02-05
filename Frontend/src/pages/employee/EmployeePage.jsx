@@ -235,7 +235,7 @@ export default function EmployeePage() {
             toast.error(errorMessage);
 
             // Giữ modal ở edit để sửa tiếp
-            setModal(prev => ({ ...prev, mode: 'edit' }));
+            //setModal(prev => ({ ...prev, mode: 'edit' }));
         }
     };
 
@@ -403,7 +403,7 @@ export default function EmployeePage() {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {currentEmployees.map((employee) => {
                                         const isCurrentUser = user.user_id === employee.id; // check row hiện tại có phải chính user đăng nhập không
-                                        console.log('Current User ID:', user.user_id, 'Employee ID:', employee.id);
+                                        //console.log('Current User ID:', user.user_id, 'Employee ID:', employee.id);
                                         return (
                                             <tr
                                                 key={employee.id}

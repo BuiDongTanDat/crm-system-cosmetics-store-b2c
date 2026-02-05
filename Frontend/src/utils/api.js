@@ -81,7 +81,7 @@ export async function request(
       responseType,
     });
 
-    // if (res.status === 204) return null;
+    if (res.status === 204) return null;
 
     // if (res.status < 200 || res.status >= 300) {
     //   const backendMsg =
